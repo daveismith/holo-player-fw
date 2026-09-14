@@ -12,6 +12,7 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -22,6 +23,7 @@ static const char *TAG = "lcd";
  * 19.2 KB of internal RAM rather than a 115 KB frame. */
 #define STRIP_LINES      40
 #define STRIP_PIXELS     (BOARD_LCD_H_RES * STRIP_LINES)
+#define STRIPS_PER_FRAME ((BOARD_LCD_V_RES + STRIP_LINES - 1) / STRIP_LINES)
 
 #define BL_LEDC_TIMER    LEDC_TIMER_0
 #define BL_LEDC_CHANNEL  LEDC_CHANNEL_0
@@ -55,6 +57,13 @@ static bool on_color_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_d
     (void)ctx;
     BaseType_t woken = pdFALSE;
     xSemaphoreGiveFromISR(s_strip_done, &woken);
+    /* Yield here rather than trusting the return value: the SPI driver's post-transaction
+     * hook is void, so a "woken" returned through it goes nowhere, and the filling task then
+     * sat until the next tick -- 10 ms at CONFIG_FREERTOS_HZ=100, per strip. That was ~40 of
+     * the ~52 ms a fill took, and the reason a colour change visibly swept down the screen. */
+    if (woken == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
     return woken == pdTRUE;
 }
 
@@ -102,17 +111,27 @@ static esp_err_t fill_locked(uint16_t rgb565)
     for (size_t i = 0; i < STRIP_PIXELS; i++) {
         s_strip[i] = px;
     }
+    /* Every strip sends the same buffer, so they are queued back to back: esp_lcd itself holds
+     * each strip's window commands until the previous strip's pixels are out, which keeps the
+     * bus busy without a round trip through this task. Only the next fill -- which rewrites
+     * the buffer -- has to wait for the last of them. */
+    int queued = 0;
+    esp_err_t err = ESP_OK;
     for (int y = 0; y < BOARD_LCD_V_RES; y += STRIP_LINES) {
         const int y_end = MIN(y + STRIP_LINES, BOARD_LCD_V_RES);
-        ESP_RETURN_ON_ERROR(esp_lcd_panel_draw_bitmap(s_panel, 0, y, BOARD_LCD_H_RES, y_end,
-                                                      s_strip), TAG, "draw");
-        /* One strip at a time: the next fill rewrites the buffer, and a whole screen is
-         * only ~23 ms at 40 MHz. */
+        err = esp_lcd_panel_draw_bitmap(s_panel, 0, y, BOARD_LCD_H_RES, y_end, s_strip);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "draw: %s", esp_err_to_name(err));
+            break;
+        }
+        queued++;
+    }
+    for (int i = 0; i < queued; i++) {
         if (xSemaphoreTake(s_strip_done, pdMS_TO_TICKS(200)) != pdTRUE) {
             return ESP_ERR_TIMEOUT;
         }
     }
-    return ESP_OK;
+    return err;
 }
 
 esp_err_t board_lcd_fill(uint16_t rgb565)
@@ -124,13 +143,31 @@ esp_err_t board_lcd_fill(uint16_t rgb565)
     return err;
 }
 
+esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame)
+{
+    ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    frames = MAX(1, frames);
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    const int64_t t0 = esp_timer_get_time();
+    esp_err_t err = ESP_OK;
+    for (int i = 0; i < frames && err == ESP_OK; i++) {
+        err = fill_locked(k_cycle[i % (sizeof(k_cycle) / sizeof(k_cycle[0]))].rgb565);
+    }
+    const int64_t elapsed = esp_timer_get_time() - t0;
+    xSemaphoreGive(s_lock);
+    if (us_per_frame != NULL) {
+        *us_per_frame = elapsed / frames;
+    }
+    return err;
+}
+
 esp_err_t board_lcd_init(void)
 {
     if (s_panel != NULL) {
         return ESP_OK;
     }
     s_lock = xSemaphoreCreateMutex();
-    s_strip_done = xSemaphoreCreateBinary();
+    s_strip_done = xSemaphoreCreateCounting(STRIPS_PER_FRAME, 0);
     s_strip = heap_caps_malloc(STRIP_PIXELS * sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     ESP_RETURN_ON_FALSE(s_lock && s_strip_done && s_strip, ESP_ERR_NO_MEM, TAG, "alloc");
 

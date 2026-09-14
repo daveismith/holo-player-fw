@@ -1,5 +1,16 @@
 menu "Board: Waveshare ESP32-S3-Touch-LCD-1.28"
 
+    config BOARD_LCD_PCLK_MHZ
+        int "LCD SPI clock (MHz)"
+        default 80
+        range 10 80
+        help
+            The GC9A01 has no tearing-effect line on this board, so nothing syncs a frame
+            write to the panel's own refresh (~60 Hz). A full 240x240 RGB565 frame is
+            921,600 bits: 23 ms at 40 MHz -- longer than one refresh, so a new frame is seen
+            sweeping down the screen -- and 11.5 ms at 80 MHz, inside one. Drop to 40 if the
+            picture shows corruption at 80.
+
     config BOARD_LCD_CYCLE_AT_BOOT
         bool "Start the red/green/blue/white LCD test cycle at boot"
         default y

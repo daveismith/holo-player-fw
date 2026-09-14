@@ -6,4 +6,4 @@ endif()
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "include"
                        REQUIRES esp_driver_i2c
-                       PRIV_REQUIRES esp_lcd esp_driver_spi esp_driver_ledc esp_driver_gpio console)
+                       PRIV_REQUIRES esp_lcd esp_driver_spi esp_driver_ledc esp_driver_gpio esp_timer console)

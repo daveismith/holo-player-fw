@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "sdkconfig.h"
 #include "esp_err.h"
 #include "driver/i2c_master.h"
 
@@ -26,8 +27,9 @@ extern "C" {
 #define BOARD_LCD_RST           14
 #define BOARD_LCD_H_RES         240
 #define BOARD_LCD_V_RES         240
-/* GPIO10/11 are not SPI2's IOMUX pins, so the signals go through the GPIO matrix. */
-#define BOARD_LCD_PCLK_HZ       (40 * 1000 * 1000)
+/* GPIO10 is not SPI2's IOMUX clock pin, so the signals go through the GPIO matrix. On the
+ * S3 that limits reads (MISO timing), not writes, and the panel is only ever written. */
+#define BOARD_LCD_PCLK_HZ       (CONFIG_BOARD_LCD_PCLK_MHZ * 1000 * 1000)
 
 /* Backlight: GPIO2 drives an N-FET (active high), pulled down, so off at reset. */
 #define BOARD_LCD_BL            2
@@ -62,6 +64,8 @@ esp_err_t board_lcd_init(void);
 esp_err_t board_lcd_fill(uint16_t rgb565);
 esp_err_t board_lcd_set_backlight(int percent);
 int board_lcd_get_backlight(void);
+/* `frames` whole-screen fills back to back; the average time per fill in *us_per_frame. */
+esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame);
 /* The red, green, blue, white test cycle, one second each. */
 void board_lcd_cycle(bool on);
 bool board_lcd_cycle_running(void);

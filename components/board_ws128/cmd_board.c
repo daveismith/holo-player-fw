@@ -67,6 +67,23 @@ static int lcd_cmd(int argc, char **argv)
         }
         return 0;
     }
+    if (strcmp(argv[1], "bench") == 0 && argc <= 3) {
+        const int frames = argc == 3 ? atoi(argv[2]) : 30;
+        board_lcd_cycle(false);
+        int64_t us = 0;
+        esp_err_t err = board_lcd_bench(frames, &us);
+        if (err != ESP_OK || us <= 0) {
+            printf("lcd: %s\n", esp_err_to_name(err));
+            return 1;
+        }
+        /* 240 x 240 x 16 bits over a 1-bit bus: what the clock alone allows. */
+        const double bus_ms = (double)BOARD_LCD_H_RES * BOARD_LCD_V_RES * 16 /
+                              (CONFIG_BOARD_LCD_PCLK_MHZ * 1000.0);
+        printf("%d full-screen fills at %d MHz: %.2f ms each (%.1f fps); the bus alone is %.2f ms\n",
+               frames > 0 ? frames : 1, CONFIG_BOARD_LCD_PCLK_MHZ, us / 1000.0, 1e6 / (double)us,
+               bus_ms);
+        return 0;
+    }
     if (strcmp(argv[1], "bl") == 0 && argc == 3) {
         esp_err_t err = board_lcd_set_backlight(atoi(argv[2]));
         if (err != ESP_OK) {
@@ -75,7 +92,7 @@ static int lcd_cmd(int argc, char **argv)
         }
         return 0;
     }
-    printf("usage: lcd [cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100>]\n");
+    printf("usage: lcd [cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100> | bench [frames]]\n");
     return 1;
 }
 
@@ -192,8 +209,8 @@ void board_register_commands(void)
 {
     const esp_console_cmd_t lcd = {
         .command = "lcd",
-        .help = "LCD: the R/G/B/W test cycle, a solid fill, or the backlight level",
-        .hint = "[cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100>]",
+        .help = "LCD: the R/G/B/W test cycle, a solid fill, the backlight level, or a fill-rate benchmark",
+        .hint = "[cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100> | bench [frames]]",
         .func = lcd_cmd,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&lcd));
