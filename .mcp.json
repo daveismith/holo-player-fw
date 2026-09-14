@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "esp-idf": {
+      "command": "/bin/sh",
+      "args": [
+        "-c",
+        ". /Users/davids/.espressif/tools/activate_idf_v6.1.sh >/dev/null 2>&1 && exec /Users/davids/.espressif/tools/python/v6.1/venv/bin/python /Users/davids/.espressif/v6.1/esp-idf/tools/idf.py mcp-server -C \"$PWD\""
+      ]
+    }
+  }
+}

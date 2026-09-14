@@ -1,0 +1,19 @@
+menu "Board: Waveshare ESP32-S3-Touch-LCD-1.28"
+
+    config BOARD_LCD_CYCLE_AT_BOOT
+        bool "Start the red/green/blue/white LCD test cycle at boot"
+        default y
+
+    config BOARD_TOUCH_ENABLE
+        bool "Build the CST816S touch driver"
+        default y
+        help
+            Compiles in the touch driver and the `touch on|off|status` command. Even
+            when built, touch is off until `touch on` unless BOARD_TOUCH_AUTOSTART is set.
+
+    config BOARD_TOUCH_AUTOSTART
+        bool "Start touch reporting at boot"
+        depends on BOARD_TOUCH_ENABLE
+        default n
+
+endmenu

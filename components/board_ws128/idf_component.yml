@@ -1,0 +1,6 @@
+description: "Waveshare ESP32-S3-Touch-LCD-1.28 bring-up: GC9A01 LCD, CST816S touch, QMI8658 IMU"
+dependencies:
+  idf: ">=6.0"
+  espressif/esp_lcd_gc9a01: "^2.0.4"
+  espressif/esp_lcd_touch_cst816s: "^1.1.2"
+  waveshare/qmi8658: "^2.0.1"

@@ -1,0 +1,59 @@
+# Waveshare ESP32-S3-Touch-LCD-1.28: ESP32-S3R2 (2 MB quad PSRAM in the package),
+# 16 MB flash. `sdkconfig` is not committed, so everything the build needs is here.
+CONFIG_IDF_TARGET="esp32s3"
+
+# Reduce bootloader log verbosity
+CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
+CONFIG_BOOTLOADER_LOG_LEVEL=2
+
+# Flash
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# partitions.csv: two OTA slots, a coredump partition and the LittleFS `storage` volume
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
+# PSRAM
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_QUAD=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# Increase main task stack size
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=7168
+
+# Console on UART0, which the CH343P bridges to USB-C -- the board's only USB path.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# `tasks`, `top` and `flash-stats`
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_USE_STATS_FORMATTING_FUNCTIONS=y
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+CONFIG_SPI_FLASH_ENABLE_COUNTERS=y
+
+# Core dumps go to the coredump partition
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_CHECK_BOOT=y
+
+# CST816S touch: it only answers on I2C while touched, so reading its ID at init fails.
+CONFIG_ESP_LCD_TOUCH_CST816S_DISABLE_READ_ID=y
+
+# IPv6 addresses by SLAAC as well as the link-local one
+CONFIG_LWIP_IPV6_AUTOCONFIG=y
+
+# LittleFS, tuned for sequential reads of large files (the MJPEG clips). The component's
+# defaults (128-byte reads, 512-byte caches) measure about 2 MB/s in IDF's perf_benchmark.
+# Memory-mapping the partition serves reads through the flash cache rather than
+# esp_flash_read(), which stalls both cores for the duration of each read.
+CONFIG_LITTLEFS_CACHE_SIZE=4096
+CONFIG_LITTLEFS_READ_SIZE=256
+CONFIG_LITTLEFS_WRITE_SIZE=256
+CONFIG_LITTLEFS_MALLOC_STRATEGY_SPIRAM_PREFER=y
+CONFIG_LITTLEFS_MMAP_PARTITION=y
