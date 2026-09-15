@@ -48,10 +48,11 @@ Type `help` for the full list. The board-specific commands are:
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed |
 | `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
 | `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
+| `ota` / `ota put [-b baud] [-n] [-d] <size>` | Firmware over the console: the two app slots, or a new image into the one not running (use `fs_xfer.py ota`; see [Updating the firmware over serial](#updating-the-firmware-over-serial)) |
 | `video play <file> [loop] [frame] \| stop \| status \| info <file> \| verify <file> [step]` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
 | `leds [colour <c> \| off \| wipe [<c>] [loop] \| rainbow [loop] \| bright <1-100>]` | The NeoPixel strip: a solid colour, off, brightness, or a pattern (`wipe`, `rainbow`; see [NeoPixel strip](#neopixel-strip)), played once and then off, or looped. Alone, what it's showing |
-| `holo [<verb> ...]` | The holoprojector: `center`, `move`, `nudge`, `twitch`, `wag`, `nod`, `scan`, `circle`, `stop`, `off`, `endpoints`. Alone, its status; `holo help` for the options. See [Holoprojector servos](#holoprojector-servos) |
-| `servo_list [-o wide]`, `servo_move`, `servo_sweep`, `servo_config`, `servo_register` | The two servos, `pan` and `tilt`, one at a time: raw pulses and working ranges |
+| `holo [<verb> ...]` | The holoprojector: `center`, `move`, `nudge`, `twitch`, `wag`, `nod`, `scan`, `circle`, `stop`, `off` (stop, and both servos limp), `endpoints`. Alone, its status; `holo help` for the options. See [Holoprojector servos](#holoprojector-servos) |
+| `servo_list [-o wide]`, `servo_move`, `servo_sweep`, `servo_config`, `servo_off <servo>\|all`, `servo_register` | The two servos, `pan` and `tilt`, one at a time: raw pulses and working ranges. `servo_off` stops driving a servo so it goes limp, until its next move |
 
 A colour for `screen colour` or `leds colour` is a name (`red`, `orange`, ...), `#RRGGBB`,
 `R,G,B`, or `R G B`. `screen colour` also takes `0x` and a raw RGB565 value.
@@ -82,6 +83,27 @@ to hash on the board.
 
 Downloads run at 230400 baud. On macOS, WCH's CH34x driver loses data coming from
 the board at higher rates; see the esp-console-kit README.
+
+## Updating the firmware over serial
+
+`idf.py flash` needs the USB-C port's auto-reset. Where the board can only be reached
+through its console, as inside the droid, update it with:
+
+```sh
+python external/esp-console-kit/tools/fs_xfer.py -p <port> ota build/holo-player-fw.bin
+```
+
+- **How it works.** The board erases the app slot that isn't running and receives the image
+  over XMODEM-1K at 460800 baud. It checks the image (header, chip, SHA-256) before making it
+  the boot image and restarting into it. The tool then waits for the console and confirms
+  the new slot is the one running. A 1.26 MB image took 44 s.
+- **Failures.** A failed transfer, or a truncated or foreign image, changes nothing: the
+  running image still boots.
+- **Rollback.** A new image runs on trial until its console is up, when it confirms itself.
+  A reset before then boots the previous image. The check lives in the bootloader, which
+  only `idf.py flash` over USB installs.
+- **Status.** `ota` lists both slots, with their versions and states. `idf.py flash` over USB
+  always goes back to slot 0.
 
 ## Video
 
@@ -199,6 +221,8 @@ on the S3's MCPWM through the shared `servo` component. The shared `holo` engine
 them the way the dome's basic holoprojectors move: `holo twitch`, `wag`, `nod`, `scan`,
 `circle`, `move`, `nudge` and `center`. With one holo, the name can be left out, as in
 `holo wag`; `holo help` lists the options. The servos stay limp until the first move.
+`holo off`, or `servo_off all`, makes them limp again. The next move drives them from where
+they were left.
 
 ### Wiring
 

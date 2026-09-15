@@ -11,6 +11,11 @@ CONFIG_COMPILER_OPTIMIZATION_PERF=y
 CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
 CONFIG_BOOTLOADER_LOG_LEVEL=2
 
+# An image `ota put` installed boots on trial: until it is up and has confirmed itself
+# (ota_confirm_running(), once the console runs), a reset boots the image before it. The
+# bootloader carries this, so it takes effect once the bootloader is flashed over USB.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
 # Flash
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y

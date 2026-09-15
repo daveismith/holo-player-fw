@@ -18,6 +18,7 @@
 #include "soc/soc_caps.h"
 #include "board.h"
 #include "cmd_fs.h"
+#include "cmd_ota.h"
 #include "console_history.h"
 #include "holo_servos.h"
 #include "leds.h"
@@ -224,6 +225,7 @@ void app_main(void)
         .uart_num = -1,
     };
     ESP_ERROR_CHECK(register_fs(&fs_config));
+    ESP_ERROR_CHECK(register_ota(-1));
     board_register_commands();
     register_video_commands(MOUNT_PATH);
     register_leds_commands();
@@ -247,6 +249,9 @@ void app_main(void)
                "Line editing and history features are disabled.\n"
                "On Windows, try using Windows Terminal or Putty instead.\n");
     }
+
+    /* Up, with a console: an image an update installed has proved itself, and stays. */
+    ota_confirm_running();
 
     /* Main loop */
     while(true) {
