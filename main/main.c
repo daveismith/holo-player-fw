@@ -47,6 +47,22 @@ static const char *TAG = "holo";
 
 #if CONFIG_CONSOLE_STORE_HISTORY
 #define HISTORY_PATH MOUNT_PATH "/history.txt"
+
+/*
+ * Saving the history writes flash, which stalls both cores until the write is done; during a
+ * clip that shows as late frames. So while one plays, the save waits for it to stop. This is
+ * checked after every command, so `video stop` or `screen clear` saves straight away; a clip
+ * that ends by itself leaves the save for the next command.
+ */
+static bool s_history_unsaved;
+
+static void save_history_if_idle(void)
+{
+    if (s_history_unsaved && !video_playing()) {
+        linenoiseHistorySave(HISTORY_PATH);
+        s_history_unsaved = false;
+    }
+}
 #else
 #define HISTORY_PATH NULL
 #endif
@@ -220,8 +236,9 @@ void app_main(void)
         if (strlen(line) > 0) {
             linenoiseHistoryAdd(line);
 #if CONFIG_CONSOLE_STORE_HISTORY
-            /* Save command history to filesystem */
-            linenoiseHistorySave(HISTORY_PATH);
+            /* Save command history to filesystem, unless a clip is playing */
+            s_history_unsaved = true;
+            save_history_if_idle();
 #endif // CONFIG_CONSOLE_STORE_HISTORY
         }
 
@@ -237,6 +254,10 @@ void app_main(void)
         } else if (err != ESP_OK) {
             printf("Internal error: %s\n", esp_err_to_name(err));
         }
+#if CONFIG_CONSOLE_STORE_HISTORY
+        /* A save held back by a clip the command has just stopped */
+        save_history_if_idle();
+#endif
         /* linenoise allocates line buffer on the heap, so need to free it */
         linenoiseFree(line);
     }
