@@ -5,15 +5,14 @@ menu "LED strip (NeoPixel)"
         default 16
         range 0 48
         help
-            The strip's data line. 16 is P2 pin 8 on the Waveshare ESP32-S3-Touch-LCD-1.28,
-            the pin the Flash_PNG sketch drove its NeoPixels from (PIN_NEO_PIXEL).
+            The strip's data line. 16 is P2 pin 8 on the Waveshare ESP32-S3-Touch-LCD-1.28.
 
     config LEDS_COUNT
         int "LEDs on the strip"
         default 16
         range 1 1024
         help
-            Flash_PNG's NUM_PIXELS.
+            The ring on P2 has 16.
 
     choice LEDS_SPEED
         prompt "Data rate"
@@ -23,9 +22,9 @@ menu "LED strip (NeoPixel)"
             this was written for. 400 kHz is for WS2811 driver chips and first-generation
             NeoPixels only.
 
-            Flash_PNG asked for 400 kHz (NEO_KHZ400), which is wrong for a WS2812: its
-            "0" is a 0.5 us pulse, at or past the point where a WS2812 reads a "1", so every
-            bit arrives as a 1 and every frame -- off included -- shows as full white.
+            400 kHz is wrong for a WS2812, and it shows: its "0" is a 0.5 us pulse, at or
+            past the point where a WS2812 reads a "1", so every bit arrives as a 1 and every
+            frame -- off included -- shows as full white.
 
         config LEDS_SPEED_800K
             bool "800 kHz (WS2812, WS2812B, SK6812)"
@@ -37,8 +36,8 @@ menu "LED strip (NeoPixel)"
         prompt "Colour order on the wire"
         default LEDS_ORDER_GRB
         help
-            Flash_PNG's NEO_GRB, and that of nearly every WS2812-family part. If red and
-            green come out swapped, the strip is RGB.
+            GRB is the order of nearly every WS2812-family part. If red and green come out
+            swapped, the strip is RGB.
 
         config LEDS_ORDER_GRB
             bool "GRB"

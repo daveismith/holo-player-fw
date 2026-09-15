@@ -1,7 +1,7 @@
 /*
- * The NeoPixel (WS2811/WS2812) strip on the P2 header: a solid colour, off, or one of the
- * Flash_PNG sketch's two patterns -- a colour wipe and the rainbow -- played once and then off,
- * or looped. Configured under "LED strip (NeoPixel)" in menuconfig.
+ * The NeoPixel (WS2812/WS2811) strip on the P2 header: a solid colour, off, or a pattern -- a
+ * colour wipe or the rainbow -- played once and then off, or looped. Configured under
+ * "LED strip (NeoPixel)" in menuconfig.
  */
 #pragma once
 

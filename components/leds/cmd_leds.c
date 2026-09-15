@@ -13,7 +13,10 @@ static const char *const k_modes[] = { "off", "solid", "wipe", "rainbow" };
 static int usage(void)
 {
     printf("usage: leds [colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | bright <1-100>]\n"
-           "  a colour <c> is a name (red, orange, ...), #RRGGBB, R,G,B or R G B\n");
+           "patterns, played once and then off, or over and over with `loop` until `leds off`:\n"
+           "  wipe [<c>]  each LED to the colour in turn, 250 ms apart (white if none given)\n"
+           "  rainbow     the colour wheel five times round the ring, 12.8 s\n"
+           "a colour <c> is a name (red, orange, ...), #RRGGBB, R,G,B or R G B\n");
     return 1;
 }
 
@@ -52,7 +55,7 @@ static int cmd_leds(int argc, char **argv)
         if (loop) {
             words--;
         }
-        uint8_t rgb[3] = { 255, 255, 255 };   /* the sketch's wipe was white */
+        uint8_t rgb[3] = { 255, 255, 255 };   /* a wipe with no colour given is white */
         if (sub[0] == 'w') {
             if (words > 0 && !board_parse_rgb_args(words, argv + 2, rgb)) {
                 return usage();
@@ -75,8 +78,9 @@ void register_leds_commands(void)
 {
     const esp_console_cmd_t cmd = {
         .command = "leds",
-        .help = "The NeoPixel strip: a solid colour, off, brightness, or one of Flash_PNG's "
-                "patterns (a colour wipe, the rainbow) played once then off, or looped",
+        .help = "The NeoPixel strip: a solid colour, off, brightness, or a pattern played once "
+                "then off, or looped. Patterns: wipe [<c>] (each LED to the colour in turn), "
+                "rainbow (the colour wheel round the ring)",
         .hint = "[colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | bright <1-100>]",
         .func = cmd_leds,
     };

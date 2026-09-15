@@ -32,7 +32,7 @@ S3's native USB pins aren't connected on this board.
 | `main/` | `app_main` and the console loop |
 | `components/board_ws128/` | Pins (`include/board.h`), shared I2C bus, LCD, touch, IMU, console colour parsing, and the `lcd`/`touch`/`imu` commands |
 | `components/video/` | QuickTime parser, MJPEG player, and the `video`/`screen` commands |
-| `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, Flash_PNG's patterns, and the `leds` command |
+| `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
 | `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`) |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
@@ -49,7 +49,7 @@ Type `help` for the full list. The board-specific commands are:
 | `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
 | `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
 | `video play <file> [loop] [frame] \| stop \| status \| info <file> \| verify <file> [step]` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
-| `leds [colour <c> \| off \| wipe [<c>] [loop] \| rainbow [loop] \| bright <1-100>]` | The NeoPixel strip: a solid colour, off, brightness, or one of Flash_PNG's patterns (a colour wipe, the rainbow), played once and then off, or looped. Alone, what it's showing |
+| `leds [colour <c> \| off \| wipe [<c>] [loop] \| rainbow [loop] \| bright <1-100>]` | The NeoPixel strip: a solid colour, off, brightness, or a pattern (`wipe`, `rainbow`; see [NeoPixel strip](#neopixel-strip)), played once and then off, or looped. Alone, what it's showing |
 
 A colour for `screen colour` or `leds colour` is a name (`red`, `orange`, ...), `#RRGGBB`,
 `R,G,B`, or `R G B`. `screen colour` also takes `0x` and a raw RGB565 value.
@@ -144,13 +144,16 @@ last 8 rows of a 120-row frame unwritten.
 The strip is a 16-LED WS2812 ring on GPIO16. `components/leds` drives it with Espressif's
 `led_strip` on the RMT, in GRB order at 800 kHz, and clears it at boot.
 
-Flash_PNG asked for `NEO_GRB + NEO_KHZ400`, which is 400 kHz. That's wrong for a WS2812:
-400 kHz sends a "0" as a 0.5 µs pulse, and a WS2812 reads that as a "1". Every bit then
-arrives as a 1, and every frame shows as full white, including the frame that turns the
-LEDs off. 400 kHz is still in menuconfig for WS2811 strips. The sketch's two patterns are ported but play only when triggered:
-- `leds wipe [<c>]` lights each LED in turn, 250 ms apart. The default colour is white.
-- `leds rainbow` is Adafruit's rainbow: five times round the colour wheel in 12.8 s,
-  gamma-corrected.
+400 kHz is in menuconfig for WS2811 strips. It's wrong for a WS2812: it sends a "0" as a
+0.5 µs pulse, and a WS2812 reads that as a "1". Every frame then shows as full white,
+including the frame that turns the LEDs off.
+
+### Patterns
+
+| Command | Pattern |
+|---|---|
+| `leds wipe [<c>] [loop]` | Each LED to the colour in turn, 250 ms apart. White if no colour is given |
+| `leds rainbow [loop]` | The colour wheel five times round the ring in 12.8 s, spread once round it and gamma-corrected |
 
 Each holds for a second, then turns the strip off. With `loop`, it repeats until `leds off`.
 
@@ -195,7 +198,7 @@ GPIO. The `gpio` command refuses to drive it.
 - **LED strip (NeoPixel)**
   - `LEDS_GPIO` (16) and `LEDS_COUNT` (16)
   - Data rate: 800 kHz (WS2812) or 400 kHz (WS2811)
-  - Colour order: GRB, as Flash_PNG, or RGB
+  - Colour order: GRB or RGB
   - `LEDS_BRIGHTNESS` at boot (100%)
 - **Console WiFi commands (cmd_wifi)**
   - Saved-network NVS namespace

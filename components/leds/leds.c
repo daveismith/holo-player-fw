@@ -1,5 +1,5 @@
 /*
- * The NeoPixel strip: Espressif's led_strip on the RMT, and the Flash_PNG sketch's patterns.
+ * The NeoPixel strip: Espressif's led_strip on the RMT, and the patterns that run on it.
  */
 #include <math.h>
 #include <string.h>
@@ -101,7 +101,7 @@ static void pause_ms(int ms)
 
 static void wipe_pass(void)
 {
-    /* Flash_PNG's first pattern: each LED to the colour in turn, 250 ms apart. */
+    /* wipe: each LED to the colour in turn, 250 ms apart. */
     for (int i = 0; i < N && !s_stop; i++) {
         xSemaphoreTake(s_lock, portMAX_DELAY);
         put(i, s_rgb[0], s_rgb[1], s_rgb[2]);
@@ -113,7 +113,7 @@ static void wipe_pass(void)
 
 static void rainbow_pass(void)
 {
-    /* Flash_PNG's second, Adafruit's rainbow: the first LED's hue goes five times round the
+    /* rainbow, as Adafruit_NeoPixel's example draws it: the first LED's hue goes five times round the
      * wheel, 256/65536 of a turn a frame at 10 ms a frame (12.8 s), the others spread once
      * round the strip after it, each gamma-corrected as gamma32() did. */
     TickType_t wake = xTaskGetTickCount();
@@ -142,10 +142,10 @@ static void pattern_task(void *arg)
         } else {
             rainbow_pass();
         }
-        pause_ms(1000);   /* the sketch's delay(1000) after each */
+        pause_ms(1000);   /* a second's hold after each pass */
     } while (s_loop && !s_stop);
 
-    /* Played out (or stopped): off, as the sketch's task left it. */
+    /* Played out (or stopped): off. */
     xSemaphoreTake(s_lock, portMAX_DELAY);
     led_strip_clear(s_strip);
     s_mode = LEDS_OFF;

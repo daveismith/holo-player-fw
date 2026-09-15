@@ -1,7 +1,7 @@
 /*
  * Colours as the console takes them, for every command that shows one (`screen colour`,
- * `leds colour`): a name, #RRGGBB (or RRGGBB), or R,G,B in decimal as the Flash_PNG sketch's
- * RGB command took it -- also as three separate words.
+ * `leds colour`): a name, #RRGGBB (or RRGGBB), or R,G,B in decimal -- also as three separate
+ * words.
  */
 #include <stdio.h>
 #include <stdlib.h>
