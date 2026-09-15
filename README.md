@@ -29,9 +29,9 @@ S3's native USB pins aren't connected on this board.
 
 | Path | What |
 |---|---|
-| `main/` | `app_main`, the console loop, and the `storage` command |
+| `main/` | `app_main` and the console loop |
 | `components/board_ws128/` | Pins (`include/board.h`), shared I2C bus, LCD, touch, IMU, and the `lcd`/`touch`/`imu` commands |
-| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c` |
+| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`) |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Console
@@ -43,7 +43,8 @@ Type `help` for the full list. The board-specific commands are:
 | `lcd [cycle on\|off \| fill r\|g\|b\|w\|k\|<rgb565> \| bl <0-100>]` | Red/green/blue/white test cycle (on at boot), solid fills, backlight |
 | `touch [on\|off\|status]` | CST816S touch reporting, off at boot; prints down/move/up with x,y |
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed |
-| `storage [df \| ls [path] \| bench [kb]]` | LittleFS usage, a listing, and a sequential write/read benchmark |
+| `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
+| `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
 
 The shared components add the following:
 - System: `version`, `free`, `heap`, `tasks`, `top`, `log_level`, `gpio`, and sleep.
@@ -53,6 +54,24 @@ The shared components add the following:
 - I2C: `i2cdetect` and related commands.
 
 `wifi_save <ssid> [pass]` remembers the network, and the board rejoins the last one at boot.
+
+## Putting video files on the board
+
+Close `idf.py monitor`, then:
+
+```sh
+python external/esp-console-kit/tools/fs_xfer.py -p /dev/cu.wchusbserial5B910448341 \
+    put ~/Documents/Arduino/Flash_PNG/data/*.mov
+```
+
+Each file goes over XMODEM-1K at 460800 baud. The two Flash_PNG clips ran at 7–10 KB/s,
+2.5–4.5 minutes each. The tool then checks that the SHA-256
+matches the local file twice: for the bytes the board received, and for the file read
+back from flash. Use `-f` to replace existing files, `get` to download, and `sha256`
+to hash on the board.
+
+Downloads run at 230400 baud. On macOS, WCH's CH34x driver loses data coming from
+the board at higher rates; see the esp-console-kit README.
 
 ## Configuration (`idf.py menuconfig`)
 

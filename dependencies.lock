@@ -77,6 +77,6 @@ direct_dependencies:
 - idf
 - joltwallet/littlefs
 - waveshare/qmi8658
-manifest_hash: 7d8c10f7092ef84dc7f4ee9fea70f0c105b0c3fac966c2f2afab523ec293a8f0
+manifest_hash: 31961c78bae55613e76ba8e2bcb988bcbcb4b9910dce3fd5301ed713f5672c49
 target: esp32s3
 version: 3.0.0

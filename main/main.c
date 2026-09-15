@@ -17,10 +17,10 @@
 #include "nvs_flash.h"
 #include "soc/soc_caps.h"
 #include "board.h"
+#include "cmd_fs.h"
 #include "cmd_i2ctools.h"
 #include "cmd_network.h"
 #include "cmd_nvs.h"
-#include "cmd_storage.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "console_settings.h"
@@ -96,6 +96,12 @@ static void initialize_filesystem(void)
              (unsigned)(used / 1024), (unsigned)(total / 1024));
 }
 
+/* For `fs df` and the space check before an upload. */
+static esp_err_t storage_info(void *ctx, size_t *total, size_t *used)
+{
+    return esp_littlefs_info((const char *)ctx, total, used);
+}
+
 static void initialize_nvs(void)
 {
     esp_err_t err = nvs_flash_init();
@@ -167,7 +173,13 @@ void app_main(void)
     register_network_commands();
     register_nvs();
     register_i2ctools();
-    register_storage(MOUNT_PATH, STORAGE_LABEL);
+    const cmd_fs_config_t fs_config = {
+        .base_path = MOUNT_PATH,
+        .info = storage_info,
+        .info_ctx = (void *)STORAGE_LABEL,
+        .uart_num = -1,
+    };
+    ESP_ERROR_CHECK(register_fs(&fs_config));
     board_register_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
