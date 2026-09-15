@@ -8,6 +8,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "sdkconfig.h"
+
+/* The menuconfig choices, for reports (an unchosen option is not defined at all). */
+#if CONFIG_LEDS_SPEED_400K
+#define LEDS_SPEED_NAME "400 kHz"
+#else
+#define LEDS_SPEED_NAME "800 kHz"
+#endif
+#if CONFIG_LEDS_ORDER_RGB
+#define LEDS_ORDER_NAME "RGB"
+#else
+#define LEDS_ORDER_NAME "GRB"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

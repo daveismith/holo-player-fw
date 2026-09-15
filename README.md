@@ -141,10 +141,13 @@ last 8 rows of a 120-row frame unwritten.
 
 ## NeoPixel strip
 
-Flash_PNG drove 16 NeoPixels from GPIO16: `NEO_GRB + NEO_KHZ400`, which is GRB order at 400 kHz.
-`components/leds` does the same by default, using Espressif's `led_strip` on the RMT. Its
-`LED_MODEL_WS2811` timing (0.5/1.2 µs high, 2.5 µs a bit) is Adafruit's 400 kHz timing. The
-strip is cleared at boot. The sketch's two patterns are ported but play only when triggered:
+The strip is a 16-LED WS2812 ring on GPIO16. `components/leds` drives it with Espressif's
+`led_strip` on the RMT, in GRB order at 800 kHz, and clears it at boot.
+
+Flash_PNG asked for `NEO_GRB + NEO_KHZ400`, which is 400 kHz. That's wrong for a WS2812:
+400 kHz sends a "0" as a 0.5 µs pulse, and a WS2812 reads that as a "1". Every bit then
+arrives as a 1, and every frame shows as full white, including the frame that turns the
+LEDs off. 400 kHz is still in menuconfig for WS2811 strips. The sketch's two patterns are ported but play only when triggered:
 - `leds wipe [<c>]` lights each LED in turn, 250 ms apart. The default colour is white.
 - `leds rainbow` is Adafruit's rainbow: five times round the colour wheel in 12.8 s,
   gamma-corrected.
@@ -178,9 +181,8 @@ The full header: 1 GND, 2 VSYS, 3 RUN (reset), 4 BOOT (GPIO0), 5 GND, 6 3V3, 7 G
   3.3 V from VSYS on USB, and 3.5 V from a true 5 V supply. That's marginal, though short
   wires usually work. If the first LED flickers or shows the wrong colour, add a 74AHCT1G125
   buffer powered from the strip's +5 V, between GPIO16 and DIN.
-- **Speed.** 400 kHz matches Flash_PNG. WS2812B and SK6812 NeoPixels, such as Adafruit's
-  rings, are 800 kHz parts. Most also accept the 400 kHz timing, but if yours misbehaves,
-  switch to 800 kHz in menuconfig.
+- **Speed.** 800 kHz, which is right for WS2812, WS2812B and SK6812. If the LEDs stay white
+  whatever you send, the speed is wrong (see above).
 
 GPIO16 is the S3's XTAL_32K_N pin. This board has no 32 kHz crystal, so the pin is a plain
 GPIO. The `gpio` command refuses to drive it.
@@ -192,7 +194,7 @@ GPIO. The `gpio` command refuses to drive it.
   - `BOARD_TOUCH_AUTOSTART`
 - **LED strip (NeoPixel)**
   - `LEDS_GPIO` (16) and `LEDS_COUNT` (16)
-  - Data rate: 400 kHz, as Flash_PNG, or 800 kHz
+  - Data rate: 800 kHz (WS2812) or 400 kHz (WS2811)
   - Colour order: GRB, as Flash_PNG, or RGB
   - `LEDS_BRIGHTNESS` at boot (100%)
 - **Console WiFi commands (cmd_wifi)**

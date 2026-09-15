@@ -290,8 +290,7 @@ esp_err_t leds_init(void)
 
     /* Off, whatever the LEDs latched when they powered up. */
     led_strip_clear(s_strip);
-    ESP_LOGI(TAG, "%d LEDs on GPIO%d, %s, %s%s", N, CONFIG_LEDS_GPIO,
-             CONFIG_LEDS_SPEED_400K ? "400 kHz" : "800 kHz",
-             CONFIG_LEDS_ORDER_GRB ? "GRB" : "RGB", dma ? ", RMT DMA" : "");
+    ESP_LOGI(TAG, "%d LEDs on GPIO%d, %s, %s%s", N, CONFIG_LEDS_GPIO, LEDS_SPEED_NAME,
+             LEDS_ORDER_NAME, dma ? ", RMT DMA" : "");
     return ESP_OK;
 }

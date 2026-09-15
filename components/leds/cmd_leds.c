@@ -32,8 +32,7 @@ static int cmd_leds(int argc, char **argv)
             printf(", looping");
         }
         printf("; brightness %d%%; %d LEDs on GPIO%d, %s, %s\n", leds_get_brightness(),
-               CONFIG_LEDS_COUNT, CONFIG_LEDS_GPIO, CONFIG_LEDS_SPEED_400K ? "400 kHz" : "800 kHz",
-               CONFIG_LEDS_ORDER_GRB ? "GRB" : "RGB");
+               CONFIG_LEDS_COUNT, CONFIG_LEDS_GPIO, LEDS_SPEED_NAME, LEDS_ORDER_NAME);
         return 0;
     }
     if ((strcmp(sub, "colour") == 0 || strcmp(sub, "color") == 0) && argc >= 3) {

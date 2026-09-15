@@ -17,16 +17,20 @@ menu "LED strip (NeoPixel)"
 
     choice LEDS_SPEED
         prompt "Data rate"
-        default LEDS_SPEED_400K
+        default LEDS_SPEED_800K
         help
-            Flash_PNG drove its strip at 400 kHz (NEO_KHZ400). That is the native rate of
-            WS2811 driver chips and first-generation NeoPixels; WS2812/WS2812B/SK6812
-            NeoPixels are 800 kHz parts, though most accept the 400 kHz timing too.
+            800 kHz for WS2812, WS2812B and SK6812 -- NeoPixels, including the 16-LED ring
+            this was written for. 400 kHz is for WS2811 driver chips and first-generation
+            NeoPixels only.
 
-        config LEDS_SPEED_400K
-            bool "400 kHz (WS2811; Flash_PNG's NEO_KHZ400)"
+            Flash_PNG asked for 400 kHz (NEO_KHZ400), which is wrong for a WS2812: its
+            "0" is a 0.5 us pulse, at or past the point where a WS2812 reads a "1", so every
+            bit arrives as a 1 and every frame -- off included -- shows as full white.
+
         config LEDS_SPEED_800K
             bool "800 kHz (WS2812, WS2812B, SK6812)"
+        config LEDS_SPEED_400K
+            bool "400 kHz (WS2811)"
     endchoice
 
     choice LEDS_ORDER
