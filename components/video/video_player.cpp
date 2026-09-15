@@ -66,6 +66,9 @@ struct Stats {
 char s_base[64];
 TaskHandle_t s_task;
 volatile bool s_stop;
+/* The clip is being stopped for something else to be shown (another clip, a colour), so it
+ * leaves the panel on rather than blinking it off and back on. */
+volatile bool s_replacing;
 esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
 
@@ -285,8 +288,9 @@ void play(const Request &req)
     s.streamed = streamed;
     s.frame_in_psram = fb != nullptr && !esp_ptr_internal(fb);
 
-    board_lcd_cycle(false);
-    board_lcd_fill(0x0000);
+    /* Blanked, then on -- the panel lit and showing black around the clip's square -- before
+     * the first frame is drawn or the clip's clock starts, so frame 0 is seen. */
+    board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)w) / 2, y = (BOARD_LCD_V_RES - (int)h) / 2;
     printf("video: playing %s (%" PRIu32 "x%" PRIu32 ", %" PRIu32 " frames, %.2f fps, %s)%s\n",
            req.path, w, h, s.frames, s.fps, streamed ? "streamed" : "whole frame",
@@ -359,7 +363,11 @@ void play(const Request &req)
     } while (req.loop && !s_stop);
     s.ended_us = now_us();
 
-    board_lcd_fill(0x0000);
+    /* Nothing showing any more: panel asleep, backlight off -- unless something else is about
+     * to be shown in its place. */
+    if (!s_replacing) {
+        board_lcd_power_off();
+    }
     report();
     heap_caps_free(jpg);
     heap_caps_free(fb);
@@ -446,6 +454,115 @@ int verify(const char *path, int step)
     return differ || failed ? 1 : 0;
 }
 
+/* ------------------------------------------------------------------ the screen */
+
+/* The colour on show, if one is (and no clip). */
+bool s_colour_shown;
+uint8_t s_colour_rgb[3];
+
+uint16_t rgb565(int r, int g, int b)
+{
+    return (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+}
+
+/*
+ * A colour: a name, #RRGGBB (or RRGGBB), R,G,B in decimal as the Flash_PNG sketch's RGB command
+ * took it, or 0x followed by a raw RGB565 value. The 8-bit form is kept for `screen` to report.
+ */
+bool parse_colour(const char *s, uint16_t *out, uint8_t rgb[3])
+{
+    static const struct {
+        const char *name;
+        uint8_t r, g, b;
+    } names[] = {
+        { "black", 0, 0, 0 },       { "white", 255, 255, 255 }, { "red", 255, 0, 0 },
+        { "green", 0, 255, 0 },     { "blue", 0, 0, 255 },      { "yellow", 255, 255, 0 },
+        { "cyan", 0, 255, 255 },    { "magenta", 255, 0, 255 }, { "orange", 255, 128, 0 },
+        { "purple", 128, 0, 255 },  { "pink", 255, 105, 180 },  { "grey", 128, 128, 128 },
+        { "gray", 128, 128, 128 },
+    };
+    for (const auto &n : names) {
+        if (strcasecmp(s, n.name) == 0) {
+            rgb[0] = n.r;
+            rgb[1] = n.g;
+            rgb[2] = n.b;
+            *out = rgb565(n.r, n.g, n.b);
+            return true;
+        }
+    }
+    unsigned r, g, b;
+    char tail;
+    if (sscanf(s, "%u,%u,%u%c", &r, &g, &b, &tail) == 3 && r < 256 && g < 256 && b < 256) {
+        rgb[0] = (uint8_t)r;
+        rgb[1] = (uint8_t)g;
+        rgb[2] = (uint8_t)b;
+        *out = rgb565((int)r, (int)g, (int)b);
+        return true;
+    }
+    if (strncasecmp(s, "0x", 2) == 0) {
+        char *end = nullptr;
+        const unsigned long v = strtoul(s, &end, 16);
+        if (*end == '\0' && v <= 0xFFFF) {
+            *out = (uint16_t)v;
+            rgb[0] = (uint8_t)(((v >> 11) & 0x1F) * 255 / 31);
+            rgb[1] = (uint8_t)(((v >> 5) & 0x3F) * 255 / 63);
+            rgb[2] = (uint8_t)((v & 0x1F) * 255 / 31);
+            return true;
+        }
+    }
+    const char *hex = s[0] == '#' ? s + 1 : s;
+    if (strlen(hex) == 6 && strspn(hex, "0123456789abcdefABCDEF") == 6) {
+        const unsigned long v = strtoul(hex, nullptr, 16);
+        rgb[0] = (uint8_t)(v >> 16);
+        rgb[1] = (uint8_t)(v >> 8);
+        rgb[2] = (uint8_t)v;
+        *out = rgb565(rgb[0], rgb[1], rgb[2]);
+        return true;
+    }
+    return false;
+}
+
+int cmd_screen(int argc, char **argv)
+{
+    const char *sub = argc > 1 ? argv[1] : "";
+    if (argc == 1 || strcmp(sub, "status") == 0) {
+        if (video_playing()) {
+            printf("playing %s (backlight %d%%)\n", s_stats.path, board_lcd_get_backlight());
+        } else if (s_colour_shown && board_lcd_powered()) {
+            printf("showing #%02x%02x%02x (backlight %d%%)\n", s_colour_rgb[0], s_colour_rgb[1],
+                   s_colour_rgb[2], board_lcd_get_backlight());
+        } else {
+            printf("off: panel asleep, backlight off\n");
+        }
+        return 0;
+    }
+    if ((strcmp(sub, "colour") == 0 || strcmp(sub, "color") == 0) && argc >= 3) {
+        /* "255 128 0" as three words is the same as "255,128,0" */
+        char joined[32];
+        if (argc == 5) {
+            snprintf(joined, sizeof(joined), "%s,%s,%s", argv[2], argv[3], argv[4]);
+        } else {
+            strlcpy(joined, argv[2], sizeof(joined));
+        }
+        uint16_t c;
+        uint8_t rgb[3];
+        if (!parse_colour(joined, &c, rgb)) {
+            printf("screen: a colour is a name (red, orange, ...), #RRGGBB, R,G,B or 0xRGB565\n");
+            return 1;
+        }
+        const esp_err_t err = screen_show_colour(c);
+        if (err == ESP_OK) {
+            memcpy(s_colour_rgb, rgb, sizeof(s_colour_rgb));
+        }
+        return err == ESP_OK ? 0 : 1;
+    }
+    if (strcmp(sub, "clear") == 0 || strcmp(sub, "off") == 0) {
+        return screen_clear() == ESP_OK ? 0 : 1;
+    }
+    printf("usage: screen [colour <name|#RRGGBB|R,G,B|0xRGB565> | clear]\n");
+    return 1;
+}
+
 /* ------------------------------------------------------------------ console */
 
 int cmd_video(int argc, char **argv)
@@ -504,9 +621,35 @@ int cmd_video(int argc, char **argv)
 
 }  // namespace
 
-extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
+extern "C" esp_err_t screen_show_colour(uint16_t rgb)
+{
+    /* Over a clip, the panel stays on; from sleep, it wakes with the colour already in place. */
+    s_replacing = true;
+    video_stop();
+    s_replacing = false;
+    const esp_err_t err = board_lcd_power_on(rgb);
+    s_colour_shown = err == ESP_OK;
+    if (s_colour_shown) {
+        s_colour_rgb[0] = (uint8_t)(((rgb >> 11) & 0x1F) * 255 / 31);
+        s_colour_rgb[1] = (uint8_t)(((rgb >> 5) & 0x3F) * 255 / 63);
+        s_colour_rgb[2] = (uint8_t)((rgb & 0x1F) * 255 / 31);
+    }
+    return err;
+}
+
+extern "C" esp_err_t screen_clear(void)
 {
     video_stop();
+    s_colour_shown = false;
+    return board_lcd_power_off();
+}
+
+extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
+{
+    s_replacing = true;
+    video_stop();
+    s_replacing = false;
+    s_colour_shown = false;
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
     req->loop = loop;
@@ -557,4 +700,12 @@ extern "C" void register_video_commands(const char *base_path)
     cmd.hint = "play <file> [loop] [frame] | stop | status | info <file> | verify <file> [step]";
     cmd.func = cmd_video;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+
+    esp_console_cmd_t screen = {};
+    screen.command = "screen";
+    screen.help = "What is on the screen: a solid colour, or clear it (panel asleep, backlight "
+                  "off); alone, what is showing. The screen is off whenever nothing is.";
+    screen.hint = "[colour <name|#RRGGBB|R,G,B|0xRGB565> | clear]";
+    screen.func = cmd_screen;
+    ESP_ERROR_CHECK(esp_console_cmd_register(&screen));
 }

@@ -13,65 +13,25 @@
 
 /* ------------------------------------------------------------------ lcd */
 
-static bool parse_colour(const char *s, uint16_t *out)
-{
-    static const struct {
-        const char *name;
-        uint16_t rgb565;
-    } names[] = {
-        { "r", 0xF800 }, { "red", 0xF800 },
-        { "g", 0x07E0 }, { "green", 0x07E0 },
-        { "b", 0x001F }, { "blue", 0x001F },
-        { "w", 0xFFFF }, { "white", 0xFFFF },
-        { "k", 0x0000 }, { "black", 0x0000 },
-    };
-    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
-        if (strcmp(s, names[i].name) == 0) {
-            *out = names[i].rgb565;
-            return true;
-        }
-    }
-    /* Or a raw RGB565 value, e.g. 0xF81F. */
-    char *end = NULL;
-    unsigned long v = strtoul(s, &end, 0);
-    if (end != s && *end == '\0' && v <= 0xFFFF) {
-        *out = (uint16_t)v;
-        return true;
-    }
-    return false;
-}
-
+/* What is on the screen is the `screen` command's business (it knows about video); this one is
+ * the hardware: power state, backlight level, and a raw fill-rate benchmark. */
 static int lcd_cmd(int argc, char **argv)
 {
     if (argc == 1) {
-        printf("cycle %s, backlight %d%%\n", board_lcd_cycle_running() ? "on" : "off",
-               board_lcd_get_backlight());
-        return 0;
-    }
-    if (strcmp(argv[1], "cycle") == 0 && argc == 3 &&
-        (strcmp(argv[2], "on") == 0 || strcmp(argv[2], "off") == 0)) {
-        board_lcd_cycle(strcmp(argv[2], "on") == 0);
-        return 0;
-    }
-    if (strcmp(argv[1], "fill") == 0 && argc == 3) {
-        uint16_t colour;
-        if (!parse_colour(argv[2], &colour)) {
-            printf("lcd: colour is r, g, b, w, k or an RGB565 value\n");
-            return 1;
-        }
-        board_lcd_cycle(false);
-        esp_err_t err = board_lcd_fill(colour);
-        if (err != ESP_OK) {
-            printf("lcd: %s\n", esp_err_to_name(err));
-            return 1;
-        }
+        printf("panel %s, backlight %d%%%s\n", board_lcd_powered() ? "on" : "asleep",
+               board_lcd_get_backlight(), board_lcd_powered() ? "" : " when on");
         return 0;
     }
     if (strcmp(argv[1], "bench") == 0 && argc <= 3) {
         const int frames = argc == 3 ? atoi(argv[2]) : 30;
-        board_lcd_cycle(false);
+        /* Awake for the run, then back as it was. */
+        const bool was_on = board_lcd_powered();
+        board_lcd_power_on(0x0000);
         int64_t us = 0;
         esp_err_t err = board_lcd_bench(frames, &us);
+        if (!was_on) {
+            board_lcd_power_off();
+        }
         if (err != ESP_OK || us <= 0) {
             printf("lcd: %s\n", esp_err_to_name(err));
             return 1;
@@ -92,7 +52,7 @@ static int lcd_cmd(int argc, char **argv)
         }
         return 0;
     }
-    printf("usage: lcd [cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100> | bench [frames]]\n");
+    printf("usage: lcd [bl <0-100> | bench [frames]]  (to show something, see `screen`)\n");
     return 1;
 }
 
@@ -209,8 +169,8 @@ void board_register_commands(void)
 {
     const esp_console_cmd_t lcd = {
         .command = "lcd",
-        .help = "LCD: the R/G/B/W test cycle, a solid fill, the backlight level, or a fill-rate benchmark",
-        .hint = "[cycle on|off | fill r|g|b|w|k|<rgb565> | bl <0-100> | bench [frames]]",
+        .help = "LCD hardware: power state, backlight level, or a fill-rate benchmark",
+        .hint = "[bl <0-100> | bench [frames]]",
         .func = lcd_cmd,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&lcd));

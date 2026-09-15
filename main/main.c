@@ -117,15 +117,11 @@ static void initialize_board(void)
 {
     ESP_ERROR_CHECK(board_init());
 
+    /* Asleep, backlight off, until a clip or a colour is shown. */
     esp_err_t err = board_lcd_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "LCD: %s", esp_err_to_name(err));
     }
-#if CONFIG_BOARD_LCD_CYCLE_AT_BOOT
-    else {
-        board_lcd_cycle(true);
-    }
-#endif
 
     err = board_imu_init();
     if (err != ESP_OK) {

@@ -24,6 +24,14 @@ esp_err_t video_play(const char *path, bool loop, bool whole_frame);
 void video_stop(void);
 bool video_playing(void);
 
+/*
+ * What is on the screen, which is on only while something is: a clip (video_play) or a solid
+ * colour. Showing a colour stops any clip; clearing stops any clip and puts the panel to
+ * sleep with the backlight off, as does a clip reaching its end.
+ */
+esp_err_t screen_show_colour(uint16_t rgb565);
+esp_err_t screen_clear(void);
+
 #ifdef __cplusplus
 }
 #endif

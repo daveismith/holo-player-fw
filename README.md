@@ -40,7 +40,8 @@ Type `help` for the full list. The board-specific commands are:
 
 | Command | Does |
 |---|---|
-| `lcd [cycle on\|off \| fill r\|g\|b\|w\|k\|<rgb565> \| bl <0-100>]` | Red/green/blue/white test cycle (on at boot), solid fills, backlight |
+| `screen [colour <name\|#RRGGBB\|R,G,B\|0xRGB565> \| clear]` | Show a solid colour, or clear the screen; alone, what's showing. The screen is off (panel asleep, backlight off) whenever nothing is showing: at boot, after `clear`, and when a clip ends |
+| `lcd [bl <0-100> \| bench [frames]]` | LCD hardware: power state, backlight level while on, fill-rate benchmark |
 | `touch [on\|off\|status]` | CST816S touch reporting, off at boot; prints down/move/up with x,y |
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed |
 | `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
@@ -83,6 +84,13 @@ the board at higher rates; see the esp-console-kit README.
 Each frame is read from `/data` and drawn centred on the panel, timed by the clip's own
 time-to-sample table.
 
+The panel is off whenever nothing is showing. To start a clip, the player wakes the panel
+and fills it black while the display is still off. It then turns the display on, waits two
+panel refreshes, and turns on the backlight. Only then does it draw frame 0 and start the
+clip's clock, so the first frames are never drawn to a dark screen. When the clip ends or
+`video stop` runs, the panel goes back to sleep with the backlight off. Starting another
+clip or a `screen colour` over a playing clip keeps the panel on.
+
 - **Streamed (the default).** `esp_new_jpeg`'s block mode decodes 16 lines at a time into
   one of two small DMA buffers. Each block is sent to the panel while the next one decodes,
   so decoding and the SPI transfer overlap. The whole frame is never held in memory: it
@@ -123,7 +131,6 @@ last 8 rows of a 120-row frame unwritten.
 ## Configuration (`idf.py menuconfig`)
 
 - **Board: Waveshare ESP32-S3-Touch-LCD-1.28**
-  - `BOARD_LCD_CYCLE_AT_BOOT`
   - `BOARD_TOUCH_ENABLE` compiles the touch driver in or out.
   - `BOARD_TOUCH_AUTOSTART`
 - **Console WiFi commands (cmd_wifi)**

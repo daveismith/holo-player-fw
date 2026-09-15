@@ -11,10 +11,6 @@ menu "Board: Waveshare ESP32-S3-Touch-LCD-1.28"
             sweeping down the screen -- and 11.5 ms at 80 MHz, inside one. Drop to 40 if the
             picture shows corruption at 80.
 
-    config BOARD_LCD_CYCLE_AT_BOOT
-        bool "Start the red/green/blue/white LCD test cycle at boot"
-        default y
-
     config BOARD_TOUCH_ENABLE
         bool "Build the CST816S touch driver"
         default y

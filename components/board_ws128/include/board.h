@@ -59,8 +59,21 @@ extern "C" {
 esp_err_t board_init(void);
 i2c_master_bus_handle_t board_i2c_bus(void);
 
-/* LCD (lcd.c). Colours are RGB565 in the usual order; the driver byte-swaps for the bus. */
+/* LCD (lcd.c). Colours are RGB565 in the usual order; the driver byte-swaps for the bus.
+ * board_lcd_init() leaves the panel asleep with the backlight off. */
 esp_err_t board_lcd_init(void);
+/*
+ * Power. board_lcd_power_on() wakes the panel, fills the whole screen with `rgb565` while the
+ * display is still off -- so nothing its memory held from before is ever seen -- then turns the
+ * display and backlight on; if the panel is already on it is just the fill.
+ * board_lcd_power_off() turns the backlight and display off and puts the controller to sleep.
+ */
+esp_err_t board_lcd_power_on(uint16_t rgb565);
+esp_err_t board_lcd_power_off(void);
+bool board_lcd_powered(void);
+/* The backlight level while the panel is on (default 100%), applied at once if it is. */
+esp_err_t board_lcd_set_backlight(int percent);
+int board_lcd_get_backlight(void);
 esp_err_t board_lcd_fill(uint16_t rgb565);
 /* A w x h block of big-endian RGB565 at (x, y). `pixels` must be DMA-capable internal RAM;
  * returns once the panel has it. */
@@ -78,13 +91,8 @@ esp_err_t board_lcd_stream_begin(void);
 esp_err_t board_lcd_stream_block(int x, int y, int w, int h, const uint16_t *pixels);
 esp_err_t board_lcd_stream_wait(int max_pending);
 esp_err_t board_lcd_stream_end(void);
-esp_err_t board_lcd_set_backlight(int percent);
-int board_lcd_get_backlight(void);
 /* `frames` whole-screen fills back to back; the average time per fill in *us_per_frame. */
 esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame);
-/* The red, green, blue, white test cycle, one second each. */
-void board_lcd_cycle(bool on);
-bool board_lcd_cycle_running(void);
 
 #if CONFIG_BOARD_TOUCH_ENABLE
 /* Touch (touch.c). Off unless started; `touch on` or CONFIG_BOARD_TOUCH_AUTOSTART. */

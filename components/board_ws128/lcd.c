@@ -1,6 +1,9 @@
 /*
- * GC9A01 round LCD: panel bring-up, whole-screen fills, the backlight, and the
- * red/green/blue/white test cycle.
+ * GC9A01 round LCD: panel bring-up, power (sleep mode and the backlight), whole-screen fills,
+ * blocks, and frames streamed a block at a time.
+ *
+ * The panel sleeps with the backlight off until something is shown: board_lcd_power_on()
+ * wakes it, board_lcd_power_off() puts it back.
  */
 #include <string.h>
 #include <sys/param.h>
@@ -10,6 +13,7 @@
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_gc9a01.h"
+#include "esp_lcd_panel_commands.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
@@ -32,24 +36,23 @@ static const char *TAG = "lcd";
 #define BL_LEDC_RES      LEDC_TIMER_10_BIT
 #define BL_FREQ_HZ       5000
 
+/* After Sleep Out the controller wants 120 ms before Sleep In, and its supplies take about as
+ * long to settle; after Sleep In, 5 ms before anything else. */
+#define SLEEP_OUT_MS     120
+#define SLEEP_IN_MS      5
+/* Display On takes effect at the panel's next refresh (about 60 Hz). The light waits out two,
+ * so by the time anything can be seen the panel is already scanning out the blank fill -- and
+ * a caller that starts drawing on return (the player's first frame) is drawing on a screen
+ * that is visibly on. */
+#define DISPLAY_ON_MS    35
+
 static esp_lcd_panel_io_handle_t s_io;
 static esp_lcd_panel_handle_t s_panel;
 static uint16_t *s_strip;
-static SemaphoreHandle_t s_lock;         /* one fill at a time */
-static SemaphoreHandle_t s_strip_done;   /* the bus has finished with s_strip */
-static TaskHandle_t s_cycle_task;
-static volatile bool s_cycle_on;
-static int s_backlight = 0;
-
-static const struct {
-    uint16_t rgb565;
-    const char *name;
-} k_cycle[] = {
-    { 0xF800, "red" },
-    { 0x07E0, "green" },
-    { 0x001F, "blue" },
-    { 0xFFFF, "white" },
-};
+static SemaphoreHandle_t s_lock;         /* one user of the panel at a time */
+static SemaphoreHandle_t s_strip_done;   /* the bus has finished with a block */
+static int s_backlight = 100;            /* the level while the panel is on, percent */
+static bool s_powered;
 
 static bool on_color_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *edata,
                           void *ctx)
@@ -90,15 +93,18 @@ static esp_err_t backlight_init(void)
     return ledc_channel_config(&channel);
 }
 
-esp_err_t board_lcd_set_backlight(int percent)
+static esp_err_t apply_backlight(int percent)
 {
-    percent = MAX(0, MIN(100, percent));
     /* 2^res is fully on for LEDC; scaling to it rather than 2^res - 1 makes 100% steady. */
     const uint32_t duty = ((1u << BL_LEDC_RES) * (uint32_t)percent) / 100u;
     ESP_RETURN_ON_ERROR(ledc_set_duty(LEDC_LOW_SPEED_MODE, BL_LEDC_CHANNEL, duty), TAG, "duty");
-    ESP_RETURN_ON_ERROR(ledc_update_duty(LEDC_LOW_SPEED_MODE, BL_LEDC_CHANNEL), TAG, "duty");
-    s_backlight = percent;
-    return ESP_OK;
+    return ledc_update_duty(LEDC_LOW_SPEED_MODE, BL_LEDC_CHANNEL);
+}
+
+esp_err_t board_lcd_set_backlight(int percent)
+{
+    s_backlight = MAX(0, MIN(100, percent));
+    return s_powered ? apply_backlight(s_backlight) : ESP_OK;
 }
 
 int board_lcd_get_backlight(void)
@@ -143,6 +149,57 @@ esp_err_t board_lcd_fill(uint16_t rgb565)
     esp_err_t err = fill_locked(rgb565);
     xSemaphoreGive(s_lock);
     return err;
+}
+
+esp_err_t board_lcd_power_on(uint16_t rgb565)
+{
+    ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_err_t err = ESP_OK;
+    const bool waking = !s_powered;
+    if (waking) {
+        /* Out of sleep with the display still off, so whatever its memory held from before --
+         * the last frame of the last clip, say -- is never seen: the fill goes in first. */
+        err = esp_lcd_panel_io_tx_param(s_io, LCD_CMD_SLPOUT, NULL, 0);
+        vTaskDelay(pdMS_TO_TICKS(SLEEP_OUT_MS));
+    }
+    if (err == ESP_OK) {
+        err = fill_locked(rgb565);
+    }
+    if (err == ESP_OK && waking) {
+        err = esp_lcd_panel_disp_on_off(s_panel, true);
+        if (err == ESP_OK) {
+            vTaskDelay(pdMS_TO_TICKS(DISPLAY_ON_MS));
+            s_powered = true;
+            err = apply_backlight(s_backlight);
+        }
+    }
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
+esp_err_t board_lcd_power_off(void)
+{
+    ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_err_t err = ESP_OK;
+    if (s_powered) {
+        /* Light first, so the display going off is never seen as a flash. */
+        apply_backlight(0);
+        err = esp_lcd_panel_disp_on_off(s_panel, false);
+        if (err == ESP_OK) {
+            err = esp_lcd_panel_io_tx_param(s_io, LCD_CMD_SLPIN, NULL, 0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(SLEEP_IN_MS));
+        s_powered = false;
+    }
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
+bool board_lcd_powered(void)
+{
+    return s_powered;
 }
 
 esp_err_t board_lcd_draw(int x, int y, int w, int h, const uint16_t *pixels)
@@ -222,13 +279,14 @@ esp_err_t board_lcd_stream_end(void)
 
 esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame)
 {
+    static const uint16_t colours[] = { 0xF800, 0x07E0, 0x001F, 0xFFFF };
     ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
     frames = MAX(1, frames);
     xSemaphoreTake(s_lock, portMAX_DELAY);
     const int64_t t0 = esp_timer_get_time();
     esp_err_t err = ESP_OK;
     for (int i = 0; i < frames && err == ESP_OK; i++) {
-        err = fill_locked(k_cycle[i % (sizeof(k_cycle) / sizeof(k_cycle[0]))].rgb565);
+        err = fill_locked(colours[i % (sizeof(colours) / sizeof(colours[0]))]);
     }
     const int64_t elapsed = esp_timer_get_time() - t0;
     xSemaphoreGive(s_lock);
@@ -248,6 +306,7 @@ esp_err_t board_lcd_init(void)
     s_strip = heap_caps_malloc(STRIP_PIXELS * sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     ESP_RETURN_ON_FALSE(s_lock && s_strip_done && s_strip, ESP_ERR_NO_MEM, TAG, "alloc");
 
+    /* Off from here on: GPIO2's pull-down has held it off since reset. */
     ESP_RETURN_ON_ERROR(backlight_init(), TAG, "backlight");
 
     const spi_bus_config_t bus = {
@@ -284,62 +343,13 @@ esp_err_t board_lcd_init(void)
     /* The IPS panel needs inversion on for colours to come out as sent. */
     ESP_RETURN_ON_ERROR(esp_lcd_panel_invert_color(s_panel, true), TAG, "invert");
     ESP_RETURN_ON_ERROR(esp_lcd_panel_mirror(s_panel, true, false), TAG, "mirror");
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, true), TAG, "on");
 
-    /* Black before the backlight comes up, so the power-on garbage is never seen. */
-    ESP_RETURN_ON_ERROR(board_lcd_fill(0x0000), TAG, "clear");
-    ESP_RETURN_ON_ERROR(board_lcd_set_backlight(100), TAG, "backlight");
-    ESP_LOGI(TAG, "GC9A01 %dx%d up at %d MHz", BOARD_LCD_H_RES, BOARD_LCD_V_RES,
-             BOARD_LCD_PCLK_HZ / 1000000);
+    /* The init sequence woke the controller; nothing is shown yet, so straight back to sleep.
+     * Its Sleep Out was at least 100 ms ago, as Sleep In requires. */
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, false), TAG, "display off");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(s_io, LCD_CMD_SLPIN, NULL, 0), TAG, "sleep");
+    s_powered = false;
+    ESP_LOGI(TAG, "GC9A01 %dx%d at %d MHz; asleep until something is shown", BOARD_LCD_H_RES,
+             BOARD_LCD_V_RES, BOARD_LCD_PCLK_HZ / 1000000);
     return ESP_OK;
-}
-
-static void cycle_task(void *arg)
-{
-    (void)arg;
-    size_t i = 0;
-    for (;;) {
-        if (!s_cycle_on) {
-            /* Parked until board_lcd_cycle(true); starts from red again. */
-            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-            i = 0;
-            continue;
-        }
-        xSemaphoreTake(s_lock, portMAX_DELAY);
-        if (s_cycle_on) {
-            esp_err_t err = fill_locked(k_cycle[i].rgb565);
-            if (err != ESP_OK) {
-                ESP_LOGW(TAG, "fill %s: %s", k_cycle[i].name, esp_err_to_name(err));
-            }
-        }
-        xSemaphoreGive(s_lock);
-        i = (i + 1) % (sizeof(k_cycle) / sizeof(k_cycle[0]));
-        /* Woken early when the cycle is switched off, so `lcd fill` never waits a second. */
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
-    }
-}
-
-void board_lcd_cycle(bool on)
-{
-    if (s_panel == NULL) {
-        return;
-    }
-    s_cycle_on = on;
-    if (s_cycle_task == NULL) {
-        if (on) {
-            xTaskCreate(cycle_task, "lcd_cycle", 3072, NULL, 3, &s_cycle_task);
-        }
-        return;
-    }
-    xTaskNotifyGive(s_cycle_task);
-    if (!on) {
-        /* Taking the lock waits out a fill in progress, so the caller's next fill wins. */
-        xSemaphoreTake(s_lock, portMAX_DELAY);
-        xSemaphoreGive(s_lock);
-    }
-}
-
-bool board_lcd_cycle_running(void)
-{
-    return s_cycle_on;
 }
