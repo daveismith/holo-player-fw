@@ -75,6 +75,12 @@ bool board_lcd_powered(void);
  * player's, when a clip ends by itself). Nothing is showing then, so it is a good moment for
  * work that would disturb playback, such as a flash write. */
 void board_lcd_set_off_hook(void (*hook)(void *ctx), void *ctx);
+
+/* Colours from the console (colour.c), for every command that shows one: a name (red,
+ * orange, ...), #RRGGBB or RRGGBB, or R,G,B in decimal. board_parse_rgb_args() takes the
+ * colour's words -- one, or three for "R G B". */
+bool board_parse_rgb(const char *s, uint8_t rgb[3]);
+bool board_parse_rgb_args(int argc, char **argv, uint8_t rgb[3]);
 /* The backlight level while the panel is on (default 100%), applied at once if it is. */
 esp_err_t board_lcd_set_backlight(int percent);
 int board_lcd_get_backlight(void);

@@ -466,60 +466,29 @@ uint16_t rgb565(int r, int g, int b)
 }
 
 /*
- * A colour: a name, #RRGGBB (or RRGGBB), R,G,B in decimal as the Flash_PNG sketch's RGB command
- * took it, or 0x followed by a raw RGB565 value. The 8-bit form is kept for `screen` to report.
+ * A colour's words: anything board_parse_rgb_args() takes (a name, #RRGGBB, R,G,B or R G B),
+ * or -- the panel's own form -- 0x and a raw RGB565 value. The 8-bit form is kept for
+ * `screen` to report.
  */
-bool parse_colour(const char *s, uint16_t *out, uint8_t rgb[3])
+bool parse_colour(int argc, char **argv, uint16_t *out, uint8_t rgb[3])
 {
-    static const struct {
-        const char *name;
-        uint8_t r, g, b;
-    } names[] = {
-        { "black", 0, 0, 0 },       { "white", 255, 255, 255 }, { "red", 255, 0, 0 },
-        { "green", 0, 255, 0 },     { "blue", 0, 0, 255 },      { "yellow", 255, 255, 0 },
-        { "cyan", 0, 255, 255 },    { "magenta", 255, 0, 255 }, { "orange", 255, 128, 0 },
-        { "purple", 128, 0, 255 },  { "pink", 255, 105, 180 },  { "grey", 128, 128, 128 },
-        { "gray", 128, 128, 128 },
-    };
-    for (const auto &n : names) {
-        if (strcasecmp(s, n.name) == 0) {
-            rgb[0] = n.r;
-            rgb[1] = n.g;
-            rgb[2] = n.b;
-            *out = rgb565(n.r, n.g, n.b);
-            return true;
-        }
-    }
-    unsigned r, g, b;
-    char tail;
-    if (sscanf(s, "%u,%u,%u%c", &r, &g, &b, &tail) == 3 && r < 256 && g < 256 && b < 256) {
-        rgb[0] = (uint8_t)r;
-        rgb[1] = (uint8_t)g;
-        rgb[2] = (uint8_t)b;
-        *out = rgb565((int)r, (int)g, (int)b);
-        return true;
-    }
-    if (strncasecmp(s, "0x", 2) == 0) {
+    if (argc == 1 && strncasecmp(argv[0], "0x", 2) == 0) {
         char *end = nullptr;
-        const unsigned long v = strtoul(s, &end, 16);
-        if (*end == '\0' && v <= 0xFFFF) {
-            *out = (uint16_t)v;
-            rgb[0] = (uint8_t)(((v >> 11) & 0x1F) * 255 / 31);
-            rgb[1] = (uint8_t)(((v >> 5) & 0x3F) * 255 / 63);
-            rgb[2] = (uint8_t)((v & 0x1F) * 255 / 31);
-            return true;
+        const unsigned long v = strtoul(argv[0], &end, 16);
+        if (*end != '\0' || v > 0xFFFF) {
+            return false;
         }
-    }
-    const char *hex = s[0] == '#' ? s + 1 : s;
-    if (strlen(hex) == 6 && strspn(hex, "0123456789abcdefABCDEF") == 6) {
-        const unsigned long v = strtoul(hex, nullptr, 16);
-        rgb[0] = (uint8_t)(v >> 16);
-        rgb[1] = (uint8_t)(v >> 8);
-        rgb[2] = (uint8_t)v;
-        *out = rgb565(rgb[0], rgb[1], rgb[2]);
+        *out = (uint16_t)v;
+        rgb[0] = (uint8_t)(((v >> 11) & 0x1F) * 255 / 31);
+        rgb[1] = (uint8_t)(((v >> 5) & 0x3F) * 255 / 63);
+        rgb[2] = (uint8_t)((v & 0x1F) * 255 / 31);
         return true;
     }
-    return false;
+    if (!board_parse_rgb_args(argc, argv, rgb)) {
+        return false;
+    }
+    *out = rgb565(rgb[0], rgb[1], rgb[2]);
+    return true;
 }
 
 int cmd_screen(int argc, char **argv)
@@ -537,16 +506,9 @@ int cmd_screen(int argc, char **argv)
         return 0;
     }
     if ((strcmp(sub, "colour") == 0 || strcmp(sub, "color") == 0) && argc >= 3) {
-        /* "255 128 0" as three words is the same as "255,128,0" */
-        char joined[32];
-        if (argc == 5) {
-            snprintf(joined, sizeof(joined), "%s,%s,%s", argv[2], argv[3], argv[4]);
-        } else {
-            strlcpy(joined, argv[2], sizeof(joined));
-        }
         uint16_t c;
         uint8_t rgb[3];
-        if (!parse_colour(joined, &c, rgb)) {
+        if (!parse_colour(argc - 2, argv + 2, &c, rgb)) {
             printf("screen: a colour is a name (red, orange, ...), #RRGGBB, R,G,B or 0xRGB565\n");
             return 1;
         }

@@ -1,4 +1,4 @@
-set(srcs "board.c" "lcd.c" "imu.c" "cmd_board.c")
+set(srcs "board.c" "lcd.c" "imu.c" "cmd_board.c" "colour.c")
 if(CONFIG_BOARD_TOUCH_ENABLE)
     list(APPEND srcs "touch.c")
 endif()

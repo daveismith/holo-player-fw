@@ -19,6 +19,7 @@
 #include "board.h"
 #include "cmd_fs.h"
 #include "console_history.h"
+#include "leds.h"
 #include "cmd_i2ctools.h"
 #include "cmd_network.h"
 #include "cmd_nvs.h"
@@ -95,6 +96,7 @@ static const gpio_reserved_t s_gpio_reserved[] = {
     { BOARD_LCD_MISO, "LCD MISO" },
     { BOARD_TOUCH_RST, "touch RST" },
     { BOARD_LCD_RST, "LCD RST" },
+    { CONFIG_LEDS_GPIO, "LED strip data" },
     { 26, "flash/PSRAM SPI" }, { 27, "flash/PSRAM SPI" }, { 28, "flash/PSRAM SPI" },
     { 29, "flash/PSRAM SPI" }, { 30, "flash/PSRAM SPI" }, { 31, "flash/PSRAM SPI" },
     { 32, "flash/PSRAM SPI" },
@@ -153,6 +155,12 @@ static void initialize_board(void)
         ESP_LOGW(TAG, "IMU: %s", esp_err_to_name(err));
     }
 
+    /* The NeoPixel strip on P2, off */
+    err = leds_init();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "LEDs: %s", esp_err_to_name(err));
+    }
+
 #if CONFIG_BOARD_TOUCH_AUTOSTART
     err = board_touch_start();
     if (err != ESP_OK) {
@@ -209,6 +217,7 @@ void app_main(void)
     ESP_ERROR_CHECK(register_fs(&fs_config));
     board_register_commands();
     register_video_commands(MOUNT_PATH);
+    register_leds_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();

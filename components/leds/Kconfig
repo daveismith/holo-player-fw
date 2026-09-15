@@ -1,0 +1,55 @@
+menu "LED strip (NeoPixel)"
+
+    config LEDS_GPIO
+        int "Data GPIO"
+        default 16
+        range 0 48
+        help
+            The strip's data line. 16 is P2 pin 8 on the Waveshare ESP32-S3-Touch-LCD-1.28,
+            the pin the Flash_PNG sketch drove its NeoPixels from (PIN_NEO_PIXEL).
+
+    config LEDS_COUNT
+        int "LEDs on the strip"
+        default 16
+        range 1 1024
+        help
+            Flash_PNG's NUM_PIXELS.
+
+    choice LEDS_SPEED
+        prompt "Data rate"
+        default LEDS_SPEED_400K
+        help
+            Flash_PNG drove its strip at 400 kHz (NEO_KHZ400). That is the native rate of
+            WS2811 driver chips and first-generation NeoPixels; WS2812/WS2812B/SK6812
+            NeoPixels are 800 kHz parts, though most accept the 400 kHz timing too.
+
+        config LEDS_SPEED_400K
+            bool "400 kHz (WS2811; Flash_PNG's NEO_KHZ400)"
+        config LEDS_SPEED_800K
+            bool "800 kHz (WS2812, WS2812B, SK6812)"
+    endchoice
+
+    choice LEDS_ORDER
+        prompt "Colour order on the wire"
+        default LEDS_ORDER_GRB
+        help
+            Flash_PNG's NEO_GRB, and that of nearly every WS2812-family part. If red and
+            green come out swapped, the strip is RGB.
+
+        config LEDS_ORDER_GRB
+            bool "GRB"
+        config LEDS_ORDER_RGB
+            bool "RGB"
+    endchoice
+
+    config LEDS_BRIGHTNESS
+        int "Brightness at boot (percent)"
+        default 100
+        range 1 100
+        help
+            `leds bright` changes it live. Each LED draws up to about 60 mA at full white,
+            so a 16-LED strip at 100% can want 1 A: more than the P2 header's VSYS pin and
+            its SH1.0 contact should be asked for. Powering the strip from the header, keep
+            this at 30 or below; powered from its own 5 V supply, leave it at 100.
+
+endmenu

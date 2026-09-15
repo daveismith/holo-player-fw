@@ -3,5 +3,5 @@ idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c"
                                      esp_usb_cdc_rom_console nvs_flash esp_netif esp_event
                                      esp_timer vfs espcoredump
                                      cmd_system cmd_wifi cmd_network cmd_nvs cmd_i2c cmd_fs
-                                     board_ws128 video
+                                     board_ws128 video leds
                        INCLUDE_DIRS ".")

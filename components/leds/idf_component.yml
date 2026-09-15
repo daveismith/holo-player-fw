@@ -1,0 +1,4 @@
+dependencies:
+  # 3.x: RMT and SPI back ends, and a WS2811 model -- the 400 kHz timing (T0H 0.5 us,
+  # T1H 1.2 us, 2.5 us a bit) that Adafruit_NeoPixel's NEO_KHZ400 sends.
+  espressif/led_strip: "^3.0.3"
