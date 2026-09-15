@@ -45,7 +45,7 @@ Type `help` for the full list. The board-specific commands are:
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed |
 | `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
 | `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
-| `video play <file> [loop] \| stop \| status \| info <file>` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
+| `video play <file> [loop] [frame] \| stop \| status \| info <file> \| verify <file> [step]` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
 
 The shared components add the following:
 - System: `version`, `free`, `heap`, `tasks`, `top`, `log_level`, `gpio`, and sleep.
@@ -80,9 +80,31 @@ the board at higher rates; see the esp-console-kit README.
 - `quicktime.cpp`: the Flash_PNG sketch's QuickTime parser, ported.
 - `video_player.cpp`: the player, which decodes with Espressif's `esp_new_jpeg`.
 
-Each frame is read from `/data`, decoded to RGB565, and drawn centred on the panel.
-Frames are timed by the clip's own time-to-sample table. `video status` reports the
-read, decode and draw time per frame, and counts late frames.
+Each frame is read from `/data` and drawn centred on the panel, timed by the clip's own
+time-to-sample table.
+
+- **Streamed (the default).** `esp_new_jpeg`'s block mode decodes 16 lines at a time into
+  one of two small DMA buffers. Each block is sent to the panel while the next one decodes,
+  so decoding and the SPI transfer overlap. The whole frame is never held in memory: it
+  would be 115 KB at 240×240, more than the largest free block of internal RAM.
+- **Whole frame.** `video play <file> frame` decodes the whole frame first, then sends it.
+  This mode is also used for clips whose width or height isn't a multiple of 8, which
+  block mode can't handle.
+- **Checking block mode.** `video verify <file>` decodes sample frames both ways and
+  compares them byte for byte.
+- **Status.** `video status` reports read, decode, and decode-plus-draw time per frame.
+  It also reports the paint time, from the first pixels sent to the last: how long the
+  panel spends mid-update, which is what tearing depends on.
+
+Measured on the four test clips, at 30 fps (a 33.3 ms frame):
+
+| Clip | Streamed: decode+draw | Streamed: paint | Whole frame: decode+draw | Whole frame: paint |
+|---|---|---|---|---|
+| 120×120 (Flash_PNG clips) | 4.6 ms | 4.1 ms | 4.9–5.2 ms | 3.2 ms |
+| 240×240 | 14.2–14.6 ms, none late | 13.6 ms | 28.3–30.2 ms, some late | 17.8 ms (frame in PSRAM) |
+
+Anything that writes to flash during playback, such as an NVS save or the console's history
+file, pauses both cores. That can make an occasional frame late.
 
 To make a clip, use the Flash_PNG recipe. Export at 120×120 (anything up to 240×240
 fits the panel), then run:

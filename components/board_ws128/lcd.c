@@ -173,6 +173,53 @@ esp_err_t board_lcd_draw(int x, int y, int w, int h, const uint16_t *pixels)
     return err;
 }
 
+/* Blocks queued by board_lcd_stream_block() and not yet reported done by on_color_done(). */
+static int s_stream_pending;
+
+esp_err_t board_lcd_stream_begin(void)
+{
+    ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    while (xSemaphoreTake(s_strip_done, 0) == pdTRUE) {
+        /* nothing should be left over, but a stale count would release a buffer early */
+    }
+    s_stream_pending = 0;
+    return ESP_OK;
+}
+
+esp_err_t board_lcd_stream_block(int x, int y, int w, int h, const uint16_t *pixels)
+{
+    ESP_RETURN_ON_FALSE(esp_ptr_dma_capable(pixels), ESP_ERR_INVALID_ARG, TAG,
+                        "a streamed block must be in DMA-capable memory");
+    /* esp_lcd sends this block's window commands only once the previous block's pixels are
+     * out, so blocks go back to back; each one fits a single SPI transfer, so each completes
+     * with exactly one on_color_done(). */
+    esp_err_t err = esp_lcd_panel_draw_bitmap(s_panel, x, y, x + w, y + h, pixels);
+    if (err == ESP_OK) {
+        s_stream_pending++;
+    }
+    return err;
+}
+
+esp_err_t board_lcd_stream_wait(int max_pending)
+{
+    while (s_stream_pending > max_pending) {
+        if (xSemaphoreTake(s_strip_done, pdMS_TO_TICKS(200)) != pdTRUE) {
+            return ESP_ERR_TIMEOUT;
+        }
+        s_stream_pending--;
+    }
+    return ESP_OK;
+}
+
+esp_err_t board_lcd_stream_end(void)
+{
+    const esp_err_t err = board_lcd_stream_wait(0);
+    s_stream_pending = 0;
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
 esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame)
 {
     ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");

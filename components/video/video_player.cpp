@@ -1,9 +1,16 @@
 /*
- * MJPEG QuickTime playback: each frame read from storage, decoded with esp_new_jpeg into an
- * RGB565 frame and put in the middle of the panel, on the file's own timing.
+ * MJPEG QuickTime playback: each frame read from storage, decoded with esp_new_jpeg and put in
+ * the middle of the panel, on the file's own timing.
  *
- * One task does all three in turn. At 120x120 that is ~5 ms of a 33 ms frame (decode 1.8 ms,
- * the SPI push 2.9 ms), so there is nothing to gain yet from overlapping them.
+ * Two ways to get a frame onto the panel:
+ *
+ *   streamed (default) -- esp_new_jpeg's block mode decodes 16 lines at a time into one of two
+ *     small DMA buffers, and each block is sent while the next is decoded. Decoding and the SPI
+ *     push overlap, and no whole frame is ever held: a 240x240 frame is 115 KB, more than the
+ *     largest free internal block, so the other way keeps it in PSRAM.
+ *
+ *   whole frame -- decode the frame, then send it. Needed when a dimension is not a multiple of
+ *     8 (block mode's requirement), and kept for comparison: `video play <file> frame`.
  */
 #include <errno.h>
 #include <inttypes.h>
@@ -28,23 +35,32 @@ constexpr uint32_t TASK_STACK = 8192;
 constexpr UBaseType_t TASK_PRIO = 5;
 /* Core 1: away from Wi-Fi and the console, which run on core 0. */
 constexpr BaseType_t TASK_CORE = 1;
+/* Block mode's tallest block: one row of 4:2:0 MCUs. */
+constexpr uint32_t BLOCK_LINES = 16;
 
 struct Request {
     char path[PATH_LEN];
     bool loop;
+    bool whole_frame;
 };
 
 struct Stats {
     char path[PATH_LEN];
     uint32_t width, height, frames;
     double fps;              /* the file's */
+    bool streamed;
+    bool frame_in_psram;     /* whole-frame mode only */
     uint32_t shown;
     uint32_t late;           /* frames that finished after the next one was due */
     uint32_t errors;
     uint32_t loops;
-    int64_t read_us, decode_us, draw_us;
+    int64_t read_us;
+    int64_t decode_us;       /* inside the decoder */
+    int64_t render_us;       /* decode and draw together: what the frame costs */
+    int64_t paint_us;        /* first pixels sent to last pixels out: how long the panel is
+                                mid-update, which is what tearing depends on */
+    int64_t paint_max_us;
     int64_t started_us, ended_us;
-    bool frame_in_psram;
 };
 
 char s_base[64];
@@ -52,6 +68,8 @@ TaskHandle_t s_task;
 volatile bool s_stop;
 esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
+
+int64_t now_us() { return esp_timer_get_time(); }
 
 void timer_cb(void *)
 {
@@ -67,7 +85,7 @@ void timer_cb(void *)
  */
 void sleep_until(int64_t due)
 {
-    const int64_t wait = due - esp_timer_get_time();
+    const int64_t wait = due - now_us();
     if (wait < 500) {
         return;
     }
@@ -76,7 +94,20 @@ void sleep_until(int64_t due)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }
 
-int decode(const uint8_t *jpg, size_t len, uint16_t *fb, uint32_t w, uint32_t h)
+bool is_jpeg(uint32_t codec)
+{
+    /* ffmpeg's -c:v mjpeg writes 'jpeg'; Motion-JPEG A frames are plain JPEGs too */
+    return codec == quicktime::FourCC('j', 'p', 'e', 'g') ||
+           codec == quicktime::FourCC('m', 'j', 'p', 'a');
+}
+
+bool can_stream(uint32_t w, uint32_t h)
+{
+    return w % 8 == 0 && h % 8 == 0;
+}
+
+/* The whole frame into `fb` (w x h, 16-byte aligned). */
+int decode_frame(const uint8_t *jpg, size_t len, uint16_t *fb, uint32_t w, uint32_t h)
 {
     jpeg_dec_config_t cfg = DEFAULT_JPEG_DEC_CONFIG();
     cfg.output_type = JPEG_PIXEL_FORMAT_RGB565_BE;   /* the panel's byte order */
@@ -88,7 +119,7 @@ int decode(const uint8_t *jpg, size_t len, uint16_t *fb, uint32_t w, uint32_t h)
     jpeg_dec_io_t io = {};
     io.inbuf = const_cast<uint8_t *>(jpg);
     io.inbuf_len = (int)len;
-    io.outbuf = reinterpret_cast<uint8_t *>(fb);   /* 16-byte aligned, as it requires */
+    io.outbuf = reinterpret_cast<uint8_t *>(fb);
     jpeg_dec_header_info_t info;
     err = jpeg_dec_parse_header(dec, &io, &info);
     if (err == JPEG_ERR_OK) {
@@ -99,11 +130,65 @@ int decode(const uint8_t *jpg, size_t len, uint16_t *fb, uint32_t w, uint32_t h)
     return err;
 }
 
-bool is_jpeg(uint32_t codec)
+/*
+ * The frame a block at a time, alternating between bufs[0] and bufs[1] (each `buf_len` bytes,
+ * 16-byte aligned): before(i) runs before block i is decoded into bufs[i & 1] -- the moment to
+ * make sure that buffer is free -- and after(row, lines, pixels) once it is. Returns the
+ * decoder's error; *decode_us gets the time spent inside it.
+ */
+template <typename Before, typename After>
+int decode_blocks(const uint8_t *jpg, size_t len, uint32_t w, uint32_t h, uint8_t *const bufs[2],
+                  size_t buf_len, int64_t *decode_us, Before before, After after)
 {
-    /* ffmpeg's -c:v mjpeg writes 'jpeg'; Motion-JPEG A frames are plain JPEGs too */
-    return codec == quicktime::FourCC('j', 'p', 'e', 'g') ||
-           codec == quicktime::FourCC('m', 'j', 'p', 'a');
+    jpeg_dec_config_t cfg = DEFAULT_JPEG_DEC_CONFIG();
+    cfg.output_type = JPEG_PIXEL_FORMAT_RGB565_BE;
+    cfg.block_enable = true;
+    jpeg_dec_handle_t dec = nullptr;
+    jpeg_error_t err = jpeg_dec_open(&cfg, &dec);
+    if (err != JPEG_ERR_OK) {
+        return err;
+    }
+    jpeg_dec_io_t io = {};
+    io.inbuf = const_cast<uint8_t *>(jpg);
+    io.inbuf_len = (int)len;
+    jpeg_dec_header_info_t info;
+    int blocks = 0, block_len = 0;
+    err = jpeg_dec_parse_header(dec, &io, &info);
+    if (err == JPEG_ERR_OK && (info.width != w || info.height != h)) {
+        err = JPEG_ERR_INVALID_PARAM;
+    }
+    if (err == JPEG_ERR_OK) {
+        err = jpeg_dec_get_process_count(dec, &blocks);
+    }
+    if (err == JPEG_ERR_OK) {
+        err = jpeg_dec_get_outbuf_len(dec, &block_len);
+    }
+    if (err == JPEG_ERR_OK && (blocks <= 0 || block_len <= 0 || (size_t)block_len > buf_len)) {
+        err = JPEG_ERR_NO_MEM;
+    }
+    uint32_t row = 0;
+    for (int i = 0; i < blocks && err == JPEG_ERR_OK && row < h; i++) {
+        before(i);
+        io.outbuf = bufs[i & 1];
+        const int64_t t0 = now_us();
+        err = jpeg_dec_process(dec, &io);
+        *decode_us += now_us() - t0;
+        if (err != JPEG_ERR_OK) {
+            break;
+        }
+        /* Rows are the image's width, unpadded; the last block of a 120-line frame is 8 lines
+         * of a 16-line MCU row, and the count clips anything beyond the image. */
+        uint32_t lines = (uint32_t)io.out_size / (w * 2);
+        if (lines > h - row) {
+            lines = h - row;
+        }
+        if (lines > 0) {
+            after(row, lines, reinterpret_cast<const uint16_t *>(io.outbuf));
+            row += lines;
+        }
+    }
+    jpeg_dec_close(dec);
+    return err;
 }
 
 void resolve(const char *in, char *out, size_t len)
@@ -118,17 +203,20 @@ void resolve(const char *in, char *out, size_t len)
 void report(void)
 {
     const Stats &s = s_stats;
-    const int64_t end = s.ended_us ? s.ended_us : esp_timer_get_time();
+    const int64_t end = s.ended_us ? s.ended_us : now_us();
     const double secs = (end - s.started_us) / 1e6;
     const uint32_t n = s.shown ? s.shown : 1;
     printf("%s: %" PRIu32 "x%" PRIu32 ", %" PRIu32 " frames at %.2f fps; shown %" PRIu32
            " in %.1f s (%.2f fps)%s\n",
            s.path, s.width, s.height, s.frames, s.fps, s.shown, secs,
            secs > 0 ? s.shown / secs : 0.0, s.loops > 1 ? " over several loops" : "");
-    printf("per frame: read %.2f ms, decode %.2f ms, draw %.2f ms; %" PRIu32 " late, %" PRIu32
-           " decode errors%s\n",
-           s.read_us / 1000.0 / n, s.decode_us / 1000.0 / n, s.draw_us / 1000.0 / n, s.late,
-           s.errors, s.frame_in_psram ? "; frame buffer in PSRAM" : "");
+    printf("per frame: read %.2f ms, decode %.2f ms, decode+draw %.2f ms of a %.1f ms frame; "
+           "paint %.2f ms (max %.2f)\n",
+           s.read_us / 1000.0 / n, s.decode_us / 1000.0 / n, s.render_us / 1000.0 / n,
+           s.fps > 0 ? 1000.0 / s.fps : 0.0, s.paint_us / 1000.0 / n, s.paint_max_us / 1000.0);
+    printf("%" PRIu32 " late, %" PRIu32 " decode errors; %s\n", s.late, s.errors,
+           s.streamed ? "streamed in 16-line blocks"
+           : s.frame_in_psram ? "whole frame, in PSRAM" : "whole frame, in internal RAM");
 }
 
 void play(const Request &req)
@@ -143,9 +231,13 @@ void play(const Request &req)
     setvbuf(f, nullptr, _IONBF, 0);
 
     quicktime::QuickTimeFile qt(f);
+    const uint32_t w = qt.Width(), h = qt.Height();
+    const bool streamed = !req.whole_frame && can_stream(w, h);
     uint8_t *jpg = nullptr;
     uint16_t *fb = nullptr;
-    const uint32_t w = qt.Width(), h = qt.Height();
+    uint8_t *blocks[2] = { nullptr, nullptr };
+    const size_t block_len = (size_t)w * BLOCK_LINES * 2;
+    bool ok = false;
     if (!qt.IsValid()) {
         printf("video: %s: %s\n", req.path, qt.Error());
     } else if (!is_jpeg(qt.Codec())) {
@@ -156,18 +248,29 @@ void play(const Request &req)
     } else {
         jpg = static_cast<uint8_t *>(heap_caps_aligned_alloc(16, qt.MaxFrameSize(),
                                                              MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-        const size_t frame = (size_t)w * h * 2;
-        fb = static_cast<uint16_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
-        if (fb == nullptr) {
-            fb = static_cast<uint16_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_SPIRAM));
+        if (streamed) {
+            for (auto &b : blocks) {
+                b = static_cast<uint8_t *>(heap_caps_aligned_alloc(16, block_len,
+                                                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+            }
+            ok = jpg && blocks[0] && blocks[1];
+        } else {
+            const size_t frame = (size_t)w * h * 2;
+            fb = static_cast<uint16_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+            if (fb == nullptr) {
+                fb = static_cast<uint16_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_SPIRAM));
+            }
+            ok = jpg && fb;
         }
-        if (jpg == nullptr || fb == nullptr) {
-            printf("video: no memory for a %u byte frame\n", (unsigned)frame);
+        if (!ok) {
+            printf("video: out of memory for the decode buffers\n");
         }
     }
-    if (jpg == nullptr || fb == nullptr) {
+    if (!ok) {
         heap_caps_free(jpg);
         heap_caps_free(fb);
+        heap_caps_free(blocks[0]);
+        heap_caps_free(blocks[1]);
         fclose(f);
         return;
     }
@@ -179,57 +282,89 @@ void play(const Request &req)
     s.height = h;
     s.frames = (uint32_t)qt.FrameCount();
     s.fps = qt.DurationUs() ? s.frames * 1e6 / qt.DurationUs() : 0;
-    s.frame_in_psram = !esp_ptr_internal(fb);
+    s.streamed = streamed;
+    s.frame_in_psram = fb != nullptr && !esp_ptr_internal(fb);
 
     board_lcd_cycle(false);
     board_lcd_fill(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)w) / 2, y = (BOARD_LCD_V_RES - (int)h) / 2;
-    printf("video: playing %s (%" PRIu32 "x%" PRIu32 ", %" PRIu32 " frames, %.2f fps)%s\n",
-           req.path, w, h, s.frames, s.fps, req.loop ? ", looping" : "");
+    printf("video: playing %s (%" PRIu32 "x%" PRIu32 ", %" PRIu32 " frames, %.2f fps, %s)%s\n",
+           req.path, w, h, s.frames, s.fps, streamed ? "streamed" : "whole frame",
+           req.loop ? ", looping" : "");
 
-    s.started_us = esp_timer_get_time();
+    s.started_us = now_us();
     const uint32_t scale = qt.TimeScale();
     do {
         /* Each frame is due at the clip's own time for it, from the start of this pass. */
-        const int64_t pass_start = esp_timer_get_time();
+        const int64_t pass_start = now_us();
         uint64_t ticks = 0;
         for (size_t i = 0; i < s.frames && !s_stop; i++) {
-            const int64_t t0 = esp_timer_get_time();
+            const int64_t t0 = now_us();
             const ssize_t n = qt.GetFrame(i, jpg, qt.MaxFrameSize());
-            const int64_t t1 = esp_timer_get_time();
+            const int64_t t1 = now_us();
             if (n <= 0) {
                 printf("video: cannot read frame %u of %s\n", (unsigned)i, req.path);
                 s_stop = true;
                 break;
             }
-            const int rc = decode(jpg, (size_t)n, fb, w, h);
-            const int64_t t2 = esp_timer_get_time();
-            if (rc == 0) {
-                board_lcd_draw(x, y, (int)w, (int)h, fb);
-            } else if (s.errors++ == 0) {
-                printf("video: frame %u: decode error %d (showing the frame before)\n", (unsigned)i, rc);
+
+            int rc;
+            int64_t paint_start = 0, paint_end = 0;
+            if (streamed) {
+                board_lcd_stream_begin();
+                rc = decode_blocks(jpg, (size_t)n, w, h, blocks, block_len, &s.decode_us,
+                    [](int) {
+                        /* the buffer about to be refilled went out two blocks ago */
+                        board_lcd_stream_wait(1);
+                    },
+                    [&](uint32_t row, uint32_t lines, const uint16_t *pixels) {
+                        if (paint_start == 0) {
+                            paint_start = now_us();
+                        }
+                        board_lcd_stream_block(x, y + (int)row, (int)w, (int)lines, pixels);
+                    });
+                board_lcd_stream_end();
+                paint_end = now_us();
+            } else {
+                const int64_t d0 = now_us();
+                rc = decode_frame(jpg, (size_t)n, fb, w, h);
+                s.decode_us += now_us() - d0;
+                if (rc == 0) {
+                    paint_start = now_us();
+                    board_lcd_draw(x, y, (int)w, (int)h, fb);
+                    paint_end = now_us();
+                }
             }
-            const int64_t t3 = esp_timer_get_time();
+            const int64_t t2 = now_us();
+            if (rc != 0 && s.errors++ == 0) {
+                printf("video: frame %u: decode error %d\n", (unsigned)i, rc);
+            }
             s.read_us += t1 - t0;
-            s.decode_us += t2 - t1;
-            s.draw_us += t3 - t2;
+            s.render_us += t2 - t1;
+            if (paint_start != 0) {
+                const int64_t paint = paint_end - paint_start;
+                s.paint_us += paint;
+                s.paint_max_us = paint > s.paint_max_us ? paint : s.paint_max_us;
+            }
             s.shown++;
 
             ticks += qt.FrameDelta(i);
             const int64_t due = pass_start + (int64_t)(ticks * 1000000ULL / scale);
-            if (t3 > due) {
+            if (t2 > due) {
                 s.late++;
             }
             sleep_until(due);
         }
         s.loops++;
     } while (req.loop && !s_stop);
-    s.ended_us = esp_timer_get_time();
+    s.ended_us = now_us();
 
     board_lcd_fill(0x0000);
     report();
     heap_caps_free(jpg);
     heap_caps_free(fb);
+    heap_caps_free(blocks[0]);
+    heap_caps_free(blocks[1]);
     fclose(f);
 }
 
@@ -242,6 +377,75 @@ void player_task(void *arg)
     vTaskDelete(nullptr);
 }
 
+/*
+ * `video verify <file> [step]`: decode every step-th frame both ways -- in blocks, gathered
+ * into a frame, and whole -- and compare them byte for byte. Block mode should change how the
+ * pixels arrive, never what they are.
+ */
+int verify(const char *path, int step)
+{
+    FILE *f = fopen(path, "rb");
+    if (f == nullptr) {
+        printf("video: cannot open %s: %s\n", path, strerror(errno));
+        return 1;
+    }
+    quicktime::QuickTimeFile qt(f);
+    const uint32_t w = qt.Width(), h = qt.Height();
+    if (!qt.IsValid() || !is_jpeg(qt.Codec()) || !can_stream(w, h) || w > 1024 || h > 1024) {
+        printf("video: %s: %s\n", path, qt.IsValid() ? "not a Motion-JPEG clip block mode can decode"
+                                                     : qt.Error());
+        fclose(f);
+        return 1;
+    }
+    const size_t frame = (size_t)w * h * 2, block_len = (size_t)w * BLOCK_LINES * 2;
+    uint8_t *jpg = static_cast<uint8_t *>(heap_caps_aligned_alloc(16, qt.MaxFrameSize(), MALLOC_CAP_8BIT));
+    uint8_t *whole = static_cast<uint8_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_8BIT));
+    uint8_t *gathered = static_cast<uint8_t *>(heap_caps_aligned_alloc(16, frame, MALLOC_CAP_8BIT));
+    uint8_t *blocks[2] = {
+        static_cast<uint8_t *>(heap_caps_aligned_alloc(16, block_len, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+        static_cast<uint8_t *>(heap_caps_aligned_alloc(16, block_len, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+    };
+    int checked = 0, differ = 0, failed = 0;
+    if (jpg && whole && gathered && blocks[0] && blocks[1]) {
+        for (size_t i = 0; i < (size_t)qt.FrameCount(); i += (size_t)step) {
+            const ssize_t n = qt.GetFrame(i, jpg, qt.MaxFrameSize());
+            int64_t unused = 0;
+            memset(whole, 0x55, frame);
+            memset(gathered, 0xAA, frame);   /* different poison: unwritten rows cannot match */
+            const int rc1 = n > 0 ? decode_frame(jpg, (size_t)n, reinterpret_cast<uint16_t *>(whole), w, h) : -1;
+            const int rc2 = n > 0 ? decode_blocks(jpg, (size_t)n, w, h, blocks, block_len, &unused,
+                [](int) {},
+                [&](uint32_t row, uint32_t lines, const uint16_t *pixels) {
+                    memcpy(gathered + (size_t)row * w * 2, pixels, (size_t)lines * w * 2);
+                }) : -1;
+            checked++;
+            if (rc1 != 0 || rc2 != 0) {
+                failed++;
+                printf("frame %u: decode failed (whole %d, blocks %d)\n", (unsigned)i, rc1, rc2);
+            } else if (memcmp(whole, gathered, frame) != 0) {
+                differ++;
+                uint32_t first = 0;
+                while (first < h && memcmp(whole + first * w * 2, gathered + first * w * 2, w * 2) == 0) {
+                    first++;
+                }
+                printf("frame %u: differs from row %" PRIu32 "\n", (unsigned)i, first);
+            }
+        }
+        printf("%s: %d frames checked (every %d), %d differ, %d failed to decode\n", path, checked,
+               step, differ, failed);
+    } else {
+        printf("video: out of memory\n");
+        failed = 1;
+    }
+    heap_caps_free(jpg);
+    heap_caps_free(whole);
+    heap_caps_free(gathered);
+    heap_caps_free(blocks[0]);
+    heap_caps_free(blocks[1]);
+    fclose(f);
+    return differ || failed ? 1 : 0;
+}
+
 /* ------------------------------------------------------------------ console */
 
 int cmd_video(int argc, char **argv)
@@ -249,9 +453,13 @@ int cmd_video(int argc, char **argv)
     const char *sub = argc > 1 ? argv[1] : "";
     char path[PATH_LEN];
     if (strcmp(sub, "play") == 0 && argc >= 3) {
-        const bool loop = argc > 3 && strcmp(argv[3], "loop") == 0;
+        bool loop = false, whole = false;
+        for (int i = 3; i < argc; i++) {
+            loop |= strcmp(argv[i], "loop") == 0;
+            whole |= strcmp(argv[i], "frame") == 0;
+        }
         resolve(argv[2], path, sizeof(path));
-        return video_play(path, loop) == ESP_OK ? 0 : 1;
+        return video_play(path, loop, whole) == ESP_OK ? 0 : 1;
     }
     if (strcmp(sub, "stop") == 0) {
         const bool was = video_playing();
@@ -275,9 +483,9 @@ int cmd_video(int argc, char **argv)
             printf("video: cannot open %s: %s\n", path, strerror(errno));
             return 1;
         }
-        const int64_t t0 = esp_timer_get_time();
+        const int64_t t0 = now_us();
         quicktime::QuickTimeFile qt(f);
-        const int64_t parse_us = esp_timer_get_time() - t0;
+        const int64_t parse_us = now_us() - t0;
         qt.Describe(path);
         if (qt.IsValid()) {
             printf("parsed in %.1f ms\n", parse_us / 1000.0);
@@ -285,18 +493,24 @@ int cmd_video(int argc, char **argv)
         fclose(f);
         return qt.IsValid() ? 0 : 1;
     }
-    printf("usage: video play <file> [loop] | stop | status | info <file>\n");
+    if (strcmp(sub, "verify") == 0 && argc >= 3) {
+        const int step = argc > 3 ? atoi(argv[3]) : 50;
+        resolve(argv[2], path, sizeof(path));
+        return verify(path, step > 0 ? step : 50);
+    }
+    printf("usage: video play <file> [loop] [frame] | stop | status | info <file> | verify <file> [step]\n");
     return 1;
 }
 
 }  // namespace
 
-extern "C" esp_err_t video_play(const char *path, bool loop)
+extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
 {
     video_stop();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
     req->loop = loop;
+    req->whole_frame = whole_frame;
     s_stop = false;
     if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
                                 TASK_CORE) != pdPASS) {
@@ -338,9 +552,9 @@ extern "C" void register_video_commands(const char *base_path)
 
     esp_console_cmd_t cmd = {};
     cmd.command = "video";
-    cmd.help = "Play a Motion-JPEG QuickTime file on the panel (the Flash_PNG clips), stop it, "
-               "or describe one";
-    cmd.hint = "play <file> [loop] | stop | status | info <file>";
+    cmd.help = "Play a Motion-JPEG QuickTime file on the panel (streamed in blocks, or `frame` "
+               "for whole frames), stop it, describe one, or check block decoding against whole";
+    cmd.hint = "play <file> [loop] [frame] | stop | status | info <file> | verify <file> [step]";
     cmd.func = cmd_video;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }

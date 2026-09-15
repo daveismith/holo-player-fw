@@ -65,6 +65,19 @@ esp_err_t board_lcd_fill(uint16_t rgb565);
 /* A w x h block of big-endian RGB565 at (x, y). `pixels` must be DMA-capable internal RAM;
  * returns once the panel has it. */
 esp_err_t board_lcd_draw(int x, int y, int w, int h, const uint16_t *pixels);
+
+/*
+ * Streaming one frame as a run of blocks, each sent while the caller prepares the next:
+ * begin, then queue blocks with board_lcd_stream_block() (DMA-capable memory; it returns once
+ * the block is queued), then end. A block's pixels must stay untouched until it is out:
+ * board_lcd_stream_wait(n) returns once no more than `n` blocks are still pending, so a caller
+ * alternating two buffers waits for n = 1 before refilling one. The panel is locked from begin
+ * to end.
+ */
+esp_err_t board_lcd_stream_begin(void);
+esp_err_t board_lcd_stream_block(int x, int y, int w, int h, const uint16_t *pixels);
+esp_err_t board_lcd_stream_wait(int max_pending);
+esp_err_t board_lcd_stream_end(void);
 esp_err_t board_lcd_set_backlight(int percent);
 int board_lcd_get_backlight(void);
 /* `frames` whole-screen fills back to back; the average time per fill in *us_per_frame. */
