@@ -2,6 +2,7 @@
  * GC9A01 round LCD: panel bring-up, whole-screen fills, the backlight, and the
  * red/green/blue/white test cycle.
  */
+#include <string.h>
 #include <sys/param.h>
 #include "board.h"
 #include "driver/ledc.h"
@@ -12,6 +13,7 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -139,6 +141,34 @@ esp_err_t board_lcd_fill(uint16_t rgb565)
     ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
     xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_err_t err = fill_locked(rgb565);
+    xSemaphoreGive(s_lock);
+    return err;
+}
+
+esp_err_t board_lcd_draw(int x, int y, int w, int h, const uint16_t *pixels)
+{
+    ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    ESP_RETURN_ON_FALSE(w > 0 && w <= BOARD_LCD_H_RES && h > 0, ESP_ERR_INVALID_ARG, TAG, "size");
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    esp_err_t err = ESP_OK;
+    if (esp_ptr_dma_capable(pixels)) {
+        /* esp_lcd splits a block bigger than one SPI transfer and signals after the last. */
+        err = esp_lcd_panel_draw_bitmap(s_panel, x, y, x + w, y + h, pixels);
+        if (err == ESP_OK && xSemaphoreTake(s_strip_done, pdMS_TO_TICKS(500)) != pdTRUE) {
+            err = ESP_ERR_TIMEOUT;
+        }
+    } else {
+        /* PSRAM and the like: through the DMA strip, as many rows at a time as fit. */
+        const int rows = STRIP_PIXELS / w;
+        for (int row = 0; row < h && err == ESP_OK; row += rows) {
+            const int n = MIN(rows, h - row);
+            memcpy(s_strip, pixels + (size_t)row * w, (size_t)n * w * sizeof(uint16_t));
+            err = esp_lcd_panel_draw_bitmap(s_panel, x, y + row, x + w, y + row + n, s_strip);
+            if (err == ESP_OK && xSemaphoreTake(s_strip_done, pdMS_TO_TICKS(200)) != pdTRUE) {
+                err = ESP_ERR_TIMEOUT;
+            }
+        }
+    }
     xSemaphoreGive(s_lock);
     return err;
 }

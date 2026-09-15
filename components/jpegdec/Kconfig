@@ -1,0 +1,22 @@
+menu "JPEGDEC (bitbank2)"
+
+    choice JPEGDEC_VERSION
+        prompt "Version"
+        default JPEGDEC_V1_5_0
+        help
+            Both are vendored under components/jpegdec; only one can be linked.
+
+        config JPEGDEC_V1_5_0
+            bool "1.5.0 (what the Flash_PNG sketch used)"
+        config JPEGDEC_V1_8_4
+            bool "1.8.4 (latest, November 2025)"
+    endchoice
+
+    config JPEGDEC_S3_SIMD
+        bool "Use the ESP32-S3 SIMD colour conversion and dequantisation"
+        default y
+        depends on IDF_TARGET_ESP32S3
+        help
+            JPEGDEC's hand-written ESP32-S3 assembly, which its Arduino builds use.
+
+endmenu

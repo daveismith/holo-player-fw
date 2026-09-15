@@ -9,6 +9,16 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 0.5.3
+  espressif/esp_jpeg:
+    component_hash: defb83669293cbf86d0fa86b475ba5517aceed04ed70db435388c151ab37b5d7
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.3.1
   espressif/esp_lcd_gc9a01:
     component_hash: e60bc2b5649c7679bd010797a875ae64b2a57cf9cdbd6a2bf7a0ade66913edc0
     dependencies:
@@ -47,6 +57,25 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.2
+  espressif/esp_new_jpeg:
+    component_hash: e1e7e6991193c41ed6c9fc386702aa7821433319e7aa9c3147cd3236310cd69c
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32s2
+    - esp32s3
+    - esp32s31
+    - esp32p4
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h4
+    version: 1.0.2
   idf:
     source:
       type: idf
@@ -72,11 +101,13 @@ dependencies:
       type: service
     version: 2.0.1
 direct_dependencies:
+- espressif/esp_jpeg
 - espressif/esp_lcd_gc9a01
 - espressif/esp_lcd_touch_cst816s
+- espressif/esp_new_jpeg
 - idf
 - joltwallet/littlefs
 - waveshare/qmi8658
-manifest_hash: 31961c78bae55613e76ba8e2bcb988bcbcb4b9910dce3fd5301ed713f5672c49
+manifest_hash: 1c4d52d0aa030ea4a4d87e46a62ec4e0bff103ccbec054d5cdcef37f5df1db5f
 target: esp32s3
 version: 3.0.0

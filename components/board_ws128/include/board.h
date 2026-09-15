@@ -62,6 +62,9 @@ i2c_master_bus_handle_t board_i2c_bus(void);
 /* LCD (lcd.c). Colours are RGB565 in the usual order; the driver byte-swaps for the bus. */
 esp_err_t board_lcd_init(void);
 esp_err_t board_lcd_fill(uint16_t rgb565);
+/* A w x h block of big-endian RGB565 at (x, y). `pixels` must be DMA-capable internal RAM;
+ * returns once the panel has it. */
+esp_err_t board_lcd_draw(int x, int y, int w, int h, const uint16_t *pixels);
 esp_err_t board_lcd_set_backlight(int percent);
 int board_lcd_get_backlight(void);
 /* `frames` whole-screen fills back to back; the average time per fill in *us_per_frame. */

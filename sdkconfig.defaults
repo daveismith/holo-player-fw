@@ -2,6 +2,11 @@
 # 16 MB flash. `sdkconfig` is not committed, so everything the build needs is here.
 CONFIG_IDF_TARGET="esp32s3"
 
+# -O2. Video decoding is the hot path, and the JPEG benchmark compares source-built decoders
+# with esp_new_jpeg, which ships prebuilt and optimised: at the default -Og they would lose
+# for reasons that have nothing to do with the decoders.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
 # Reduce bootloader log verbosity
 CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
 CONFIG_BOOTLOADER_LOG_LEVEL=2

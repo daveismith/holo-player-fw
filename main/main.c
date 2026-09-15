@@ -24,6 +24,7 @@
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "console_settings.h"
+#include "jpeg_bench.h"
 #include "wifi_known.h"
 
 /*
@@ -181,6 +182,7 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(register_fs(&fs_config));
     board_register_commands();
+    register_jpeg_bench(MOUNT_PATH);
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();
