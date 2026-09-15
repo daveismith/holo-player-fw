@@ -18,6 +18,7 @@
 #include "soc/soc_caps.h"
 #include "board.h"
 #include "cmd_fs.h"
+#include "console_history.h"
 #include "cmd_i2ctools.h"
 #include "cmd_network.h"
 #include "cmd_nvs.h"
@@ -48,20 +49,28 @@ static const char *TAG = "holo";
 #if CONFIG_CONSOLE_STORE_HISTORY
 #define HISTORY_PATH MOUNT_PATH "/history.txt"
 
+#define HISTORY_LINES 100   /* as console_settings.c gives linenoise */
+
 /*
  * Saving the history writes flash, which stalls both cores until the write is done; during a
- * clip that shows as late frames. So while one plays, the save waits for it to stop. This is
- * checked after every command, so `video stop` or `screen clear` saves straight away; a clip
- * that ends by itself leaves the save for the next command.
+ * clip that shows as late frames. So while one plays, the save waits: it happens when the
+ * screen turns off (the clip ends by itself, `video stop`, `screen clear`), or after the first
+ * command run with no clip playing (a colour shown in the clip's place keeps the screen on).
+ * Either way the console task does the writing.
  */
-static bool s_history_unsaved;
-
 static void save_history_if_idle(void)
 {
-    if (s_history_unsaved && !video_playing()) {
-        linenoiseHistorySave(HISTORY_PATH);
-        s_history_unsaved = false;
+    if (!video_playing()) {
+        console_history_save();
     }
+}
+
+/* From whichever task turned the screen off -- the player's, when a clip ends by itself --
+ * so it only asks: the console task saves when it is next waiting for a keystroke. */
+static void on_screen_off(void *ctx)
+{
+    (void)ctx;
+    console_history_request_save();
 }
 #else
 #define HISTORY_PATH NULL
@@ -165,6 +174,11 @@ void app_main(void)
 
     /* Initialize linenoise library and esp_console*/
     initialize_console_library(HISTORY_PATH);
+#if CONFIG_CONSOLE_STORE_HISTORY
+    if (console_history_init(HISTORY_PATH, HISTORY_LINES) == ESP_OK) {
+        board_lcd_set_off_hook(on_screen_off, NULL);
+    }
+#endif
 
     /* Prompt to be printed before each line.
      * This can be customized, made dynamic, etc.
@@ -234,11 +248,12 @@ void app_main(void)
 
         /* Add the command to the history if not empty*/
         if (strlen(line) > 0) {
-            linenoiseHistoryAdd(line);
 #if CONFIG_CONSOLE_STORE_HISTORY
-            /* Save command history to filesystem, unless a clip is playing */
-            s_history_unsaved = true;
+            /* Into the history, and saved to the filesystem unless a clip is playing */
+            console_history_add(line);
             save_history_if_idle();
+#else
+            linenoiseHistoryAdd(line);
 #endif // CONFIG_CONSOLE_STORE_HISTORY
         }
 

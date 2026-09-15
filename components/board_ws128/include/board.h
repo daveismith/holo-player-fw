@@ -71,6 +71,10 @@ esp_err_t board_lcd_init(void);
 esp_err_t board_lcd_power_on(uint16_t rgb565);
 esp_err_t board_lcd_power_off(void);
 bool board_lcd_powered(void);
+/* Called after the panel goes from on to off, from whichever task turned it off (the video
+ * player's, when a clip ends by itself). Nothing is showing then, so it is a good moment for
+ * work that would disturb playback, such as a flash write. */
+void board_lcd_set_off_hook(void (*hook)(void *ctx), void *ctx);
 /* The backlight level while the panel is on (default 100%), applied at once if it is. */
 esp_err_t board_lcd_set_backlight(int percent);
 int board_lcd_get_backlight(void);

@@ -53,6 +53,8 @@ static SemaphoreHandle_t s_lock;         /* one user of the panel at a time */
 static SemaphoreHandle_t s_strip_done;   /* the bus has finished with a block */
 static int s_backlight = 100;            /* the level while the panel is on, percent */
 static bool s_powered;
+static void (*s_off_hook)(void *ctx);
+static void *s_off_hook_ctx;
 
 static bool on_color_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *edata,
                           void *ctx)
@@ -183,7 +185,8 @@ esp_err_t board_lcd_power_off(void)
     ESP_RETURN_ON_FALSE(s_panel != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
     xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_err_t err = ESP_OK;
-    if (s_powered) {
+    const bool was_on = s_powered;
+    if (was_on) {
         /* Light first, so the display going off is never seen as a flash. */
         apply_backlight(0);
         err = esp_lcd_panel_disp_on_off(s_panel, false);
@@ -194,7 +197,17 @@ esp_err_t board_lcd_power_off(void)
         s_powered = false;
     }
     xSemaphoreGive(s_lock);
+    /* Outside the lock, so the hook may take its time or use the panel itself. */
+    if (was_on && s_off_hook != NULL) {
+        s_off_hook(s_off_hook_ctx);
+    }
     return err;
+}
+
+void board_lcd_set_off_hook(void (*hook)(void *ctx), void *ctx)
+{
+    s_off_hook_ctx = ctx;
+    s_off_hook = hook;
 }
 
 bool board_lcd_powered(void)

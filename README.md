@@ -113,8 +113,11 @@ Measured on the four test clips, at 30 fps (a 33.3 ms frame):
 
 Anything that writes to flash during playback, such as an NVS save, pauses both cores. That
 can make an occasional frame late. The console's history file is written only when no clip is
-playing. While one plays, the save waits until it stops. `video stop` and `screen` save at
-once. If a clip ends by itself, the save happens with the next command.
+playing. While one plays, the save waits until the screen turns off: when the clip ends by
+itself, on `video stop`, or on `screen clear`. If a colour replaces the clip, the screen stays
+on, so the save happens with the next command. The console task always does the write. When a
+clip ends by itself, the player signals the console task, which saves while waiting for the
+next keystroke. Anything already typed on the command line is left alone.
 
 To make a clip, use the Flash_PNG recipe. Export at 120×120 (anything up to 240×240
 fits the panel), then run:
