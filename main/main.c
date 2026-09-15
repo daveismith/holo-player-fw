@@ -19,6 +19,7 @@
 #include "board.h"
 #include "cmd_fs.h"
 #include "console_history.h"
+#include "holo_servos.h"
 #include "leds.h"
 #include "cmd_i2ctools.h"
 #include "cmd_network.h"
@@ -97,6 +98,8 @@ static const gpio_reserved_t s_gpio_reserved[] = {
     { BOARD_TOUCH_RST, "touch RST" },
     { BOARD_LCD_RST, "LCD RST" },
     { CONFIG_LEDS_GPIO, "LED strip data" },
+    { CONFIG_HOLO_SERVO1_GPIO, "holo servo 1" },
+    { CONFIG_HOLO_SERVO2_GPIO, "holo servo 2" },
     { 26, "flash/PSRAM SPI" }, { 27, "flash/PSRAM SPI" }, { 28, "flash/PSRAM SPI" },
     { 29, "flash/PSRAM SPI" }, { 30, "flash/PSRAM SPI" }, { 31, "flash/PSRAM SPI" },
     { 32, "flash/PSRAM SPI" },
@@ -161,6 +164,12 @@ static void initialize_board(void)
         ESP_LOGW(TAG, "LEDs: %s", esp_err_to_name(err));
     }
 
+    /* The holo's servos on P2, limp until the first move */
+    err = holo_servos_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "holo: %s", esp_err_to_name(err));
+    }
+
 #if CONFIG_BOARD_TOUCH_AUTOSTART
     err = board_touch_start();
     if (err != ESP_OK) {
@@ -218,6 +227,7 @@ void app_main(void)
     board_register_commands();
     register_video_commands(MOUNT_PATH);
     register_leds_commands();
+    holo_servos_register_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();

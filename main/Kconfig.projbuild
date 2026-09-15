@@ -16,3 +16,71 @@ menu "holo-player-fw"
             (the example would stop after an empty line).
 
 endmenu
+
+menu "Holoprojector servos"
+
+    config HOLO_SERVO1_GPIO
+        int "Servo 1 GPIO"
+        default 17
+        range 0 48
+        help
+            P2 pin 9 on the Waveshare ESP32-S3-Touch-LCD-1.28.
+
+    config HOLO_SERVO1_MIN_US
+        int "Servo 1 travel: minimum pulse (us)"
+        default 1150
+        range 500 2500
+        help
+            Servo 1's working range runs from this to its maximum until `holo endpoints`
+            saves one. The minimum is CLOSED: full left for the pan axis, full down for tilt.
+            If the axis runs the wrong way, save endpoints with closed above open.
+
+    config HOLO_SERVO1_MAX_US
+        int "Servo 1 travel: maximum pulse (us)"
+        default 1900
+        range 500 2500
+
+    config HOLO_SERVO2_GPIO
+        int "Servo 2 GPIO"
+        default 18
+        range 0 48
+        help
+            P2 pin 10 on the Waveshare ESP32-S3-Touch-LCD-1.28.
+
+    config HOLO_SERVO2_MIN_US
+        int "Servo 2 travel: minimum pulse (us)"
+        default 1300
+        range 500 2500
+
+    config HOLO_SERVO2_MAX_US
+        int "Servo 2 travel: maximum pulse (us)"
+        default 1950
+        range 500 2500
+
+    choice HOLO_PAN
+        prompt "Which servo pans (left and right)"
+        default HOLO_PAN_SERVO1
+        help
+            The other one tilts. If `holo wag` nods rather than shaking its head, choose
+            the other.
+
+        config HOLO_PAN_SERVO1
+            bool "Servo 1"
+        config HOLO_PAN_SERVO2
+            bool "Servo 2"
+    endchoice
+
+    config HOLO_SERVO_ABS_MIN_US
+        int "Absolute minimum pulse (us)"
+        default 1000
+        range 500 2500
+        help
+            Neither servo is ever sent a shorter pulse, whatever `servo_move` or a saved
+            calibration asks for. Each servo's travel must lie inside the absolute range.
+
+    config HOLO_SERVO_ABS_MAX_US
+        int "Absolute maximum pulse (us)"
+        default 2000
+        range 500 2500
+
+endmenu

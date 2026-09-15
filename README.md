@@ -29,11 +29,11 @@ S3's native USB pins aren't connected on this board.
 
 | Path | What |
 |---|---|
-| `main/` | `app_main` and the console loop |
+| `main/` | `app_main`, the console loop, and the holo's servos (`holo_servos.c`) |
 | `components/board_ws128/` | Pins (`include/board.h`), shared I2C bus, LCD, touch, IMU, console colour parsing, and the `lcd`/`touch`/`imu` commands |
 | `components/video/` | QuickTime parser, MJPEG player, and the `video`/`screen` commands |
 | `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
-| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`) |
+| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`), `servo`, `holo` |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Console
@@ -50,6 +50,8 @@ Type `help` for the full list. The board-specific commands are:
 | `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
 | `video play <file> [loop] [frame] \| stop \| status \| info <file> \| verify <file> [step]` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
 | `leds [colour <c> \| off \| wipe [<c>] [loop] \| rainbow [loop] \| bright <1-100>]` | The NeoPixel strip: a solid colour, off, brightness, or a pattern (`wipe`, `rainbow`; see [NeoPixel strip](#neopixel-strip)), played once and then off, or looped. Alone, what it's showing |
+| `holo [<verb> ...]` | The holoprojector: `center`, `move`, `nudge`, `twitch`, `wag`, `nod`, `scan`, `circle`, `stop`, `off`, `endpoints`. Alone, its status; `holo help` for the options. See [Holoprojector servos](#holoprojector-servos) |
+| `servo_list [-o wide]`, `servo_move`, `servo_sweep`, `servo_config`, `servo_register` | The two servos, `pan` and `tilt`, one at a time: raw pulses and working ranges |
 
 A colour for `screen colour` or `leds colour` is a name (`red`, `orange`, ...), `#RRGGBB`,
 `R,G,B`, or `R G B`. `screen colour` also takes `0x` and a raw RGB565 value.
@@ -190,6 +192,51 @@ The full header: 1 GND, 2 VSYS, 3 RUN (reset), 4 BOOT (GPIO0), 5 GND, 6 3V3, 7 G
 GPIO16 is the S3's XTAL_32K_N pin. This board has no 32 kHz crystal, so the pin is a plain
 GPIO. The `gpio` command refuses to drive it.
 
+## Holoprojector servos
+
+Two hobby servos aim the holo: `pan` (left and right) and `tilt` (up and down). They run
+on the S3's MCPWM through the shared `servo` component. The shared `holo` engine moves
+them the way the dome's basic holoprojectors move: `holo twitch`, `wag`, `nod`, `scan`,
+`circle`, `move`, `nudge` and `center`. With one holo, the name can be left out, as in
+`holo wag`; `holo help` lists the options. The servos stay limp until the first move.
+
+### Wiring
+
+| Wire | Goes to |
+|---|---|
+| Servo 1 signal (orange or white) | P2 pin 9, GPIO17 |
+| Servo 2 signal | P2 pin 10, GPIO18 |
+| Both servos' power (red) | A separate 5 V supply for the servos |
+| Both servos' ground (brown or black) | That supply's ground, and P2 pin 1 or 5 |
+
+- **Power:** don't take servo power from P2's VSYS pin. A small servo can draw 0.5–1 A
+  as it starts or stalls, and two at once would brown out the board. Join the servo
+  supply's ground to the board's.
+- **Signal level:** the signal is 3.3 V, which hobby servos accept.
+
+### Which servo is which
+
+The Flash_PNG sketch didn't say which servo pans. By default servo 1 (GPIO17) pans and
+servo 2 (GPIO18) tilts. If `holo wag` nods instead of shaking its head, change "Which
+servo pans" in menuconfig.
+
+### Travel
+
+Each servo's travel defaults to the range the sketch used: 1150–1900 µs for servo 1 and
+1300–1950 µs for servo 2. Both sit inside an absolute 1000–2000 µs range that no servo
+is ever sent outside. The low end is CLOSED, meaning full left or full down.
+
+If an axis runs backwards, or to tune its travel, save its endpoints:
+
+```
+holo endpoints h 1150 1900     # pan: closed (full left), then open (full right), in µs
+holo endpoints v 1950 1300     # tilt reversed: closed above open turns the axis round
+holo endpoints v clear         # back to the default travel
+```
+
+Endpoints are saved in NVS under the pin (`gpio17`, `gpio18`), so they follow the
+wiring. `servo_list -o wide` shows each servo's ranges.
+
 ## Configuration (`idf.py menuconfig`)
 
 - **Board: Waveshare ESP32-S3-Touch-LCD-1.28**
@@ -200,6 +247,10 @@ GPIO. The `gpio` command refuses to drive it.
   - Data rate: 800 kHz (WS2812) or 400 kHz (WS2811)
   - Colour order: GRB or RGB
   - `LEDS_BRIGHTNESS` at boot (100%)
+- **Holoprojector servos**
+  - Each servo's GPIO (17, 18) and default travel (1150–1900 µs, 1300–1950 µs)
+  - Which servo pans (servo 1)
+  - The absolute pulse range (1000–2000 µs)
 - **Console WiFi commands (cmd_wifi)**
   - Saved-network NVS namespace
   - Reconnect retries and interval
