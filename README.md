@@ -45,6 +45,7 @@ Type `help` for the full list. The board-specific commands are:
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed |
 | `fs ls\|df\|stat\|mkdir\|rmdir\|rm\|mv\|cat\|hexdump\|sha256\|bench ...` | The LittleFS volume at `/data`. Paths are relative to it. |
 | `fs put [-f] [-b baud] <path> [size]` / `fs get [-b baud] <path>` | XMODEM-1K upload and download over the console (use `fs_xfer.py`) |
+| `video play <file> [loop] \| stop \| status \| info <file>` | Play a Motion-JPEG QuickTime clip centred on the panel, on the clip's own timing |
 
 The shared components add the following:
 - System: `version`, `free`, `heap`, `tasks`, `top`, `log_level`, `gpio`, and sleep.
@@ -72,6 +73,30 @@ to hash on the board.
 
 Downloads run at 230400 baud. On macOS, WCH's CH34x driver loses data coming from
 the board at higher rates; see the esp-console-kit README.
+
+## Video
+
+`components/video` has two parts:
+- `quicktime.cpp`: the Flash_PNG sketch's QuickTime parser, ported.
+- `video_player.cpp`: the player, which decodes with Espressif's `esp_new_jpeg`.
+
+Each frame is read from `/data`, decoded to RGB565, and drawn centred on the panel.
+Frames are timed by the clip's own time-to-sample table. `video status` reports the
+read, decode and draw time per frame, and counts late frames.
+
+To make a clip, use the Flash_PNG recipe. Export at 120×120 (anything up to 240×240
+fits the panel), then run:
+
+```sh
+ffmpeg -i <input> -c:v mjpeg -q:v 9 -an <output>.mjpeg.mov
+```
+
+Upload it with `fs_xfer.py put` and play it with `video play <output>.mjpeg.mov`.
+
+I measured `esp_new_jpeg` against JPEGDEC 1.5.0 and 1.8.4 and TJpgDec before choosing
+it; the results are in the commit message of `3a7182e`. On a 120×120 clip frame it
+decoded in 1.79 ms, against 2.63 ms for JPEGDEC 1.8.4. JPEGDEC 1.5.0 also leaves the
+last 8 rows of a 120-row frame unwritten.
 
 ## Configuration (`idf.py menuconfig`)
 
