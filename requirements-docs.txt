@@ -1,0 +1,5 @@
+# Documentation site (make docs-setup). Pure Python: the site never needs ESP-IDF, which is
+# why the docs workflow builds in seconds and only release.yml pulls the IDF container.
+zensical==0.0.63
+# Zensical's maintained fork of mike (2.2.0 + compatibility fixes), pinned to tag 2.2.0+zensical-0.1.0
+mike @ git+https://github.com/squidfunk/mike.git@0f62791256ebeba60d20d2f1d8fe6ec3b7d1e2b3

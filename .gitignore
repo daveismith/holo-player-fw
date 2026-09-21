@@ -76,3 +76,8 @@ Desktop.ini
 *.workspace # General workspace files, can be from various tools
 *.suo       # Visual Studio Solution User Options
 *.sln.docstates # Visual Studio
+
+# Documentation site: `make docs-offline` writes this config, builds from it, and removes it.
+# build/site and build/site-offline are already covered by build/ above, and Zensical's .cache/
+# ignores itself.
+.mkdocs-offline.yml

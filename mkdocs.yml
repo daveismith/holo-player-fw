@@ -1,0 +1,76 @@
+# User documentation site, built with Zensical (which reads this file). Every page in manual/
+# is hand-written: nothing here is generated, and Zensical runs no MkDocs plugins or hooks, so
+# anything derived from the firmware would have to come from tools/. What keeps the console
+# reference honest instead is tools/check_command_docs.py (`make docs-check`), which fails if a
+# registered command is missing from these pages. Versions are published with mike (RELEASING.md).
+site_name: Holo Player
+site_description: Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player
+repo_url: https://github.com/daveismith/holo-player-fw
+repo_name: daveismith/holo-player-fw
+edit_uri: edit/main/manual/
+docs_dir: manual
+site_dir: build/site
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle: { icon: material/weather-night, name: Dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle: { icon: material/weather-sunny, name: Light mode }
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - def_list
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Build and flash: install/flashing.md
+      - The board: connect/board.md
+      - Wiring the LED ring: connect/leds.md
+      - Wiring the servos: connect/servos.md
+  - Use:
+      - Video clips: use/video.md
+      - LED patterns: use/leds.md
+      - The holoprojector: use/holo.md
+      - Files on the board: use/files.md
+      - Updating over serial: use/ota.md
+      - Troubleshooting: troubleshooting.md
+  - Reference:
+      - Console commands: reference/console.md
+      - Configuration: reference/config.md
+      - Video internals: reference/video-internals.md
+      - Changelog: changelog.md
