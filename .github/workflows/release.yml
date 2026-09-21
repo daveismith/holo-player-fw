@@ -1,0 +1,118 @@
+name: release
+
+# Tag vX.Y.Z (or vX.Y.Z-rcN): check the tag, build the firmware with the version baked in,
+# publish that version of the documentation, and create the GitHub Release. See RELEASING.md.
+#
+# The firmware carries no version constant: ESP-IDF takes PROJECT_VER from `git describe`, so
+# the tag is the version. Two things silently break that -- a shallow checkout with no tags, and
+# the IDF container refusing to trust a repository it does not own -- and both produce a
+# plausible build carrying a bare commit hash. Hence fetch-depth: 0, IDF_GIT_SAFE_DIR, and the
+# explicit check that the image really reports the tag.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write          # gh-pages push and the GitHub Release
+    concurrency:
+      group: gh-pages          # shared with docs.yml: one writer at a time
+      cancel-in-progress: false
+    steps:
+      # Actions are pinned to full commit SHAs; the trailing comment is the release tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0       # the tags: `git describe` is where the firmware version comes from
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Tag is well formed, and on this commit
+        id: ver
+        run: python3 tools/check_version.py "$GITHUB_REF_NAME"
+
+      - name: Cache the IDF toolchain and managed components
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.espressif
+            managed_components
+          key: idf-v6.1-${{ hashFiles('dependencies.lock') }}
+
+      - uses: espressif/esp-idf-ci-action@e6f5c74232b1ccd4c97ed641f1e48553853f1fd5 # v1.2.0
+        with:
+          esp_idf_version: v6.1
+          target: esp32s3
+          command: idf.py build
+          # Without this the container's git refuses the checkout as "dubious ownership",
+          # `git describe` fails, and PROJECT_VER falls back to a bare hash (esp-idf#9071).
+          extra_docker_args: -e IDF_GIT_SAFE_DIR=/project:/project/external/esp-console-kit
+
+      - name: Take ownership of the container's output
+        # The IDF image builds as root, so build/ comes back root-owned and the documentation
+        # build could not write build/site into it.
+        run: sudo chown -R "$USER" build
+
+      - name: The tag really is baked into the image
+        run: |
+          baked=$(python3 -c "import json; print(json.load(open('build/project_description.json'))['project_version'])")
+          if [ "$baked" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::the image reports version '$baked', but the tag is '$GITHUB_REF_NAME'"
+            exit 1
+          fi
+          echo "the image reports $baked"
+
+      - name: Documentation toolchain
+        run: make docs-setup
+
+      - name: Every registered command is documented
+        run: make docs-check
+
+      - name: Build the docs
+        run: make docs-build docs-offline
+
+      - name: Publish the docs version
+        # mike runs the site builder as a subprocess, so the venv has to be on PATH; calling
+        # .venv/bin/mike by path is not enough.
+        env:
+          DOCS_VERSION: ${{ steps.ver.outputs.docs_version }}
+          PRERELEASE: ${{ steps.ver.outputs.prerelease }}
+        run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+          if [ "$PRERELEASE" = "true" ]; then
+            .venv/bin/mike deploy --push "$DOCS_VERSION"
+          else
+            .venv/bin/mike deploy --push --update-aliases --alias-type redirect "$DOCS_VERSION" latest
+            .venv/bin/mike set-default --push latest
+          fi
+
+      - name: Release assets
+        run: |
+          tag="$GITHUB_REF_NAME"; mkdir -p dist
+          cp build/holo-player-fw.bin "dist/holo-player-fw-$tag.bin"
+          (cd build && mv site-offline "holo-player-fw-$tag-docs" \
+              && zip -qr "../dist/holo-player-fw-$tag-docs.zip" "holo-player-fw-$tag-docs")
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          python3 tools/check_version.py --notes "$tag" > dist/notes.md
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ steps.ver.outputs.prerelease }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          flags=(--verify-tag --title "Holo Player $tag" --notes-file dist/notes.md)
+          [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+          gh release create "$tag" "${flags[@]}" \
+            "dist/holo-player-fw-$tag.bin" "dist/holo-player-fw-$tag-docs.zip" dist/SHA256SUMS

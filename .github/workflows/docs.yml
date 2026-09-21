@@ -1,0 +1,97 @@
+name: docs
+
+# The documentation site (manual/, mkdocs.yml; see RELEASING.md). Pull requests build it
+# strictly and upload it as an artefact to preview. Pushes to main publish it as version `dev`
+# on gh-pages. Release versions are published by release.yml.
+#
+# Nothing here is generated from the firmware, so this workflow never installs ESP-IDF and runs
+# in seconds. main/ and components/ are in the path filter anyway, because check_command_docs.py
+# reads them: adding a console command without documenting it has to fail somewhere.
+on:
+  push:
+    branches: [main]
+    paths: &docs_paths
+      - "manual/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - "CHANGELOG.md"
+      - "Makefile"
+      - "tools/check_command_docs.py"
+      - "main/**"
+      - "components/**"
+      - "external/esp-console-kit"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths: *docs_paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # Actions are pinned to full commit SHAs; the trailing comment is the release tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive     # half the console commands live in the submodule
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Documentation toolchain
+        run: make docs-setup
+
+      - name: Every registered command is documented
+        run: make docs-check
+
+      - name: Build the site (strict)
+        run: make docs-build
+
+      - name: Upload the site (preview)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-${{ github.sha }}
+          path: build/site
+          retention-days: 14
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write          # push to gh-pages
+    concurrency:
+      group: gh-pages          # shared with release.yml: one writer at a time
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Documentation toolchain
+        run: make docs-setup
+
+      - name: Publish as `dev`
+        # mike runs the site builder as a subprocess, so the venv has to be on PATH; calling
+        # .venv/bin/mike by path is not enough.
+        run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+          .venv/bin/mike deploy --push dev
+          # First deploy: without a default version the site root is a 404. Point it at `dev`
+          # until a release publishes `latest`, which set-default then takes over.
+          git fetch origin gh-pages --depth=1
+          if git show FETCH_HEAD:index.html >/dev/null 2>&1; then
+            echo "root redirect already published; leaving the default alone"
+          else
+            .venv/bin/mike set-default --push dev
+          fi
