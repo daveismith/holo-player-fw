@@ -25,11 +25,14 @@ void video_stop(void);
 bool video_playing(void);
 
 /*
- * What is on the screen, which is on only while something is: a clip (video_play) or a solid
- * colour. Showing a colour stops any clip; clearing stops any clip and puts the panel to
- * sleep with the backlight off, as does a clip reaching its end.
+ * What is on the screen, which is on only while something is: a clip (video_play), a solid
+ * colour, or the calibration pattern. Showing either of the last two stops any clip;
+ * clearing stops any clip and puts the panel to sleep with the backlight off, as does a clip
+ * reaching its end.
  */
 esp_err_t screen_show_colour(uint16_t rgb565);
+/* A centred crosshair with an up arrow at the crossing, for aligning the panel in a dome. */
+esp_err_t screen_show_calibration(void);
 esp_err_t screen_clear(void);
 
 #ifdef __cplusplus

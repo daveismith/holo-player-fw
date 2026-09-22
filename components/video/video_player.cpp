@@ -459,6 +459,8 @@ int verify(const char *path, int step)
 /* The colour on show, if one is (and no clip). */
 bool s_colour_shown;
 uint8_t s_colour_rgb[3];
+/* The calibration pattern is on show (and no clip, and no colour). */
+bool s_calibration;
 
 uint16_t rgb565(int r, int g, int b)
 {
@@ -491,12 +493,92 @@ bool parse_colour(int argc, char **argv, uint16_t *out, uint8_t rgb[3])
     return true;
 }
 
+/*
+ * The calibration pattern: a crosshair and, just above the crossing, an arrowhead pointing up.
+ * It is for lining the panel up behind a dome's lens -- centred on the opening, and the right
+ * way round -- so what matters is that the lines are exactly centred and the arrow unmistakable.
+ *
+ * The panel is 240 pixels across, so its centre falls on the seam between pixels 119 and 120
+ * rather than on a pixel. Everything here is an even width straddling that seam, which is the
+ * only way the pattern is symmetric about the real centre.
+ */
+constexpr int CALIB_LINE = 2;        /* line thickness, even */
+constexpr int CALIB_ARROW_W = 36;    /* arrowhead, even for the same reason */
+constexpr int CALIB_ARROW_H = 34;
+constexpr int CALIB_ARROW_GAP = 4;   /* blank rows between the arrowhead's base and the line */
+constexpr uint16_t CALIB_BG = 0x0000;
+constexpr uint16_t CALIB_FG = 0xFFFF;
+
+/* The panel takes pixels high byte first; these buffers are little-endian memory. */
+constexpr uint16_t be16(uint16_t v) { return (uint16_t)((v >> 8) | (v << 8)); }
+
+esp_err_t draw_calibration()
+{
+    /* The pixel just past the centre seam: the line runs from mid - 1 to mid. */
+    constexpr int mid = BOARD_LCD_H_RES / 2;
+    constexpr size_t line_px = (size_t)BOARD_LCD_H_RES * CALIB_LINE;
+    constexpr size_t arrow_px = (size_t)CALIB_ARROW_W * CALIB_ARROW_H;
+    constexpr size_t buf_px = line_px > arrow_px ? line_px : arrow_px;
+
+    /* Internal DMA memory, so board_lcd_draw() sends it straight out. Under 3 KB. */
+    uint16_t *buf = (uint16_t *)heap_caps_malloc(buf_px * sizeof(uint16_t),
+                                                 MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    if (buf == nullptr) {
+        printf("screen: out of memory\n");
+        return ESP_ERR_NO_MEM;
+    }
+
+    /* Black over the whole panel first -- it wakes with it already in place -- so nothing of
+     * what was showing survives around the lines. */
+    esp_err_t err = board_lcd_power_on(CALIB_BG);
+
+    for (size_t i = 0; i < line_px; i++) {
+        buf[i] = be16(CALIB_FG);
+    }
+    if (err == ESP_OK) {
+        err = board_lcd_draw(0, mid - CALIB_LINE / 2, BOARD_LCD_H_RES, CALIB_LINE, buf);
+    }
+    if (err == ESP_OK) {
+        err = board_lcd_draw(mid - CALIB_LINE / 2, 0, CALIB_LINE, BOARD_LCD_V_RES, buf);
+    }
+
+    /* A filled triangle, apex row first: each row is as wide as its distance from the apex,
+     * out to the full width at the base. It sits astride the vertical line, which reads as
+     * the arrow's shaft. */
+    for (size_t i = 0; i < arrow_px; i++) {
+        buf[i] = be16(CALIB_BG);
+    }
+    for (int row = 0; row < CALIB_ARROW_H; row++) {
+        int half = (row + 1) * (CALIB_ARROW_W / 2) / CALIB_ARROW_H;
+        if (half < 1) {
+            half = 1;
+        }
+        for (int x = CALIB_ARROW_W / 2 - half; x < CALIB_ARROW_W / 2 + half; x++) {
+            buf[(size_t)row * CALIB_ARROW_W + x] = be16(CALIB_FG);
+        }
+    }
+    if (err == ESP_OK) {
+        err = board_lcd_draw(mid - CALIB_ARROW_W / 2,
+                             mid - CALIB_LINE / 2 - CALIB_ARROW_GAP - CALIB_ARROW_H,
+                             CALIB_ARROW_W, CALIB_ARROW_H, buf);
+    }
+
+    heap_caps_free(buf);
+    if (err != ESP_OK) {
+        printf("screen: %s\n", esp_err_to_name(err));
+    }
+    return err;
+}
+
 int cmd_screen(int argc, char **argv)
 {
     const char *sub = argc > 1 ? argv[1] : "";
     if (argc == 1 || strcmp(sub, "status") == 0) {
         if (video_playing()) {
             printf("playing %s (backlight %d%%)\n", s_stats.path, board_lcd_get_backlight());
+        } else if (s_calibration && board_lcd_powered()) {
+            printf("showing the calibration pattern (backlight %d%%)\n",
+                   board_lcd_get_backlight());
         } else if (s_colour_shown && board_lcd_powered()) {
             printf("showing #%02x%02x%02x (backlight %d%%)\n", s_colour_rgb[0], s_colour_rgb[1],
                    s_colour_rgb[2], board_lcd_get_backlight());
@@ -518,10 +600,13 @@ int cmd_screen(int argc, char **argv)
         }
         return err == ESP_OK ? 0 : 1;
     }
+    if (strcmp(sub, "calibration") == 0 || strcmp(sub, "calib") == 0) {
+        return screen_show_calibration() == ESP_OK ? 0 : 1;
+    }
     if (strcmp(sub, "clear") == 0 || strcmp(sub, "off") == 0) {
         return screen_clear() == ESP_OK ? 0 : 1;
     }
-    printf("usage: screen [colour <name|#RRGGBB|R,G,B|0xRGB565> | clear]\n");
+    printf("usage: screen [colour <name|#RRGGBB|R,G,B|0xRGB565> | calibration | clear]\n");
     return 1;
 }
 
@@ -590,6 +675,7 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
     video_stop();
     s_replacing = false;
     const esp_err_t err = board_lcd_power_on(rgb);
+    s_calibration = false;
     s_colour_shown = err == ESP_OK;
     if (s_colour_shown) {
         s_colour_rgb[0] = (uint8_t)(((rgb >> 11) & 0x1F) * 255 / 31);
@@ -599,10 +685,23 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
     return err;
 }
 
+extern "C" esp_err_t screen_show_calibration(void)
+{
+    /* As for a colour: over a clip the panel stays on, and from sleep it wakes already black. */
+    s_replacing = true;
+    video_stop();
+    s_replacing = false;
+    s_colour_shown = false;
+    const esp_err_t err = draw_calibration();
+    s_calibration = err == ESP_OK;
+    return err;
+}
+
 extern "C" esp_err_t screen_clear(void)
 {
     video_stop();
     s_colour_shown = false;
+    s_calibration = false;
     return board_lcd_power_off();
 }
 
@@ -612,6 +711,7 @@ extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
     video_stop();
     s_replacing = false;
     s_colour_shown = false;
+    s_calibration = false;
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
     req->loop = loop;
@@ -665,9 +765,10 @@ extern "C" void register_video_commands(const char *base_path)
 
     esp_console_cmd_t screen = {};
     screen.command = "screen";
-    screen.help = "What is on the screen: a solid colour, or clear it (panel asleep, backlight "
-                  "off); alone, what is showing. The screen is off whenever nothing is.";
-    screen.hint = "[colour <name|#RRGGBB|R,G,B|0xRGB565> | clear]";
+    screen.help = "What is on the screen: a solid colour, the alignment crosshair, or clear it "
+                  "(panel asleep, backlight off); alone, what is showing. The screen is off "
+                  "whenever nothing is.";
+    screen.hint = "[colour <name|#RRGGBB|R,G,B|0xRGB565> | calibration | clear]";
     screen.func = cmd_screen;
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen));
 }

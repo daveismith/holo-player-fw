@@ -33,6 +33,10 @@ Setup302 and the NuttX `esp32s3-ws-lcd128` board agree with them. They are defin
 The backlight pin drives an N-FET and is active high with a pull-down, so the backlight is off at
 reset and stays off until the firmware turns it on.
 
+The visible area is circular, and its centre falls between pixels 119 and 120 on both axes.
+`screen calibration` draws a crosshair on that centre for aligning the panel in a dome — see
+[Mounting the screen](screen.md).
+
 GPIO10 is not SPI2's IOMUX clock pin, so the signals go through the GPIO matrix. On the S3 that
 limits reads rather than writes, and the panel is only ever written to, so it costs nothing here.
 

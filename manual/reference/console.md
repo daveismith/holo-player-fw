@@ -14,10 +14,14 @@ Command history is kept in `/data/history.txt` and survives a restart.
 
 | Command | Does |
 |---|---|
-| `screen [colour <c> \| clear]` | Show a solid colour, or clear the screen. Alone, reports what is showing. The screen is off — panel asleep, backlight off — whenever nothing is |
+| `screen [colour <c> \| calibration \| clear]` | Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing. The screen is off — panel asleep, backlight off — whenever nothing is |
 | `lcd [bl <0-100> \| bench [frames]]` | LCD hardware: power state, backlight level while on, and a fill-rate benchmark |
 | `touch [on\|off\|status]` | CST816S touch reporting, off at boot. Prints down/move/up with x,y |
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed. `imu id` reports the part and the address it answered on |
+
+`screen calibration` (or `screen calib`) draws a centred crosshair with an arrow pointing up, for
+lining the panel up behind a dome's lens — see
+[Mounting the screen](../connect/screen.md).
 
 `touch` is only present when `BOARD_TOUCH_ENABLE` is set, which it is by default. See
 [Configuration](config.md).

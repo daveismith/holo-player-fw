@@ -69,6 +69,18 @@ help
 lists every command. The screen stays off until something is shown on it — try
 `screen colour red`, then `screen clear`.
 
+## 5. Line the screen up
+
+Before the panel is fixed behind a dome's lens, put up the alignment pattern:
+
+```
+screen calibration
+```
+
+A crosshair with an arrow pointing up, for centring the panel in the lens opening and getting its
+rotation right. Every clip afterwards is drawn on those axes, so this is worth doing while the
+board is still loose — see [Mounting the screen](../connect/screen.md).
+
 ## Updating later
 
 Once the bootloader is on the board, new firmware can be installed over the console without USB

@@ -60,6 +60,7 @@ nav:
   - Get started:
       - Build and flash: install/flashing.md
       - The board: connect/board.md
+      - Mounting the screen: connect/screen.md
       - Wiring the LED ring: connect/leds.md
       - Wiring the servos: connect/servos.md
   - Use:

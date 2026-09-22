@@ -10,6 +10,13 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Added
+
+- **Screen alignment.** `screen calibration` (or `screen calib`) draws a centred crosshair with an
+  up arrow at the crossing, for mounting the panel behind a dome's lens. The lines straddle the
+  seam between pixels 119 and 120, so the crossing is the panel's true centre. Documented in
+  [Mounting the screen](manual/connect/screen.md).
+
 ## [0.1.0] - 2026-09-20
 
 First tagged release. Everything below already worked; this is the point it became a version
