@@ -14,7 +14,7 @@
         <link rel="prev" href="../../install/flashing/">
       
       
-        <link rel="next" href="../leds/">
+        <link rel="next" href="../screen/">
       
       
         
@@ -570,6 +570,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1228,6 +1255,9 @@ Setup302 and the NuttX <code>esp32s3-ws-lcd128</code> board agree with them. The
 </table>
 <p>The backlight pin drives an N-FET and is active high with a pull-down, so the backlight is off at
 reset and stays off until the firmware turns it on.</p>
+<p>The visible area is circular, and its centre falls between pixels 119 and 120 on both axes.
+<code>screen calibration</code> draws a crosshair on that centre for aligning the panel in a dome — see
+<a href="../screen/">Mounting the screen</a>.</p>
 <p>GPIO10 is not SPI2's IOMUX clock pin, so the signals go through the GPIO matrix. On the S3 that
 limits reads rather than writes, and the panel is only ever written to, so it costs nothing here.</p>
 <h2 id="i2c-bus">I2C bus<a class="headerlink" href="#i2c-bus" title="Permanent link">&para;</a></h2>
@@ -1407,13 +1437,13 @@ GPIO19 and GPIO20, are not connected.</p>
         
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--next" aria-label="Next: Wiring the LED ring">
+          <a href="../screen/" class="md-footer__link md-footer__link--next" aria-label="Next: Mounting the screen">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                Mounting the screen
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -462,6 +462,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../connect/leds/" class="md-nav__link">
         
   
@@ -949,6 +976,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -964,7 +1008,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1045,6 +1089,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1060,7 +1121,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1101,10 +1162,17 @@
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v0.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Screen alignment.</strong> <code>screen calibration</code> (or <code>screen calib</code>) draws a centred crosshair with an
+  up arrow at the crossing, for mounting the panel behind a dome's lens. The lines straddle the
+  seam between pixels 119 and 120, so the crossing is the panel's true centre. Documented in
+  <a href="../manual/connect/screen/">Mounting the screen</a>.</li>
+</ul>
 <h2 id="010-2026-09-20"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v0.1.0">0.1.0</a> - 2026-09-20<a class="headerlink" href="#010-2026-09-20" title="Permanent link">&para;</a></h2>
 <p>First tagged release. Everything below already worked; this is the point it became a version
 you can name, flash and report.</p>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Video.</strong> Motion-JPEG QuickTime playback on the round panel, on the clip's own timing, with
   <code>video play|stop|status|info|verify</code>. Frames decode 16 lines at a time into alternating DMA
