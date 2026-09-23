@@ -4,6 +4,8 @@ The player reads **Motion-JPEG QuickTime** files from `/data` and draws them cen
 panel, timed by the clip's own time-to-sample table — so a clip plays at the speed it was authored
 at, not at whatever rate the decoder happens to manage.
 
+For a single picture rather than a moving one, see [Still images](images.md).
+
 ## Making a clip
 
 Export at **120×120**; anything up to 240×240 fits the panel. Then convert:
@@ -33,8 +35,8 @@ video stop
 `loop` repeats the clip until `video stop`. Without it, the clip plays once and the screen turns
 off — the panel sleeps with its backlight off whenever nothing is showing.
 
-Starting another clip, or a `screen colour`, over a playing clip keeps the panel on and swaps what
-is on it.
+Starting another clip, an `image show` or a `screen colour` over a playing clip keeps the panel on
+and swaps what is on it.
 
 ## Looking at a clip
 

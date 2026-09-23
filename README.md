@@ -4,13 +4,14 @@ Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28: ESP32-S3R2 with 2 MB of PSRA
 16 MB flash, a GC9A01 240×240 round LCD, CST816S touch and a QMI8658 IMU. It
 builds with ESP-IDF 6.1.
 
-It plays Motion-JPEG clips on the round panel, drives a NeoPixel ring, and aims two
-holoprojector servos — all from a console on the board's USB-C port.
+It plays Motion-JPEG clips and shows PNG and JPEG stills on the round panel, drives a
+NeoPixel ring, and aims two holoprojector servos — all from a console on the board's
+USB-C port.
 
 ## Documentation
 
-The full documentation — wiring, the console reference, making and playing clips, servo
-calibration and configuration — is a site built from [`manual/`](manual/). Read it locally with:
+The full documentation — wiring, the console reference, making and playing clips, showing
+stills, servo calibration and configuration — is a site built from [`manual/`](manual/). Read it locally with:
 
 ```sh
 make docs-setup     # once

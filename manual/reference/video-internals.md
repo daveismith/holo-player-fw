@@ -105,3 +105,79 @@ regardless of speed. The full results are in the commit message of `3a7182e`.
 The build uses `CONFIG_COMPILER_OPTIMIZATION_PERF` (`-O2`) partly for this reason: `esp_new_jpeg`
 ships prebuilt and optimised, so at the default `-Og` a source-built decoder would lose the
 comparison for reasons that have nothing to do with the decoders.
+
+## Still images
+
+`image show` is in the same component, and lands in the same place: 16 lines at a time into one of
+two DMA buffers, each block on its way to the panel while the next is prepared. A still has the
+same problem a frame does — 115 KB at 240×240, more than the largest free internal block — so it
+gets the same answer, minus the container and the clock.
+
+**JPEG stills reuse the player's decoder outright**, and inherit its limits: baseline only, and
+4:2:0. A 4:4:4 file is refused by the header parse; a 4:2:2 file parses and then fails to decode,
+in blocks and whole alike. Because there is no way to tell in advance which files block mode will
+turn down, a still that fails to stream falls back to decoding whole and drawing again — the
+half-drawn attempt is simply overwritten. It costs nothing on the files that work, and it is why
+a JPEG can report `whole image` at a size that is a multiple of 8.
+
+ `decode_frame()` and `decode_blocks()` moved
+out of `video_player.cpp` into `jpeg_decode.h` so both callers share them; `decode_blocks()` is a
+template so the caller's per-block work inlines into the decode loop, which is why it is in a
+header rather than a source file. The one thing a still needs and a clip does not is
+`jpeg_probe()`: a clip reads its frames' dimensions from the QuickTime sample description before
+it reads a frame, while a still has only the file, so it parses the header first and sizes its
+buffers from that.
+
+**PNG is libpng**, in `png_image.c`. Rows come out one at a time and are converted to big-endian
+RGB565 straight into the block buffers, so no whole image is held.
+
+Three details of that path are load-bearing:
+
+- **The file is read buffered**, unlike a clip. A clip sets `setvbuf(_IONBF)` because whole frames
+  are read straight into the decoder's input and stdio would only add a copy. libpng is the
+  opposite: it reads 8-byte chunk headers and 4-byte CRCs constantly, and buffering turns dozens
+  of tiny reads into one.
+- **Transparency is composited over black** with `png_set_background()`, not stripped. Stripping
+  the alpha channel keeps whatever RGB sits under a transparent pixel, which in most exports is
+  white — a transparent PNG would arrive with a white halo. Black is also what the panel wakes to,
+  so a smaller image and its transparent regions match.
+- **No gamma is set.** With libpng's screen gamma left at zero it builds no gamma tables, which
+  for a 16-bit input would be tens of KB of internal RAM for a correction nobody asked for.
+
+Interlaced PNGs cannot stream. Adam7 writes each of its seven passes into rows the later passes
+fill in, so `png_read_image()` needs every row resident: 173 KB of RGB, which goes to PSRAM,
+zeroed so a decode that dies partway can only ever show black. The same block loop then feeds off
+it. This mirrors the clip player's whole-frame-in-PSRAM fallback, and `image show` names which
+path it took.
+
+### Why `png_image.c` is C
+
+libpng reports errors by `longjmp`. A jump out of a C++ frame skips every destructor on the way,
+so the `setjmp` lives in a C file among locals that have none. Two rules follow, and both are
+easy to get wrong:
+
+- The jump target is set **before** libpng is handed anything at all, including
+  `png_create_read_struct()`, which can itself fail through the error handler. Without a valid
+  target, libpng's default is `abort()` — a corrupt file would panic the firmware rather than
+  print a message.
+- Every local the cleanup reads is `volatile`. Otherwise the compiler may keep it in a register
+  that `longjmp` restores to the value it held at the `setjmp`, and the cleanup frees a stale
+  pointer or leaks a live one. GCC does not warn about this unless asked.
+
+The error handler also installs a warning function that does nothing, because libpng's default
+writes to `stderr` — which here is the console. An ordinary Photoshop export would otherwise
+print `iCCP: known incorrect sRGB profile` over the prompt.
+
+### What it costs
+
+libpng and zlib add **78 KB** to the image, which sits in a 2304 KB slot. Peak memory for a
+240×240 RGBA PNG is about 34 KB of internal RAM — zlib's inflate state, libpng's two filter rows,
+the IDAT read buffer and the two DMA blocks — plus zlib's 32 KB inflate window, which
+`CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL` sends to PSRAM. An interlaced file adds its 173 KB there
+too.
+
+Console commands run on the main task, so `CONFIG_ESP_MAIN_TASK_STACK_SIZE` was raised from 7168
+to 8192 to carry libpng's read path. Measured afterwards with `tasks`, on the worst file to hand —
+240×240, 16-bit RGBA, interlaced, with an ancillary text chunk — `main` still had **3240 bytes**
+free, so the margin is real rather than assumed. `tasks` reports the same number for a file of
+your own.

@@ -4,6 +4,24 @@
 : That is the normal resting state. The panel sleeps with its backlight off whenever nothing is
   showing — at boot, after `screen clear`, and when a clip ends. Try `screen colour red`.
 
+**A transparent PNG shows white where it should be transparent.**
+: It is not transparent any more — the panel has no alpha, so transparency is composited over
+  black when the file is decoded. White means the transparent pixels really are white in the
+  file, with the alpha channel hiding them. Export with the background you want
+  ([details](use/images.md#preparing-a-file)).
+
+**A JPEG that opens everywhere else will not show on the board.**
+: The decoder reads baseline 4:2:0 only. `only baseline JPEG is supported` means the file is
+  progressive; `unsupported colour sampling` means it is 4:4:4, which is what ffmpeg writes by
+  default from a still RGB image; `bad JPEG data` on a file that is not corrupt means 4:2:2.
+  All three re-encode the same way:
+  `ffmpeg -i in.jpg -c:v mjpeg -q:v 3 -pix_fmt yuvj420p out.jpg`
+  ([details](use/images.md#preparing-a-file)). A PNG avoids the question entirely.
+
+**`image show` refuses a picture that looks the right shape.**
+: It is larger than 240×240. Images are not scaled or cropped to fit — the framing stays yours —
+  so resize it on the host first ([details](use/images.md#preparing-a-file)).
+
 **Every LED shows white, whatever colour I send — including `leds off`.**
 : The data rate is set to 400 kHz, which is for WS2811 strips. A WS2812 reads a 400 kHz "0" as a
   "1", so every frame comes out white, including the one meant to turn the strip off. Set 800 kHz

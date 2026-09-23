@@ -12,6 +12,13 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Added
 
+- **Still images.** `image show <file>` puts a PNG or a baseline 4:2:0 JPEG on the panel, centred,
+  where it stays until something else takes the screen; `image info <file>` describes one without
+  showing it. JPEG stills reuse the clip player's decoder, and PNG is libpng, streamed row by row
+  into the same 16-line blocks — so no whole image is held except for interlaced files, which
+  Adam7 makes impossible to read a row at a time. Nothing that fails disturbs the screen: the
+  file, its format and its size are all checked before the panel is touched. Documented in
+  [Still images](manual/use/images.md).
 - **Screen alignment.** `screen calibration` (or `screen calib`) draws a centred crosshair with an
   up arrow at the crossing, for mounting the panel behind a dome's lens. The lines straddle the
   seam between pixels 119 and 120, so the crossing is the panel's true centre. Documented in

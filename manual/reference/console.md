@@ -14,7 +14,7 @@ Command history is kept in `/data/history.txt` and survives a restart.
 
 | Command | Does |
 |---|---|
-| `screen [colour <c> \| calibration \| clear]` | Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing. The screen is off — panel asleep, backlight off — whenever nothing is |
+| `screen [colour <c> \| calibration \| clear]` | Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing, including a clip or an image. The screen is off — panel asleep, backlight off — whenever nothing is |
 | `lcd [bl <0-100> \| bench [frames]]` | LCD hardware: power state, backlight level while on, and a fill-rate benchmark |
 | `touch [on\|off\|status]` | CST816S touch reporting, off at boot. Prints down/move/up with x,y |
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed. `imu id` reports the part and the address it answered on |
@@ -25,6 +25,16 @@ lining the panel up behind a dome's lens — see
 
 `touch` is only present when `BOARD_TOUCH_ENABLE` is set, which it is by default. See
 [Configuration](config.md).
+
+## Images
+
+| Command | Does |
+|---|---|
+| `image show <file>` | Show a PNG or baseline JPEG, centred. It stays until something else takes the screen |
+| `image info <file>` | What the file is — format, size, bit depth — without decoding it or touching the panel |
+
+An image larger than 240×240 is refused rather than scaled. PNG transparency is composited over
+black. Full detail in [Still images](../use/images.md).
 
 ## Video
 
@@ -142,8 +152,8 @@ their own namespace, set in menuconfig.
 
 ## Where these come from
 
-The board-specific commands — `screen`, `lcd`, `touch`, `imu`, `video`, `leds` — are in this
-repository, under `components/`. Everything else comes from the
+The board-specific commands — `screen`, `lcd`, `touch`, `imu`, `video`, `image`, `leds` — are in
+this repository, under `components/`. Everything else comes from the
 [esp-console-kit](https://github.com/daveismith/esp-console-kit) submodule, whose README is the
 reference for the commands this page only summarises.
 
