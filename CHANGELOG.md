@@ -12,6 +12,18 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Added
 
+- **Install from the browser.** The Install page in each release's documentation flashes that
+  release onto the board over Web Serial (desktop Chrome, Edge or Opera), with no toolchain. It
+  reads the board first: on one running Holo Player with the same partition layout it
+  **updates**, keeping settings and clips; on a blank board or other firmware it does a **fresh
+  install**; and a **complete overwrite** is always available behind a confirmation. Images are
+  checked against SHA-256 before writing and MD5 after, and the boot log confirms the result.
+  The offline documentation zip carries the same installer and firmware, served on localhost by
+  its `serve.py` with no internet. esptool and building from source stay documented for other
+  browsers. Documented in [Install](manual/install/flashing.md).
+- **Every image a blank board needs, on the Release.** Besides the application, each Release
+  now carries the bootloader, partition table and initial OTA data, so esptool can install a
+  release without ESP-IDF.
 - **GIFs, animated too.** `image show` takes a GIF. A one-frame GIF is a still; an animated one
   plays on the video player's task — so `video stop` and `video status` work on it — looping as
   the file says and leaving its last frame up when it stops. Frames are composited onto a canvas

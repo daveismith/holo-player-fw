@@ -42,9 +42,57 @@ The release workflow then:
 1. checks the tag is well formed, is on the commit being built, and fits the version field;
 2. builds the firmware in the ESP-IDF v6.1 container for `esp32s3`;
 3. **checks the image really reports the tag**, failing the release if it does not;
-4. publishes the documentation as `X.Y` and moves `latest` to it (not for pre-releases);
-5. creates the GitHub Release with the `CHANGELOG.md` section as notes and these assets:
-   `holo-player-fw-vX.Y.Z.bin`, an offline copy of the documentation, and `SHA256SUMS`.
+4. names the four flash images for the release, and stages copies of them for the documentation's
+   installer, checked against the release's checksums;
+5. publishes the documentation as `X.Y` and moves `latest` to it (not for pre-releases);
+6. creates the GitHub Release with the `CHANGELOG.md` section as notes and these assets:
+
+   | Asset | What |
+   |---|---|
+   | `holo-player-fw-vX.Y.Z.bin` | The application, at `0x10000`; also what `fs_xfer.py ota` sends |
+   | `holo-player-fw-vX.Y.Z-bootloader.bin` | The bootloader, at `0x0` |
+   | `holo-player-fw-vX.Y.Z-partition-table.bin` | The partition table, at `0x8000` |
+   | `holo-player-fw-vX.Y.Z-ota-data-initial.bin` | The initial boot selection, at `0xe000` |
+   | `holo-player-fw-vX.Y.Z-docs.zip` | The documentation, offline, with the installer and `serve.py` |
+   | `SHA256SUMS` | Checksums of all of the above |
+
+### The installer's firmware
+
+The Install page flashes the release from the browser (`manual/javascripts/installer/`, on the
+vendored esptool-js). It can't download from the Release: `github.com/…/releases/download/…` and
+the storage host it redirects to send no `Access-Control-Allow-Origin` header, so a page on
+another origin can't read the bytes. The GitHub API can find the download URL, but the download
+itself is still blocked. So the release copies the four images into the documentation instead:
+
+- `tools/web_install_manifest.py --dist` names them for the Release, taking the offsets from
+  the build's `flasher_args.json`.
+- `--stage manual/firmware` copies them next to a `manifest.json` (offsets, sizes, SHA-256).
+  `sha256sum -c` then checks the copies against the Release's own files.
+- Both builds of the documentation — the published version and the offline zip — publish
+  `manual/firmware/` unchanged. It is never committed (`.gitignore`).
+
+Each release therefore adds about 1.4 MB to `gh-pages`. A patch release replaces its minor's
+copy, as it does the pages. `dev` and pull-request previews carry no firmware, and their Install
+page links to `latest` instead. Should GitHub ever serve release downloads with CORS headers,
+`manifest.json` already records each part's `release_url` for the installer to fetch instead.
+
+The offline zip also contains `serve.py` (`tools/offline_serve.py`). Web Serial and ES modules
+don't run from `file://`, and it serves the unzipped folder on `localhost`, which browsers
+treat as secure, without needing the network.
+
+### Updating the vendored JavaScript
+
+esptool-js is committed under `manual/javascripts/vendor/`, never loaded from a CDN, so the
+offline copy works with no internet. To move to a new version, change its entry in
+`tools/vendor_js.py` (version and `npm view esptool-js@<version> dist.integrity`), then:
+
+```sh
+make docs-vendor                # download, verify the integrity, rewrite SHA256SUMS
+make docs-check                 # the files match, and nothing loads by absolute URL
+```
+
+`make docs-check` also runs the installer's tests with `node --test`, when Node is installed;
+the workflows install it.
 
 ### Why step 3 exists
 
@@ -64,8 +112,13 @@ The workflow sets `fetch-depth: 0` and `IDF_GIT_SAFE_DIR`, and then verifies the
 ## Trying the pipeline
 
 Push a pre-release tag such as `v0.1.0-rc1`. It publishes docs `0.1-rc` and a GitHub pre-release
-without touching `latest`. Download the `.bin` from the release, flash it, and check that `ota`
-reports `v0.1.0-rc1`.
+without touching `latest`. Then:
+
+1. Open the `0.1-rc` documentation's Install page in Chrome, install onto a board, and check that
+   the boot log and `version` report `v0.1.0-rc1`.
+2. Unzip the docs asset, disconnect from the network, run `python3 serve.py`, and install again
+   from there.
+3. Check that the images in `gh-pages:0.1-rc/firmware/` match the Release's `SHA256SUMS`.
 
 To remove it afterwards:
 
@@ -92,6 +145,17 @@ git branch -D gh-pages          # discard it afterwards
 
 mike runs the site builder as a subprocess, so the venv must be on `PATH`; calling
 `.venv/bin/mike` by path alone fails with `No such file or directory: 'zensical'`.
+
+To try the installer, stage your own build as its firmware first. `localhost` counts as a secure
+page, so Web Serial works there:
+
+```sh
+idf.py build
+make docs-stage-firmware        # build/dist/, then manual/firmware/
+make docs-serve                 # then the Install page, in Chrome
+```
+
+Delete `manual/firmware/` afterwards to see the page as `dev` shows it.
 
 ## GitHub Pages setup (once)
 
