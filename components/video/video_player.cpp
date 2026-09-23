@@ -24,6 +24,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "board.h"
+#include "image.h"
 #include "jpeg_decode.h"
 #include "quicktime.h"
 #include "screen_state.h"
@@ -704,4 +705,6 @@ extern "C" void register_video_commands(const char *base_path)
     screen.hint = "[colour <name|#RRGGBB|R,G,B|0xRGB565> | calibration | clear]";
     screen.func = cmd_screen;
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen));
+
+    register_image_command();
 }

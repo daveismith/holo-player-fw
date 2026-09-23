@@ -34,8 +34,9 @@ CONFIG_SPIRAM_USE_MALLOC=y
 
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
-# Increase main task stack size
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=7168
+# Increase main task stack size. Console commands run on this task, and the deepest of them is
+# `image show`: libpng's read path plus a printf with floats wants a couple of KB of its own.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 
 # Console on UART0, which the CH343P bridges to USB-C -- the board's only USB path.
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
