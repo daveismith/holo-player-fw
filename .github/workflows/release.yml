@@ -3,6 +3,11 @@ name: release
 # Tag vX.Y.Z (or vX.Y.Z-rcN): check the tag, build the firmware with the version baked in,
 # publish that version of the documentation, and create the GitHub Release. See RELEASING.md.
 #
+# The documentation carries a browser installer, which flashes the images this run attaches to
+# the Release. They are copied into the docs (manual/firmware/, then gh-pages and the offline zip)
+# because a browser cannot read Release downloads from another origin: GitHub serves them without
+# CORS headers. The copies are checked against the Release's SHA256SUMS before publishing.
+#
 # The firmware carries no version constant: ESP-IDF takes PROJECT_VER from `git describe`, so
 # the tag is the version. Two things silently break that -- a shallow checkout with no tags, and
 # the IDF container refusing to trust a repository it does not own -- and both produce a
@@ -70,18 +75,42 @@ jobs:
           fi
           echo "the image reports $baked"
 
+      - name: Flash images
+        # All four a blank board needs, named for the release. Offsets come from the build's
+        # flasher_args.json; see tools/web_install_manifest.py.
+        run: python3 tools/web_install_manifest.py --dist dist --tag "$GITHUB_REF_NAME"
+
+      - name: Stage the installer's firmware
+        # The installer flashes these copies, so they must be byte-for-byte the Release's.
+        run: |
+          python3 tools/web_install_manifest.py --stage manual/firmware --from dist --tag "$GITHUB_REF_NAME"
+          (cd dist && sha256sum --strict -c ../manual/firmware/SHA256SUMS)
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"   # the installer's tests, in docs-check
+
       - name: Documentation toolchain
         run: make docs-setup
 
-      - name: Every registered command is documented
+      - name: Every registered command is documented; the installer's code is intact and tested
         run: make docs-check
 
       - name: Build the docs
+        # After staging, so the site and the offline copy both carry the installer's firmware.
         run: make docs-build docs-offline
+
+      - name: Release assets
+        run: |
+          tag="$GITHUB_REF_NAME"
+          (cd build && mv site-offline "holo-player-fw-$tag-docs" \
+              && zip -qr "../dist/holo-player-fw-$tag-docs.zip" "holo-player-fw-$tag-docs")
+          (cd dist && sha256sum -- *.bin *.zip > SHA256SUMS)
+          python3 tools/check_version.py --notes "$tag" > dist/notes.md
 
       - name: Publish the docs version
         # mike runs the site builder as a subprocess, so the venv has to be on PATH; calling
-        # .venv/bin/mike by path is not enough.
+        # .venv/bin/mike by path is not enough. It builds from manual/, firmware/ included.
         env:
           DOCS_VERSION: ${{ steps.ver.outputs.docs_version }}
           PRERELEASE: ${{ steps.ver.outputs.prerelease }}
@@ -97,15 +126,6 @@ jobs:
             .venv/bin/mike set-default --push latest
           fi
 
-      - name: Release assets
-        run: |
-          tag="$GITHUB_REF_NAME"; mkdir -p dist
-          cp build/holo-player-fw.bin "dist/holo-player-fw-$tag.bin"
-          (cd build && mv site-offline "holo-player-fw-$tag-docs" \
-              && zip -qr "../dist/holo-player-fw-$tag-docs.zip" "holo-player-fw-$tag-docs")
-          (cd dist && sha256sum -- * > SHA256SUMS)
-          python3 tools/check_version.py --notes "$tag" > dist/notes.md
-
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,4 +135,8 @@ jobs:
           flags=(--verify-tag --title "Holo Player $tag" --notes-file dist/notes.md)
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
           gh release create "$tag" "${flags[@]}" \
-            "dist/holo-player-fw-$tag.bin" "dist/holo-player-fw-$tag-docs.zip" dist/SHA256SUMS
+            "dist/holo-player-fw-$tag.bin" \
+            "dist/holo-player-fw-$tag-bootloader.bin" \
+            "dist/holo-player-fw-$tag-partition-table.bin" \
+            "dist/holo-player-fw-$tag-ota-data-initial.bin" \
+            "dist/holo-player-fw-$tag-docs.zip" dist/SHA256SUMS

@@ -81,3 +81,7 @@ Desktop.ini
 # build/site and build/site-offline are already covered by build/ above, and Zensical's .cache/
 # ignores itself.
 .mkdocs-offline.yml
+
+# Browser installer: tools/web_install_manifest.py --stage copies a firmware build here for the docs
+# build to publish (release.yml, `make docs-stage-firmware`). Never committed.
+manual/firmware/
