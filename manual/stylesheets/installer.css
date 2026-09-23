@@ -5,13 +5,20 @@
   margin: 1em 0 1.5em;
 }
 
+/* The panels below set their own display, which would otherwise override `hidden`. */
+#holo-installer [hidden] {
+  display: none !important;
+}
+
 #holo-installer .hi,
+#holo-installer.hi-notice,
 #holo-installer .hi-notice {
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: 0.2rem;
   padding: 0.2em 1em 0.6em;
 }
 
+#holo-installer.hi-notice,
 #holo-installer .hi-notice {
   border-left: 0.2rem solid var(--md-accent-fg-color);
 }
@@ -20,24 +27,8 @@
   margin-bottom: 0.4em;
 }
 
-#holo-installer .hi-connect {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.6em 1.2em;
-}
-
-#holo-installer .hi-advanced {
-  font-size: 0.85em;
-}
-
-#holo-installer .hi-advanced summary {
-  cursor: pointer;
-  color: var(--md-default-fg-color--light);
-}
-
 #holo-installer .hi-advanced p {
-  margin: 0.3em 0 0;
+  margin: 0.3em 0 0.6em;
   color: var(--md-default-fg-color--light);
 }
 
@@ -49,8 +40,8 @@
   border-radius: 0.1rem;
 }
 
-#holo-installer .hi-status {
-  min-height: 1.5em;
+#holo-installer .hi-status:empty {
+  display: none;
 }
 
 #holo-installer .hi-error {
@@ -123,8 +114,3 @@
   word-break: break-all;
 }
 
-#holo-installer .hi-log summary {
-  cursor: pointer;
-  font-size: 0.85em;
-  color: var(--md-default-fg-color--light);
-}

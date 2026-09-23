@@ -48,12 +48,6 @@ function notice(el, kind, manifest) {
   const root = siteRoot();
   const latest = new URL("../latest/install/flashing/", root);
   const messages = {
-    file: [
-      h("strong", {}, "Opened from disk. "),
-      "A browser will only talk to a serial port from a web page it trusts, and not from a file. ",
-      "In the folder you unzipped, run ", code("python3 serve.py"),
-      ". It opens this page from your own machine, with no internet needed, and the installer works there.",
-    ],
     "no-firmware": [
       h("strong", {}, "This copy of the documentation has no firmware to install. "),
       "Only a release's documentation includes firmware. Use the ",
@@ -86,9 +80,10 @@ function downloads(manifest) {
 
 // --- the installer ----------------------------------------------------------------------------
 
+// Opened from disk, none of this runs: browsers won't load module scripts from file://. The page's
+// own text in #holo-installer covers that case, pointing at serve.py.
 async function start(el) {
-  if (location.protocol === "file:") return notice(el, "file");
-
+  el.classList.remove("hi-notice");
   const manifestUrl = new URL("firmware/manifest.json", siteRoot());
   let manifest;
   try {
@@ -127,21 +122,21 @@ class Installer {
     this.progressPanel = h("div", { class: "hi-progress", hidden: true }, this.progressLabel, this.progress);
     this.bootLog = h("pre", { class: "hi-bootlog", hidden: true });
     this.logText = h("pre", {});
-    this.log = h("details", { class: "hi-log" }, h("summary", {}, "Log"), this.logText);
+    this.log = h("details", { class: "abstract hi-log" }, h("summary", {}, "Log"), this.logText);
 
     el.replaceChildren(h("div", { class: "hi" },
       h("p", { class: "hi-head" },
         h("strong", {}, "Holo Player ", manifest.version),
         manifest.release ? [" · ", h("a", { href: manifest.release }, "release notes")] : null),
-      h("div", { class: "hi-connect" },
-        this.connectButton,
-        h("details", { class: "hi-advanced" }, h("summary", {}, "Advanced"),
-          h("label", { for: "hi-baud" }, "Flash baud rate "), this.baud,
-          h("p", {}, "Lower it if writing fails part way. Reading the board and its boot log always use 115200."))),
+      h("p", { class: "hi-connect" }, this.connectButton),
       this.status,
       this.boardPanel,
       this.progressPanel,
       this.bootLog,
+      // The theme draws <details> as a collapsible note, which suits both of these.
+      h("details", { class: "note hi-advanced" }, h("summary", {}, "Advanced"),
+        h("p", {}, h("label", { for: "hi-baud" }, "Flash baud rate "), this.baud),
+        h("p", {}, "Lower it if writing fails part way. Reading the board and its boot log always use 115200.")),
       this.log));
   }
 

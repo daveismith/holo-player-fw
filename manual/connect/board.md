@@ -100,7 +100,8 @@ GPIO19 and GPIO20, are not connected.
 
 Two consequences run through the rest of these pages:
 
-- The bridge's DTR/RTS lines drive the auto-download circuit, so `idf.py flash` needs no buttons.
+- The bridge's DTR/RTS lines drive the auto-download circuit, so installing firmware — from the
+  browser, with esptool, or with `idf.py flash` — needs no buttons.
 - Everything else — the console, uploading clips, updating the firmware — is a serial port, and
   **only one program can hold it at a time**. Close `idf.py monitor` before running any host-side
   tool.

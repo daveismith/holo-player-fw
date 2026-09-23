@@ -35,7 +35,7 @@ The picture above is generated from the firmware's own geometry by
 
 ## Aligning
 
-1. Flash the firmware and open the console — see [Build and flash](../install/flashing.md).
+1. Flash the firmware and open the console — see [Install](../install/flashing.md).
 2. Run `screen calibration`. The panel wakes with the pattern already in place.
 3. Hold or rest the board in the dome and **centre it**: the crossing goes in the middle of the
    lens opening, and the two lines should reach the edge of the aperture by the same amount all

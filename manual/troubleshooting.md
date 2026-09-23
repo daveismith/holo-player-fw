@@ -101,6 +101,41 @@
   Otherwise, a reset before the new image confirmed itself rolls back to the previous one by
   design ([details](use/ota.md#rollback)).
 
-**`idf.py flash` put back an old version.**
-: Flashing over USB always writes `ota_0` and boots it, whichever slot the console-installed
-  firmware was using.
+**Installing over USB put back an old version.**
+: The browser installer, esptool and `idf.py flash` all write `ota_0` and boot it, whichever slot
+  the console-installed firmware was using.
+
+**The Install page says the browser can't talk to serial ports.**
+: Web Serial is only in desktop Chrome, Edge and Opera — not Firefox, Safari, or any phone. Use
+  one of those, or install with esptool ([details](install/flashing.md#install-the-firmware)).
+
+**The Install page says there is no firmware to install.**
+: Only a release's documentation carries firmware; the development version (`dev`) and previews
+  do not. Switch to a release with the version selector at the top of the page.
+
+**Opened from the documentation zip, the Install page says the installer can't run.**
+: Browsers won't use a serial port from a page opened as a file. Run `python3 serve.py` in the
+  unzipped folder; it serves the pages on `localhost` with no internet needed
+  ([details](install/flashing.md#install-the-firmware)).
+
+**The browser lists no serial port for the board.**
+: Try another USB-C cable — some carry only power. On Windows and older macOS, the CH343P needs
+  WCH's driver. The board appears as `cu.wchusbserial…` or `cu.usbmodem…` on macOS and as
+  *USB-SERIAL CH343* on Windows.
+
+**The installer says the port is in use.**
+: Another program has it: `idf.py monitor`, a serial terminal, `fs_xfer.py`, or another browser
+  tab. Close it and connect again.
+
+**The installer says the board didn't answer.**
+: Its reset into the bootloader didn't take. Hold **BOOT**, tap **RESET**, let go of BOOT, and
+  connect again.
+
+**Writing fails part way through.**
+: Install again; the board may not start until an install completes. If it keeps failing, lower
+  the baud rate under **Advanced**, and avoid USB hubs.
+
+**The installer won't offer to update: the partition layout changed.**
+: The release divides the flash up differently from the firmware on the board, so the settings
+  and clips it would keep could be misread. Copy off anything you want to keep with `fs_xfer.py`,
+  install with **Complete overwrite**, and put them back.

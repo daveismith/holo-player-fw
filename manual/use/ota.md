@@ -1,6 +1,6 @@
 # Updating over serial
 
-`idf.py flash` needs the USB-C port and its auto-reset circuit. Once the board is mounted inside a
+[Installing over USB](../install/flashing.md) needs the USB-C port and its auto-reset circuit. Once the board is mounted inside a
 droid that may not be reachable, so the firmware can also replace itself through the console it is
 already talking on.
 
@@ -36,8 +36,9 @@ boots the previous image instead.
 
 !!! note "Rollback lives in the bootloader"
     The trial-and-confirm logic is part of the bootloader, and the bootloader is only written by
-    `idf.py flash` over USB. A board that has never been flashed over USB with this firmware does
-    not have it.
+    [installing over USB](../install/flashing.md) — from the browser, with esptool, or with
+    `idf.py flash`. A board that has never been installed over USB with this firmware does not
+    have it.
 
 ## Checking the slots
 
@@ -78,5 +79,6 @@ link or the flash. `fs_xfer.py ota --dry-run` does the same from the host.
 
 ## Going back
 
-`idf.py flash` over USB always writes to `ota_0` and boots it, whichever slot was running before.
+[Installing over USB](../install/flashing.md) always writes to `ota_0` and boots it, whichever
+slot was running before — whether from the browser, with esptool, or with `idf.py flash`.
 That is the way back if an update leaves the board in a state you would rather leave behind.

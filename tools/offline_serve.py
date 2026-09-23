@@ -55,7 +55,7 @@ def main() -> int:
         sys.exit(f"serve.py: cannot listen on port {port}: {error.strerror}")
     url = f"http://localhost:{server.server_address[1]}/{START_PAGE}"
     print(f"Holo Player documentation at {url}")
-    print("The installer needs Chrome, Edge or Opera. Press Ctrl-C to stop.")
+    print("The installer needs Chrome, Edge or Opera. Press Ctrl-C to stop.", flush=True)
     threading.Timer(0.3, webbrowser.open, (url,)).start()
     try:
         server.serve_forever()

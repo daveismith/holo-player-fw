@@ -10,11 +10,12 @@ onto the board over the same serial console, as does new firmware.
 
 <div class="grid cards" markdown>
 
--   **[Build and flash](install/flashing.md)**
+-   **[Install](install/flashing.md)**
 
     ---
 
-    Clone with submodules, build with ESP-IDF, and flash over USB-C.
+    From the browser in a few clicks, with esptool, or built from source. Update in place, or
+    start fresh.
 
 -   **[The board](connect/board.md)**
 
