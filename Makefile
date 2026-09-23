@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 PY    := .venv/bin/python
 
-.PHONY: help venv docs-setup docs-check docs-image docs-build docs-offline docs-serve docs-preview-versions
+.PHONY: help venv docs-setup docs-check docs-image docs-vendor docs-build docs-offline docs-serve docs-preview-versions
 
 help:                  ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-22s %s\n", $$1, $$2}'
@@ -14,12 +14,16 @@ venv:                  ## python venv for the documentation tools
 docs-setup: venv       ## install the pinned docs toolchain (requirements-docs.txt)
 	@$(PY) -m pip install -q -r requirements-docs.txt
 
-docs-check:            ## every registered console command is documented, and the pattern image is current (stdlib only, no venv needed)
+docs-check:            ## every registered console command is documented, the pattern image is current, the vendored JavaScript is intact (stdlib only, no venv needed)
 	@python3 tools/check_command_docs.py
 	@python3 tools/render_calibration.py --check
+	@python3 tools/vendor_js.py --check
 
 docs-image:            ## re-render manual/images/calibration.png from the firmware's own geometry
 	@python3 tools/render_calibration.py
+
+docs-vendor:           ## re-vendor the pinned JavaScript libraries (tools/vendor_js.py; needs the network)
+	@python3 tools/vendor_js.py update
 
 docs-build:            ## build the site strictly -> build/site/
 	.venv/bin/zensical build --strict --clean
