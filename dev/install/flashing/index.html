@@ -756,7 +756,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -1208,14 +1208,15 @@
 prebuilt binary to download for the first install: the bootloader has to go on over USB at least
 once, after which the firmware can update itself over the console.</p>
 <h2 id="1-get-the-source">1. Get the source<a class="headerlink" href="#1-get-the-source" title="Permanent link">&para;</a></h2>
-<p>The shared console commands live in a git submodule, so clone recursively:</p>
+<p>Two things live in git submodules — the shared console commands, and the GIF decoder — so clone
+recursively:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/daveismith/holo-player-fw
 </code></pre></div>
-<p>In a clone that already exists:</p>
+<p>In a clone that already exists, and again after pulling a change that adds one:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init
 </code></pre></div>
-<p>Without the submodule the build fails at <code>main/CMakeLists.txt</code>, which requires its components by
-name.</p>
+<p>Without them the build fails: at <code>main/CMakeLists.txt</code>, which requires the console components by
+name, or at <code>components/animatedgif</code>, whose sources are the other submodule.</p>
 <h2 id="2-build">2. Build<a class="headerlink" href="#2-build" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>idf.py<span class="w"> </span>build
 </code></pre></div>

@@ -25,7 +25,7 @@
     
     
       
-        <title>Still images - Holo Player</title>
+        <title>Images - Holo Player</title>
       
     
     
@@ -81,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#still-images" class="md-skip">
+        <a href="#images" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Still images
+              Images
             
           </span>
         </div>
@@ -652,7 +652,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -669,7 +669,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -717,6 +717,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#animated-gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animated GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#making-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Making one
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-at-a-file" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -739,10 +778,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-costs" class="md-nav__link">
+  <a href="#what-a-still-costs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        What it costs
+        What a still costs
       </span>
     </span>
   </a>
@@ -1131,6 +1170,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#animated-gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animated GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#making-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Making one
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-at-a-file" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1153,10 +1231,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-costs" class="md-nav__link">
+  <a href="#what-a-still-costs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        What it costs
+        What a still costs
       </span>
     </span>
   </a>
@@ -1181,11 +1259,12 @@
   
 
 
-<h1 id="still-images">Still images<a class="headerlink" href="#still-images" title="Permanent link">&para;</a></h1>
-<p><code>image show</code> puts a <strong>PNG</strong> or a <strong>baseline JPEG</strong> from <code>/data</code> in the middle of the round panel,
-where it stays until something else takes the screen. There is no task and no timing behind it:
-a still is drawn once and then simply left, exactly as a <a href="../../reference/console/">colour</a> is.</p>
-<p>For moving pictures, see <a href="../video/">Video clips</a>.</p>
+<h1 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h1>
+<p><code>image show</code> puts a <strong>PNG</strong>, a <strong>baseline JPEG</strong> or a <strong>GIF</strong> from <code>/data</code> in the middle of the
+round panel, where it stays until something else takes the screen. A still has no task and no
+timing behind it: it is drawn once and then simply left, exactly as a
+<a href="../../reference/console/">colour</a> is. An animated GIF plays — see <a href="#animated-gifs">Animated GIFs</a>.</p>
+<p>For clips, see <a href="../video/">Video clips</a>.</p>
 <h2 id="preparing-a-file">Preparing a file<a class="headerlink" href="#preparing-a-file" title="Permanent link">&para;</a></h2>
 <p>The panel is 240×240, and an image has to fit it — anything larger is refused rather than
 scaled or cropped, so the framing stays yours. Resize on the host:</p>
@@ -1247,6 +1326,75 @@ showing /data/r2.png (240x240, backlight 100%)
 <p>Nothing that fails ever disturbs the screen. The file, its format and its size are all checked
 before the panel is touched, so a rejected <code>image show</code> leaves whatever was already showing in
 place.</p>
+<h2 id="animated-gifs">Animated GIFs<a class="headerlink" href="#animated-gifs" title="Permanent link">&para;</a></h2>
+<p>A GIF with more than one frame plays, on its own frame delays, the same way a clip plays on its
+own timing:</p>
+<div class="highlight"><pre><span></span><code>image show r2-wave.gif
+image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
+</code></pre></div>
+<p>It loops the way the file says, which is how it looks in a browser: forever, a set number of
+times, or once if the file does not say. When a GIF that stops runs out of passes, <strong>its last
+frame stays up</strong> — it was shown as an image, and an image stays until something replaces it.
+<code>screen</code> says <code>playing</code> while it moves and <code>showing</code> once it has stopped.</p>
+<p>It plays on the same task as clips, so everything that works on a clip works on a GIF:
+<code>video stop</code> stops it and puts the panel to sleep, <code>video status</code> reports its frame times, and
+another image, clip or colour replaces it without the panel blinking. A one-frame GIF is a
+still like any other.</p>
+<h3 id="making-one">Making one<a class="headerlink" href="#making-one" title="Permanent link">&para;</a></h3>
+<p>From a clip or any video, at 240 pixels across and a frame rate the panel can keep up with:</p>
+<div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-vf<span class="w"> </span><span class="s2">"fps=15,scale=240:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse"</span><span class="w"> </span>r2-wave.gif
+</code></pre></div>
+<p>The palette pair builds one 256-colour palette for the whole animation instead of a generic
+one; the difference is obvious. ffmpeg also writes each frame as only the rectangle that
+changed, which is what makes a GIF cheap to play here — see the table below.</p>
+<div class="admonition note">
+<p class="admonition-title">Very short frame delays play at 100 ms</p>
+<p>A frame with no delay, or a delay of 10 ms or less, stays up 100 ms. That is what Chrome and
+Firefox do, and files that ask for no delay were made expecting it — so a GIF runs at the
+speed it has in a browser, not faster.</p>
+</div>
+<h3 id="what-it-costs">What it costs<a class="headerlink" href="#what-it-costs" title="Permanent link">&para;</a></h3>
+<p>Measured on the board with <code>video status</code>. What matters is how much of the picture changes
+from frame to frame, not how big the picture is: only the changed area is decoded and painted.</p>
+<table>
+<thead>
+<tr>
+<th>GIF</th>
+<th>Frame budget</th>
+<th>Decode + draw per frame</th>
+<th>Late</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ffmpeg, 240×240, 20 fps (a test pattern with moving parts)</td>
+<td>50 ms</td>
+<td>5.9 ms</td>
+<td>none</td>
+</tr>
+<tr>
+<td>ffmpeg, 120×120, 20 fps</td>
+<td>50 ms</td>
+<td>1.9 ms</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Every pixel changing, flat colours, 240×240</td>
+<td>—</td>
+<td>30.7 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Every pixel changing, random noise, 240×240, 25 fps</td>
+<td>40 ms</td>
+<td>44.9 ms</td>
+<td>all</td>
+</tr>
+</tbody>
+</table>
+<p>The last row is the ceiling: a 240×240 GIF that repaints the whole panel with incompressible
+content every frame manages about <strong>22 fps</strong>. Real animations rarely come near it. If one
+stutters, <code>video status</code> will show frames running late; drop its frame rate, or its size.</p>
 <h2 id="looking-at-a-file">Looking at a file<a class="headerlink" href="#looking-at-a-file" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>image info r2.png
 </code></pre></div>
@@ -1254,10 +1402,15 @@ place.</p>
 <div class="highlight"><pre><span></span><code>/data/r2.png: PNG 200x150, 8-bit RGBA, non-interlaced, 14233 bytes
 parsed in 3.2 ms
 </code></pre></div>
+<p>For a GIF it counts the frames and adds up their delays, by the same rule it plays them:</p>
+<div class="highlight"><pre><span></span><code>/data/r2-wave.gif: GIF 240x240, 24 frames, loops forever, 1.60 s a pass, 412306 bytes
+</code></pre></div>
 <p>As with <a href="../video/#looking-at-a-clip"><code>video info</code></a>, it is the quickest way to find out whether a
-file survived its upload intact.</p>
+file survived its upload intact. A GIF cut short in transfer is refused outright —
+<code>truncated: it ends before the GIF trailer</code> — rather than played with its last frame half
+garbage.</p>
 <h2 id="how-it-is-decoded">How it is decoded<a class="headerlink" href="#how-it-is-decoded" title="Permanent link">&para;</a></h2>
-<p>Both formats end up in the same place: 16 lines at a time into one of two small DMA buffers, each
+<p>PNG and JPEG end up in the same place: 16 lines at a time into one of two small DMA buffers, each
 block sent to the panel while the next is prepared. It is the mechanism the clip player uses,
 because a still has the same problem — a 240×240 frame is 115 KB, more than the largest free
 block of internal RAM.</p>
@@ -1287,7 +1440,11 @@ block of internal RAM.</p>
 <p>Adam7 interlacing cannot be read row by row: each of its seven passes writes only its own pixels
 into rows the later passes fill in, so every row has to be resident at once. That is 173 KB, which
 goes to PSRAM. A still has no frame to miss, so the slower path costs nothing but the wait.</p>
-<h2 id="what-it-costs">What it costs<a class="headerlink" href="#what-it-costs" title="Permanent link">&para;</a></h2>
+<p>A GIF is different, because its frames are rarely whole pictures: most are a rectangle drawn
+over the ones before. So it is composited onto a 240×240 canvas held in PSRAM, and then only
+what changed is sent, in the same 16-line blocks. <code>video status</code> calls this
+<code>changed area only, from a PSRAM canvas</code>.</p>
+<h2 id="what-a-still-costs">What a still costs<a class="headerlink" href="#what-a-still-costs" title="Permanent link">&para;</a></h2>
 <p>Measured on this board, from the command to the last pixel on the panel — decode, convert and
 paint together, which is what <code>image show</code> reports:</p>
 <table>

@@ -638,7 +638,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -1063,6 +1063,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-canvas-not-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A canvas, not frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-and-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing and integrity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1241,6 +1291,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-canvas-not-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A canvas, not frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-and-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing and integrity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1260,16 +1360,18 @@
 
 
 <h1 id="video-internals">Video internals<a class="headerlink" href="#video-internals" title="Permanent link">&para;</a></h1>
-<p>How <code>components/video</code> plays a clip, and why it is built the way it is. For using it, see
-<a href="../../use/video/">Video clips</a>.</p>
-<p>The component has two parts:</p>
+<p>How <code>components/video</code> puts clips and images on the panel, and why it is built the way it is.
+For using it, see <a href="../../use/video/">Video clips</a> and <a href="../../use/images/">Images</a>.</p>
+<p>The component's parts:</p>
 <ul>
 <li><strong><code>quicktime.cpp</code></strong> — a QuickTime atom parser, ported from the Flash_PNG Arduino sketch to
   stdio and the VFS, and hardened considerably: real chunk-table seeking through <code>stsc</code> with
   <code>stco</code>/<code>co64</code>, frame durations from <code>stts</code>, a codec check in <code>stsd</code>, 64-bit atom sizes, and
   enough bounds validation that a damaged file fails to open rather than playing garbage.</li>
 <li><strong><code>video_player.cpp</code></strong> — the player, decoding with Espressif's <code>esp_new_jpeg</code> on a task pinned
-  to core 1.</li>
+  to core 1. It plays animated GIFs too, and owns what the screen is showing.</li>
+<li><strong><code>image.cpp</code></strong>, <strong><code>png_image.c</code></strong> and <strong><code>gif_image.cpp</code></strong> — <code>image show</code>, with libpng and
+  bitbank2's AnimatedGIF; see <a href="#still-images">Still images</a> and <a href="#gifs">GIFs</a> below.</li>
 </ul>
 <p>Each frame is read from <code>/data</code> and drawn centred on the panel, timed by the clip's own
 time-to-sample table.</p>
@@ -1432,6 +1534,61 @@ to 8192 to carry libpng's read path. Measured afterwards with <code>tasks</code>
 240×240, 16-bit RGBA, interlaced, with an ancillary text chunk — <code>main</code> still had <strong>3240 bytes</strong>
 free, so the margin is real rather than assumed. <code>tasks</code> reports the same number for a file of
 your own.</p>
+<h2 id="gifs">GIFs<a class="headerlink" href="#gifs" title="Permanent link">&para;</a></h2>
+<p><code>image show</code> takes GIFs too. The decoder is <a href="https://github.com/bitbank2/AnimatedGIF">bitbank2's AnimatedGIF</a>,
+because the Espressif registry has none. It is a submodule at <code>external/AnimatedGIF</code>, pinned to
+upstream <code>c2478ec</code> (library version 2.2.3, which upstream has not tagged — the last tag, 2.2.0,
+lacks fixes for disposal method 2 and for a crash on corrupt files). <code>components/animatedgif</code> is
+only packaging: upstream is used unmodified, and a small forced-in header supplies the <code>millis()</code>
+and <code>delay()</code> it still calls when it is built for neither Arduino, Linux nor macOS.</p>
+<p><strong>An animated GIF plays on this component's player task</strong>, the one that plays clips. What a GIF
+shares with a clip is everything around the decoder: a clock, a way to stop, being replaced
+without the panel blinking, <code>video status</code>, and the console history being held back while it
+plays (see <a href="#flash-writes-and-late-frames">Flash writes and late frames</a>). A second task would
+have had to reproduce all of it. <code>image show</code> opens the file, checks it and allocates everything
+before the panel is touched, then hands it to the player already open.</p>
+<h3 id="a-canvas-not-frames">A canvas, not frames<a class="headerlink" href="#a-canvas-not-frames" title="Permanent link">&para;</a></h3>
+<p>A GIF frame is rarely a picture on its own. Most are a rectangle drawn over the frames before
+it; some have transparent holes the earlier picture shows through; some ask for their area to be
+erased to the background when the next frame arrives (disposal method 2). So the decoder keeps a
+canvas and composites every frame onto it — AnimatedGIF's <em>cooked</em> mode — and the player paints
+from the canvas.</p>
+<p>It has to be the full-sized frame buffer with <strong>no draw callback</strong>, 3 bytes a pixel: the canvas
+as palette indices, then again as big-endian RGB565. That is 173 KB at 240×240, in PSRAM. The
+smaller arrangement the library also offers, a callback per line out of <code>allocFrameBuf()</code>, is
+wrong twice over here:</p>
+<ul>
+<li>Lines come out of one shared line buffer, and a transparent pixel is simply not written — so
+  it arrives carrying the colour of the same column on the line above.</li>
+<li>Disposal method 2 writes the background into the RGB565 half of the canvas, which that buffer
+  does not have. It would write past the end of it.</li>
+</ul>
+<p>What changed is then painted in 16-line blocks, copied out of the canvas: this frame's
+rectangle, joined with the previous frame's. The previous one is included because it may have
+just been erased to background, and the decoder keeps the previous frame's disposal to itself.
+For a well-made GIF, where each frame is a small rectangle, that is a small area — which is why
+ffmpeg's GIFs cost a few milliseconds a frame.</p>
+<h3 id="timing-and-integrity">Timing and integrity<a class="headerlink" href="#timing-and-integrity" title="Permanent link">&para;</a></h3>
+<p>Delays are the file's own, with one rule: <strong>10 ms or less becomes 100 ms</strong>, as in Chrome and
+Firefox, so a GIF runs at the speed it runs in a browser. The decoder is inconsistent about this
+itself — it rounds only a zero up when it plays, and rounds short delays to 20 ms when it counts
+them — so the rule lives in one place, <code>gif_frame_delay_ms()</code>, and both the player and
+<code>image info</code> use it. <code>image info</code> counts frames and adds up delays by walking the file's blocks,
+not with the decoder's own walk, so the length it reports is the length it plays.</p>
+<p>The walk also refuses a file that ends before its trailer byte. The LZW decoder carries on
+through data that runs out partway, so a GIF cut short in transfer would otherwise play with its
+last frame half garbage.</p>
+<p>The NETSCAPE loop count is a count of repeats: 0 is forever, <em>n</em> plays <em>n</em> + 1 times, and a file
+without the extension plays once. When the passes run out, the last frame stays up and <code>screen</code>
+reports it as an image.</p>
+<h3 id="what-it-costs_1">What it costs<a class="headerlink" href="#what-it-costs_1" title="Permanent link">&para;</a></h3>
+<p>The GIF path adds <strong>11 KB</strong> of flash. At 240×240 the decoder's state is 24 KB, in internal RAM
+for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task keeps
+6.7 KB of its 8 KB stack free while a GIF plays, and repeated plays leave the heap where it was.</p>
+<p>The ceiling is a GIF that changes every pixel of a 240×240 panel with incompressible content:
+30.9 ms to decode and 14 ms to paint, about <strong>22 fps</strong>. The decoder's <em>turbo</em> mode, which trades
+memory for decoding speed, does not help. Its 82 KB buffer only fits in PSRAM, where it decoded
+the same frames slower (33.6 ms), and its decoding path skips disposal method 2 altogether.</p>
 
 
 

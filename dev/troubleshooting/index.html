@@ -643,7 +643,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -1041,6 +1041,15 @@
 <dt><strong><code>image show</code> refuses a picture that looks the right shape.</strong></dt>
 <dd>It is larger than 240×240. Images are not scaled or cropped to fit — the framing stays yours —
   so resize it on the host first (<a href="../use/images/#preparing-a-file">details</a>).</dd>
+<dt><strong>A GIF plays slower than it does in a browser.</strong></dt>
+<dd>If its frames ask for 10 ms or less, the board shows each for 100 ms — but so do Chrome and
+  Firefox, so check it in one of those rather than an image viewer. Otherwise <code>video status</code> while
+  it plays will show frames running late: it changes too much of a 240×240 panel per frame. The
+  ceiling is about 22 fps when every pixel changes; lower its frame rate or its size
+  (<a href="../use/images/#what-it-costs">details</a>).</dd>
+<dt><strong><code>image: … truncated: it ends before the GIF trailer</code>.</strong></dt>
+<dd>The file was cut short, almost always in transfer. Send it again with <code>fs_xfer.py put</code>, which
+  verifies what arrives (<a href="../use/files/">details</a>).</dd>
 <dt><strong>Every LED shows white, whatever colour I send — including <code>leds off</code>.</strong></dt>
 <dd>The data rate is set to 400 kHz, which is for WS2811 strips. A WS2812 reads a 400 kHz "0" as a
   "1", so every frame comes out white, including the one meant to turn the strip off. Set 800 kHz

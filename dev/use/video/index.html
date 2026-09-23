@@ -745,7 +745,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -1185,7 +1185,8 @@
 <p>The player reads <strong>Motion-JPEG QuickTime</strong> files from <code>/data</code> and draws them centred on the round
 panel, timed by the clip's own time-to-sample table — so a clip plays at the speed it was authored
 at, not at whatever rate the decoder happens to manage.</p>
-<p>For a single picture rather than a moving one, see <a href="../images/">Still images</a>.</p>
+<p>For a single picture, or an animated GIF, see <a href="../images/">Images</a>. An animated GIF plays on the
+same task as a clip, so <code>video stop</code> and <code>video status</code> work on it too.</p>
 <h2 id="making-a-clip">Making a clip<a class="headerlink" href="#making-a-clip" title="Permanent link">&para;</a></h2>
 <p>Export at <strong>120×120</strong>; anything up to 240×240 fits the panel. Then convert:</p>
 <div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-c:v<span class="w"> </span>mjpeg<span class="w"> </span>-q:v<span class="w"> </span><span class="m">9</span><span class="w"> </span>-an<span class="w"> </span>&lt;output&gt;.mjpeg.mov
@@ -1319,13 +1320,13 @@ only when no clip is playing. Everything else is up to you. If playback stutters
         
         
           
-          <a href="../images/" class="md-footer__link md-footer__link--next" aria-label="Next: Still images">
+          <a href="../images/" class="md-footer__link md-footer__link--next" aria-label="Next: Images">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Still images
+                Images
               </div>
             </div>
             <div class="md-footer__button md-icon">

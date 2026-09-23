@@ -638,7 +638,7 @@
   <span class="md-ellipsis">
     
   
-  Still images
+  Images
 
     
   </span>
@@ -1344,16 +1344,17 @@ lining the panel up behind a dome's lens — see
 <tbody>
 <tr>
 <td><code>image show &lt;file&gt;</code></td>
-<td>Show a PNG or baseline JPEG, centred. It stays until something else takes the screen</td>
+<td>Show a PNG, baseline JPEG or GIF, centred. It stays until something else takes the screen. An animated GIF plays, looping as the file says, and leaves its last frame up if it stops</td>
 </tr>
 <tr>
 <td><code>image info &lt;file&gt;</code></td>
-<td>What the file is — format, size, bit depth — without decoding it or touching the panel</td>
+<td>What the file is — format, size, bit depth; for a GIF, frames, loops and length — without decoding it or touching the panel</td>
 </tr>
 </tbody>
 </table>
-<p>An image larger than 240×240 is refused rather than scaled. PNG transparency is composited over
-black. Full detail in <a href="../../use/images/">Still images</a>.</p>
+<p>An image larger than 240×240 is refused rather than scaled. Transparency is composited over
+black. An animated GIF plays on the video player's task, so <code>video stop</code> and <code>video status</code> work
+on it. Full detail in <a href="../../use/images/">Images</a>.</p>
 <h2 id="video">Video<a class="headerlink" href="#video" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1369,11 +1370,11 @@ black. Full detail in <a href="../../use/images/">Still images</a>.</p>
 </tr>
 <tr>
 <td><code>video stop</code></td>
-<td>Stop, and turn the screen off</td>
+<td>Stop a clip or an animated GIF, and turn the screen off</td>
 </tr>
 <tr>
 <td><code>video status</code></td>
-<td>Per-frame read, decode, decode-plus-draw and paint times</td>
+<td>Per-frame read, decode, decode-plus-draw and paint times, for a clip or an animated GIF</td>
 </tr>
 <tr>
 <td><code>video info &lt;file&gt;</code></td>
