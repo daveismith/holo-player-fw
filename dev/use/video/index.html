@@ -14,7 +14,7 @@
         <link rel="prev" href="../../connect/servos/">
       
       
-        <link rel="next" href="../leds/">
+        <link rel="next" href="../images/">
       
       
         
@@ -738,6 +738,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Still images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../leds/" class="md-nav__link">
         
   
@@ -1158,6 +1185,7 @@
 <p>The player reads <strong>Motion-JPEG QuickTime</strong> files from <code>/data</code> and draws them centred on the round
 panel, timed by the clip's own time-to-sample table — so a clip plays at the speed it was authored
 at, not at whatever rate the decoder happens to manage.</p>
+<p>For a single picture rather than a moving one, see <a href="../images/">Still images</a>.</p>
 <h2 id="making-a-clip">Making a clip<a class="headerlink" href="#making-a-clip" title="Permanent link">&para;</a></h2>
 <p>Export at <strong>120×120</strong>; anything up to 240×240 fits the panel. Then convert:</p>
 <div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-c:v<span class="w"> </span>mjpeg<span class="w"> </span>-q:v<span class="w"> </span><span class="m">9</span><span class="w"> </span>-an<span class="w"> </span>&lt;output&gt;.mjpeg.mov
@@ -1178,8 +1206,8 @@ video stop
 </code></pre></div>
 <p><code>loop</code> repeats the clip until <code>video stop</code>. Without it, the clip plays once and the screen turns
 off — the panel sleeps with its backlight off whenever nothing is showing.</p>
-<p>Starting another clip, or a <code>screen colour</code>, over a playing clip keeps the panel on and swaps what
-is on it.</p>
+<p>Starting another clip, an <code>image show</code> or a <code>screen colour</code> over a playing clip keeps the panel on
+and swaps what is on it.</p>
 <h2 id="looking-at-a-clip">Looking at a clip<a class="headerlink" href="#looking-at-a-clip" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>video info leia.mjpeg.mov
 </code></pre></div>
@@ -1291,13 +1319,13 @@ only when no clip is playing. Everything else is up to you. If playback stutters
         
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--next" aria-label="Next: LED patterns">
+          <a href="../images/" class="md-footer__link md-footer__link--next" aria-label="Next: Still images">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                LED patterns
+                Still images
               </div>
             </div>
             <div class="md-footer__button md-icon">

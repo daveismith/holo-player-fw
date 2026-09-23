@@ -639,6 +639,33 @@
   
   
     <li class="md-nav__item">
+      <a href="./use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Still images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="./use/leds/" class="md-nav__link">
         
   
@@ -989,7 +1016,7 @@
 
 <h1 id="holo-player">Holo Player<a class="headerlink" href="#holo-player" title="Permanent link">&para;</a></h1>
 <p>Firmware for the <strong>Waveshare ESP32-S3-Touch-LCD-1.28</strong>, driving a droid's holoprojector: it plays
-Motion-JPEG clips on a 240×240 round panel, lights a NeoPixel ring, and aims two servos the way a
+Motion-JPEG clips and shows stills on a 240×240 round panel, lights a NeoPixel ring, and aims two servos the way a
 dome's basic holoprojectors move. Everything is driven from a console on the board's USB-C port.</p>
 <p>The board is an ESP32-S3R2 with 2 MB of PSRAM and 16 MB of flash, carrying a GC9A01 round IPS
 panel, a CST816S touch controller and a QMI8658 IMU. Clips live on an 11 MB LittleFS volume and go
@@ -1012,6 +1039,11 @@ onto the board over the same serial console, as does new firmware.</p>
 <p>Make a Motion-JPEG file, put it on the board, and play it.</p>
 </li>
 <li>
+<p><strong><a href="use/images/">Show a still</a></strong></p>
+<hr />
+<p>A PNG or a JPEG on the panel, where it stays until something replaces it.</p>
+</li>
+<li>
 <p><strong><a href="connect/leds/">Wire the LED ring</a></strong></p>
 <hr />
 <p>Three wires, and the power budget that decides whether it needs its own supply.</p>
@@ -1032,7 +1064,7 @@ onto the board over the same serial console, as does new firmware.</p>
 <p class="admonition-title">The screen is off whenever nothing is showing</p>
 <p>At boot, after <code>screen clear</code>, and when a clip ends, the panel is asleep with its backlight
 off — not black, but unpowered. That is deliberate, and it is why the first frame of a clip is
-never drawn to a dark screen.</p>
+never drawn to a dark screen. A colour or an image stays up until something replaces it.</p>
 </div>
 
 

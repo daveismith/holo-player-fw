@@ -631,6 +631,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Still images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../use/leds/" class="md-nav__link">
         
   
@@ -900,6 +927,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Images
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#video" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1137,6 +1175,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Images
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#video" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1263,7 +1312,7 @@ a raw RGB565 value written as <code>0x…</code>.</p>
 <tbody>
 <tr>
 <td><code>screen [colour &lt;c&gt; \| calibration \| clear]</code></td>
-<td>Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing. The screen is off — panel asleep, backlight off — whenever nothing is</td>
+<td>Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing, including a clip or an image. The screen is off — panel asleep, backlight off — whenever nothing is</td>
 </tr>
 <tr>
 <td><code>lcd [bl &lt;0-100&gt; \| bench [frames]]</code></td>
@@ -1284,6 +1333,27 @@ lining the panel up behind a dome's lens — see
 <a href="../../connect/screen/">Mounting the screen</a>.</p>
 <p><code>touch</code> is only present when <code>BOARD_TOUCH_ENABLE</code> is set, which it is by default. See
 <a href="../config/">Configuration</a>.</p>
+<h2 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>image show &lt;file&gt;</code></td>
+<td>Show a PNG or baseline JPEG, centred. It stays until something else takes the screen</td>
+</tr>
+<tr>
+<td><code>image info &lt;file&gt;</code></td>
+<td>What the file is — format, size, bit depth — without decoding it or touching the panel</td>
+</tr>
+</tbody>
+</table>
+<p>An image larger than 240×240 is refused rather than scaled. PNG transparency is composited over
+black. Full detail in <a href="../../use/images/">Still images</a>.</p>
 <h2 id="video">Video<a class="headerlink" href="#video" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1604,8 +1674,8 @@ touched.</p>
 <p>Servo calibration lives in the <code>servo</code> NVS namespace, keyed by pin. Saved Wi-Fi networks live in
 their own namespace, set in menuconfig.</p>
 <h2 id="where-these-come-from">Where these come from<a class="headerlink" href="#where-these-come-from" title="Permanent link">&para;</a></h2>
-<p>The board-specific commands — <code>screen</code>, <code>lcd</code>, <code>touch</code>, <code>imu</code>, <code>video</code>, <code>leds</code> — are in this
-repository, under <code>components/</code>. Everything else comes from the
+<p>The board-specific commands — <code>screen</code>, <code>lcd</code>, <code>touch</code>, <code>imu</code>, <code>video</code>, <code>image</code>, <code>leds</code> — are in
+this repository, under <code>components/</code>. Everything else comes from the
 <a href="https://github.com/daveismith/esp-console-kit">esp-console-kit</a> submodule, whose README is the
 reference for the commands this page only summarises.</p>
 <p><code>tools/check_command_docs.py</code> checks that every command the firmware registers appears on this

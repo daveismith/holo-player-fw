@@ -636,6 +636,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Still images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../use/leds/" class="md-nav__link">
         
   
@@ -999,6 +1026,21 @@
 <dt><strong>The screen is dark and nothing seems wrong.</strong></dt>
 <dd>That is the normal resting state. The panel sleeps with its backlight off whenever nothing is
   showing — at boot, after <code>screen clear</code>, and when a clip ends. Try <code>screen colour red</code>.</dd>
+<dt><strong>A transparent PNG shows white where it should be transparent.</strong></dt>
+<dd>It is not transparent any more — the panel has no alpha, so transparency is composited over
+  black when the file is decoded. White means the transparent pixels really are white in the
+  file, with the alpha channel hiding them. Export with the background you want
+  (<a href="../use/images/#preparing-a-file">details</a>).</dd>
+<dt><strong>A JPEG that opens everywhere else will not show on the board.</strong></dt>
+<dd>The decoder reads baseline 4:2:0 only. <code>only baseline JPEG is supported</code> means the file is
+  progressive; <code>unsupported colour sampling</code> means it is 4:4:4, which is what ffmpeg writes by
+  default from a still RGB image; <code>bad JPEG data</code> on a file that is not corrupt means 4:2:2.
+  All three re-encode the same way:
+  <code>ffmpeg -i in.jpg -c:v mjpeg -q:v 3 -pix_fmt yuvj420p out.jpg</code>
+  (<a href="../use/images/#preparing-a-file">details</a>). A PNG avoids the question entirely.</dd>
+<dt><strong><code>image show</code> refuses a picture that looks the right shape.</strong></dt>
+<dd>It is larger than 240×240. Images are not scaled or cropped to fit — the framing stays yours —
+  so resize it on the host first (<a href="../use/images/#preparing-a-file">details</a>).</dd>
 <dt><strong>Every LED shows white, whatever colour I send — including <code>leds off</code>.</strong></dt>
 <dd>The data rate is set to 400 kHz, which is for WS2811 strips. A WS2812 reads a 400 kHz "0" as a
   "1", so every frame comes out white, including the one meant to turn the strip off. Set 800 kHz

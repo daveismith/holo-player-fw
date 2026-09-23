@@ -631,6 +631,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Still images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../use/leds/" class="md-nav__link">
         
   
@@ -997,6 +1024,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#still-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Still images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Still images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-png_imagec-is-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why <code>png_image.c</code> is C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1136,6 +1202,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#still-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Still images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Still images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-png_imagec-is-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why <code>png_image.c</code> is C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1262,6 +1367,71 @@ regardless of speed. The full results are in the commit message of <code>3a7182e
 <p>The build uses <code>CONFIG_COMPILER_OPTIMIZATION_PERF</code> (<code>-O2</code>) partly for this reason: <code>esp_new_jpeg</code>
 ships prebuilt and optimised, so at the default <code>-Og</code> a source-built decoder would lose the
 comparison for reasons that have nothing to do with the decoders.</p>
+<h2 id="still-images">Still images<a class="headerlink" href="#still-images" title="Permanent link">&para;</a></h2>
+<p><code>image show</code> is in the same component, and lands in the same place: 16 lines at a time into one of
+two DMA buffers, each block on its way to the panel while the next is prepared. A still has the
+same problem a frame does — 115 KB at 240×240, more than the largest free internal block — so it
+gets the same answer, minus the container and the clock.</p>
+<p><strong>JPEG stills reuse the player's decoder outright</strong>, and inherit its limits: baseline only, and
+4:2:0. A 4:4:4 file is refused by the header parse; a 4:2:2 file parses and then fails to decode,
+in blocks and whole alike. Because there is no way to tell in advance which files block mode will
+turn down, a still that fails to stream falls back to decoding whole and drawing again — the
+half-drawn attempt is simply overwritten. It costs nothing on the files that work, and it is why
+a JPEG can report <code>whole image</code> at a size that is a multiple of 8.</p>
+<p><code>decode_frame()</code> and <code>decode_blocks()</code> moved
+out of <code>video_player.cpp</code> into <code>jpeg_decode.h</code> so both callers share them; <code>decode_blocks()</code> is a
+template so the caller's per-block work inlines into the decode loop, which is why it is in a
+header rather than a source file. The one thing a still needs and a clip does not is
+<code>jpeg_probe()</code>: a clip reads its frames' dimensions from the QuickTime sample description before
+it reads a frame, while a still has only the file, so it parses the header first and sizes its
+buffers from that.</p>
+<p><strong>PNG is libpng</strong>, in <code>png_image.c</code>. Rows come out one at a time and are converted to big-endian
+RGB565 straight into the block buffers, so no whole image is held.</p>
+<p>Three details of that path are load-bearing:</p>
+<ul>
+<li><strong>The file is read buffered</strong>, unlike a clip. A clip sets <code>setvbuf(_IONBF)</code> because whole frames
+  are read straight into the decoder's input and stdio would only add a copy. libpng is the
+  opposite: it reads 8-byte chunk headers and 4-byte CRCs constantly, and buffering turns dozens
+  of tiny reads into one.</li>
+<li><strong>Transparency is composited over black</strong> with <code>png_set_background()</code>, not stripped. Stripping
+  the alpha channel keeps whatever RGB sits under a transparent pixel, which in most exports is
+  white — a transparent PNG would arrive with a white halo. Black is also what the panel wakes to,
+  so a smaller image and its transparent regions match.</li>
+<li><strong>No gamma is set.</strong> With libpng's screen gamma left at zero it builds no gamma tables, which
+  for a 16-bit input would be tens of KB of internal RAM for a correction nobody asked for.</li>
+</ul>
+<p>Interlaced PNGs cannot stream. Adam7 writes each of its seven passes into rows the later passes
+fill in, so <code>png_read_image()</code> needs every row resident: 173 KB of RGB, which goes to PSRAM,
+zeroed so a decode that dies partway can only ever show black. The same block loop then feeds off
+it. This mirrors the clip player's whole-frame-in-PSRAM fallback, and <code>image show</code> names which
+path it took.</p>
+<h3 id="why-png_imagec-is-c">Why <code>png_image.c</code> is C<a class="headerlink" href="#why-png_imagec-is-c" title="Permanent link">&para;</a></h3>
+<p>libpng reports errors by <code>longjmp</code>. A jump out of a C++ frame skips every destructor on the way,
+so the <code>setjmp</code> lives in a C file among locals that have none. Two rules follow, and both are
+easy to get wrong:</p>
+<ul>
+<li>The jump target is set <strong>before</strong> libpng is handed anything at all, including
+  <code>png_create_read_struct()</code>, which can itself fail through the error handler. Without a valid
+  target, libpng's default is <code>abort()</code> — a corrupt file would panic the firmware rather than
+  print a message.</li>
+<li>Every local the cleanup reads is <code>volatile</code>. Otherwise the compiler may keep it in a register
+  that <code>longjmp</code> restores to the value it held at the <code>setjmp</code>, and the cleanup frees a stale
+  pointer or leaks a live one. GCC does not warn about this unless asked.</li>
+</ul>
+<p>The error handler also installs a warning function that does nothing, because libpng's default
+writes to <code>stderr</code> — which here is the console. An ordinary Photoshop export would otherwise
+print <code>iCCP: known incorrect sRGB profile</code> over the prompt.</p>
+<h3 id="what-it-costs">What it costs<a class="headerlink" href="#what-it-costs" title="Permanent link">&para;</a></h3>
+<p>libpng and zlib add <strong>78 KB</strong> to the image, which sits in a 2304 KB slot. Peak memory for a
+240×240 RGBA PNG is about 34 KB of internal RAM — zlib's inflate state, libpng's two filter rows,
+the IDAT read buffer and the two DMA blocks — plus zlib's 32 KB inflate window, which
+<code>CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL</code> sends to PSRAM. An interlaced file adds its 173 KB there
+too.</p>
+<p>Console commands run on the main task, so <code>CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> was raised from 7168
+to 8192 to carry libpng's read path. Measured afterwards with <code>tasks</code>, on the worst file to hand —
+240×240, 16-bit RGBA, interlaced, with an ancillary text chunk — <code>main</code> still had <strong>3240 bytes</strong>
+free, so the margin is real rather than assumed. <code>tasks</code> reports the same number for a file of
+your own.</p>
 
 
 
