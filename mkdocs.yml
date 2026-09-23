@@ -33,6 +33,16 @@ theme:
       accent: amber
       toggle: { icon: material/weather-sunny, name: Light mode }
 
+# The browser installer (install/flashing.md). ui.js does nothing on pages without the installer,
+# and imports the flasher -- esptool-js, vendored by tools/vendor_js.py, never from a CDN, so the
+# offline bundle works with no internet -- only where it is needed.
+extra_javascript:
+  - path: javascripts/installer/ui.js
+    type: module
+
+extra_css:
+  - stylesheets/installer.css
+
 extra:
   version:
     provider: mike
@@ -58,7 +68,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Get started:
-      - Build and flash: install/flashing.md
+      - Install: install/flashing.md
       - The board: connect/board.md
       - Mounting the screen: connect/screen.md
       - Wiring the LED ring: connect/leds.md

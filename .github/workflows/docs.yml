@@ -6,7 +6,11 @@ name: docs
 #
 # Nothing here is generated from the firmware, so this workflow never installs ESP-IDF and runs
 # in seconds. main/ and components/ are in the path filter anyway, because check_command_docs.py
-# reads them: adding a console command without documenting it has to fail somewhere.
+# reads them: adding a console command without documenting it has to fail somewhere. The same goes
+# for partitions.csv, which the browser installer's tests read.
+#
+# These builds carry no firmware (only release.yml stages it), so their Install page points at the
+# latest release's installer instead of offering one.
 on:
   push:
     branches: [main]
@@ -16,7 +20,8 @@ on:
       - "requirements-docs.txt"
       - "CHANGELOG.md"
       - "Makefile"
-      - "tools/check_command_docs.py"
+      - "tools/**"
+      - "partitions.csv"
       - "main/**"
       - "components/**"
       - "external/esp-console-kit"
@@ -42,10 +47,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"   # runs the installer's tests; docs-check would skip them without it
+
       - name: Documentation toolchain
         run: make docs-setup
 
-      - name: Every registered command is documented
+      - name: Every registered command is documented; the installer's code is intact and tested
         run: make docs-check
 
       - name: Build the site (strict)
