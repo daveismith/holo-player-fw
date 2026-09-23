@@ -55,8 +55,7 @@ struct Stats {
     char path[PATH_LEN];
     uint32_t width, height, frames;
     double fps;              /* the file's */
-    bool streamed;
-    bool frame_in_psram;     /* whole-frame mode only */
+    const char *mode;        /* how frames reach the panel, for the report */
     uint32_t shown;
     uint32_t late;           /* frames that finished after the next one was due */
     uint32_t errors;
@@ -133,11 +132,45 @@ void report(void)
            s.read_us / 1000.0 / n, s.decode_us / 1000.0 / n, s.render_us / 1000.0 / n,
            s.fps > 0 ? 1000.0 / s.fps : 0.0, s.paint_us / 1000.0 / n, s.paint_max_us / 1000.0);
     printf("%" PRIu32 " late, %" PRIu32 " decode errors; %s\n", s.late, s.errors,
-           s.streamed ? "streamed in 16-line blocks"
-           : s.frame_in_psram ? "whole frame, in PSRAM" : "whole frame, in internal RAM");
+           s.mode != nullptr ? s.mode : "");
 }
 
-void play(const Request &req)
+/*
+ * One frame's worth of accounting, the same for every kind of file: `render_us` is decode and
+ * draw together, paint_start/paint_end bracket the pixels going out (zero if none did), and
+ * `due` is when the next frame is -- finishing after it makes this frame late.
+ */
+void count_frame(int64_t render_us, int64_t paint_start, int64_t paint_end, int64_t done,
+                 int64_t due)
+{
+    Stats &s = s_stats;
+    s.render_us += render_us;
+    if (paint_start != 0) {
+        const int64_t paint = paint_end - paint_start;
+        s.paint_us += paint;
+        s.paint_max_us = paint > s.paint_max_us ? paint : s.paint_max_us;
+    }
+    s.shown++;
+    if (done > due) {
+        s.late++;
+    }
+}
+
+/*
+ * Playback is over: nothing showing any more, so the panel sleeps with its backlight off --
+ * unless something else is about to be shown in its place, or `hold` says the last frame
+ * stays up.
+ */
+void end_playback(bool hold)
+{
+    s_stats.ended_us = now_us();
+    if (!s_replacing && !hold) {
+        board_lcd_power_off();
+    }
+    report();
+}
+
+void play_clip(const Request &req)
 {
     FILE *f = fopen(req.path, "rb");
     if (f == nullptr) {
@@ -200,8 +233,8 @@ void play(const Request &req)
     s.height = h;
     s.frames = (uint32_t)qt.FrameCount();
     s.fps = qt.DurationUs() ? s.frames * 1e6 / qt.DurationUs() : 0;
-    s.streamed = streamed;
-    s.frame_in_psram = fb != nullptr && !esp_ptr_internal(fb);
+    s.mode = streamed ? "streamed in 16-line blocks"
+             : esp_ptr_internal(fb) ? "whole frame, in internal RAM" : "whole frame, in PSRAM";
 
     /* Blanked, then on -- the panel lit and showing black around the clip's square -- before
      * the first frame is drawn or the clip's clock starts, so frame 0 is seen. */
@@ -259,31 +292,14 @@ void play(const Request &req)
                 printf("video: frame %u: decode error %d\n", (unsigned)i, rc);
             }
             s.read_us += t1 - t0;
-            s.render_us += t2 - t1;
-            if (paint_start != 0) {
-                const int64_t paint = paint_end - paint_start;
-                s.paint_us += paint;
-                s.paint_max_us = paint > s.paint_max_us ? paint : s.paint_max_us;
-            }
-            s.shown++;
-
             ticks += qt.FrameDelta(i);
             const int64_t due = pass_start + (int64_t)(ticks * 1000000ULL / scale);
-            if (t2 > due) {
-                s.late++;
-            }
+            count_frame(t2 - t1, paint_start, paint_end, t2, due);
             sleep_until(due);
         }
         s.loops++;
     } while (req.loop && !s_stop);
-    s.ended_us = now_us();
-
-    /* Nothing showing any more: panel asleep, backlight off -- unless something else is about
-     * to be shown in its place. */
-    if (!s_replacing) {
-        board_lcd_power_off();
-    }
-    report();
+    end_playback(false);
     heap_caps_free(jpg);
     heap_caps_free(fb);
     heap_caps_free(blocks[0]);
@@ -294,7 +310,7 @@ void play(const Request &req)
 void player_task(void *arg)
 {
     Request *req = static_cast<Request *>(arg);
-    play(*req);
+    play_clip(*req);
     delete req;
     s_task = nullptr;
     vTaskDelete(nullptr);
