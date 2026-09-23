@@ -4,7 +4,8 @@ The player reads **Motion-JPEG QuickTime** files from `/data` and draws them cen
 panel, timed by the clip's own time-to-sample table — so a clip plays at the speed it was authored
 at, not at whatever rate the decoder happens to manage.
 
-For a single picture rather than a moving one, see [Still images](images.md).
+For a single picture, or an animated GIF, see [Images](images.md). An animated GIF plays on the
+same task as a clip, so `video stop` and `video status` work on it too.
 
 ## Making a clip
 

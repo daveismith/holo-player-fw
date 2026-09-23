@@ -4,9 +4,9 @@ Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28: ESP32-S3R2 with 2 MB of PSRA
 16 MB flash, a GC9A01 240×240 round LCD, CST816S touch and a QMI8658 IMU. It
 builds with ESP-IDF 6.1.
 
-It plays Motion-JPEG clips and shows PNG and JPEG stills on the round panel, drives a
-NeoPixel ring, and aims two holoprojector servos — all from a console on the board's
-USB-C port.
+It plays Motion-JPEG clips and shows PNG, JPEG and GIF images — animated GIFs included —
+on the round panel, drives a NeoPixel ring, and aims two holoprojector servos, all from a
+console on the board's USB-C port.
 
 ## Documentation
 
@@ -23,7 +23,7 @@ Once published it lives at <https://daveismith.github.io/holo-player-fw/>; see
 
 ## Getting the source
 
-The shared console commands live in a git submodule. Clone with:
+The shared console commands and the GIF decoder live in git submodules. Clone with:
 
 ```sh
 git clone --recursive <url>
@@ -51,9 +51,11 @@ over the console instead of USB — see [Updating over serial](manual/use/ota.md
 |---|---|
 | `main/` | `app_main`, the console loop, and the holo's servos (`holo_servos.c`) |
 | `components/board_ws128/` | Pins (`include/board.h`), shared I2C bus, LCD, touch, IMU, console colour parsing, and the `lcd`/`touch`/`imu` commands |
-| `components/video/` | QuickTime parser, MJPEG player, and the `video`/`screen` commands |
+| `components/video/` | QuickTime parser, the player (clips and animated GIFs), the PNG/JPEG/GIF decoders, and the `video`/`screen`/`image` commands |
+| `components/animatedgif/` | Packaging for the GIF decoder in `external/AnimatedGIF`, which is used unmodified |
 | `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
 | `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`), `servo`, `holo` |
+| `external/AnimatedGIF/` | Submodule: [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), Apache-2.0, pinned to `c2478ec` |
 | `manual/` | The documentation site's pages (`mkdocs.yml`) |
 | `tools/` | `check_command_docs.py` (every command is documented) and `check_version.py` (release tags) |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |

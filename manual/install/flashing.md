@@ -6,20 +6,21 @@ once, after which the firmware can update itself over the console.
 
 ## 1. Get the source
 
-The shared console commands live in a git submodule, so clone recursively:
+Two things live in git submodules — the shared console commands, and the GIF decoder — so clone
+recursively:
 
 ```sh
 git clone --recursive https://github.com/daveismith/holo-player-fw
 ```
 
-In a clone that already exists:
+In a clone that already exists, and again after pulling a change that adds one:
 
 ```sh
 git submodule update --init
 ```
 
-Without the submodule the build fails at `main/CMakeLists.txt`, which requires its components by
-name.
+Without them the build fails: at `main/CMakeLists.txt`, which requires the console components by
+name, or at `components/animatedgif`, whose sources are the other submodule.
 
 ## 2. Build
 

@@ -1,16 +1,18 @@
 # Video internals
 
-How `components/video` plays a clip, and why it is built the way it is. For using it, see
-[Video clips](../use/video.md).
+How `components/video` puts clips and images on the panel, and why it is built the way it is.
+For using it, see [Video clips](../use/video.md) and [Images](../use/images.md).
 
-The component has two parts:
+The component's parts:
 
 - **`quicktime.cpp`** — a QuickTime atom parser, ported from the Flash_PNG Arduino sketch to
   stdio and the VFS, and hardened considerably: real chunk-table seeking through `stsc` with
   `stco`/`co64`, frame durations from `stts`, a codec check in `stsd`, 64-bit atom sizes, and
   enough bounds validation that a damaged file fails to open rather than playing garbage.
 - **`video_player.cpp`** — the player, decoding with Espressif's `esp_new_jpeg` on a task pinned
-  to core 1.
+  to core 1. It plays animated GIFs too, and owns what the screen is showing.
+- **`image.cpp`**, **`png_image.c`** and **`gif_image.cpp`** — `image show`, with libpng and
+  bitbank2's AnimatedGIF; see [Still images](#still-images) and [GIFs](#gifs) below.
 
 Each frame is read from `/data` and drawn centred on the panel, timed by the clip's own
 time-to-sample table.
@@ -181,3 +183,71 @@ to 8192 to carry libpng's read path. Measured afterwards with `tasks`, on the wo
 240×240, 16-bit RGBA, interlaced, with an ancillary text chunk — `main` still had **3240 bytes**
 free, so the margin is real rather than assumed. `tasks` reports the same number for a file of
 your own.
+
+## GIFs
+
+`image show` takes GIFs too. The decoder is [bitbank2's AnimatedGIF](https://github.com/bitbank2/AnimatedGIF),
+because the Espressif registry has none. It is a submodule at `external/AnimatedGIF`, pinned to
+upstream `c2478ec` (library version 2.2.3, which upstream has not tagged — the last tag, 2.2.0,
+lacks fixes for disposal method 2 and for a crash on corrupt files). `components/animatedgif` is
+only packaging: upstream is used unmodified, and a small forced-in header supplies the `millis()`
+and `delay()` it still calls when it is built for neither Arduino, Linux nor macOS.
+
+**An animated GIF plays on this component's player task**, the one that plays clips. What a GIF
+shares with a clip is everything around the decoder: a clock, a way to stop, being replaced
+without the panel blinking, `video status`, and the console history being held back while it
+plays (see [Flash writes and late frames](#flash-writes-and-late-frames)). A second task would
+have had to reproduce all of it. `image show` opens the file, checks it and allocates everything
+before the panel is touched, then hands it to the player already open.
+
+### A canvas, not frames
+
+A GIF frame is rarely a picture on its own. Most are a rectangle drawn over the frames before
+it; some have transparent holes the earlier picture shows through; some ask for their area to be
+erased to the background when the next frame arrives (disposal method 2). So the decoder keeps a
+canvas and composites every frame onto it — AnimatedGIF's *cooked* mode — and the player paints
+from the canvas.
+
+It has to be the full-sized frame buffer with **no draw callback**, 3 bytes a pixel: the canvas
+as palette indices, then again as big-endian RGB565. That is 173 KB at 240×240, in PSRAM. The
+smaller arrangement the library also offers, a callback per line out of `allocFrameBuf()`, is
+wrong twice over here:
+
+- Lines come out of one shared line buffer, and a transparent pixel is simply not written — so
+  it arrives carrying the colour of the same column on the line above.
+- Disposal method 2 writes the background into the RGB565 half of the canvas, which that buffer
+  does not have. It would write past the end of it.
+
+What changed is then painted in 16-line blocks, copied out of the canvas: this frame's
+rectangle, joined with the previous frame's. The previous one is included because it may have
+just been erased to background, and the decoder keeps the previous frame's disposal to itself.
+For a well-made GIF, where each frame is a small rectangle, that is a small area — which is why
+ffmpeg's GIFs cost a few milliseconds a frame.
+
+### Timing and integrity
+
+Delays are the file's own, with one rule: **10 ms or less becomes 100 ms**, as in Chrome and
+Firefox, so a GIF runs at the speed it runs in a browser. The decoder is inconsistent about this
+itself — it rounds only a zero up when it plays, and rounds short delays to 20 ms when it counts
+them — so the rule lives in one place, `gif_frame_delay_ms()`, and both the player and
+`image info` use it. `image info` counts frames and adds up delays by walking the file's blocks,
+not with the decoder's own walk, so the length it reports is the length it plays.
+
+The walk also refuses a file that ends before its trailer byte. The LZW decoder carries on
+through data that runs out partway, so a GIF cut short in transfer would otherwise play with its
+last frame half garbage.
+
+The NETSCAPE loop count is a count of repeats: 0 is forever, *n* plays *n* + 1 times, and a file
+without the extension plays once. When the passes run out, the last frame stays up and `screen`
+reports it as an image.
+
+### What it costs
+
+The GIF path adds **11 KB** of flash. At 240×240 the decoder's state is 24 KB, in internal RAM
+for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task keeps
+6.7 KB of its 8 KB stack free while a GIF plays, and repeated plays leave the heap where it was.
+
+The ceiling is a GIF that changes every pixel of a 240×240 panel with incompressible content:
+30.9 ms to decode and 14 ms to paint, about **22 fps**. The decoder's *turbo* mode, which trades
+memory for decoding speed, does not help. Its 82 KB buffer only fits in PSRAM, where it decoded
+the same frames slower (33.6 ms), and its decoding path skips disposal method 2 altogether.

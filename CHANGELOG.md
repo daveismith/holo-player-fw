@@ -12,13 +12,20 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Added
 
+- **GIFs, animated too.** `image show` takes a GIF. A one-frame GIF is a still; an animated one
+  plays on the video player's task — so `video stop` and `video status` work on it — looping as
+  the file says and leaving its last frame up when it stops. Frames are composited onto a canvas
+  and only what changed is painted, so a typical 240×240 GIF costs a few milliseconds a frame.
+  The decoder is [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), a new submodule:
+  in an existing clone, run `git submodule update --init` before building. Documented in
+  [Images](manual/use/images.md#animated-gifs).
 - **Still images.** `image show <file>` puts a PNG or a baseline 4:2:0 JPEG on the panel, centred,
   where it stays until something else takes the screen; `image info <file>` describes one without
   showing it. JPEG stills reuse the clip player's decoder, and PNG is libpng, streamed row by row
   into the same 16-line blocks — so no whole image is held except for interlaced files, which
   Adam7 makes impossible to read a row at a time. Nothing that fails disturbs the screen: the
   file, its format and its size are all checked before the panel is touched. Documented in
-  [Still images](manual/use/images.md).
+  [Images](manual/use/images.md).
 - **Screen alignment.** `screen calibration` (or `screen calib`) draws a centred crosshair with an
   up arrow at the crossing, for mounting the panel behind a dome's lens. The lines straddle the
   seam between pixels 119 and 120, so the crossing is the panel's true centre. Documented in

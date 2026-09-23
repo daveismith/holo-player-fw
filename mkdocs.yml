@@ -65,7 +65,7 @@ nav:
       - Wiring the servos: connect/servos.md
   - Use:
       - Video clips: use/video.md
-      - Still images: use/images.md
+      - Images: use/images.md
       - LED patterns: use/leds.md
       - The holoprojector: use/holo.md
       - Files on the board: use/files.md

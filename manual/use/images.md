@@ -1,10 +1,11 @@
-# Still images
+# Images
 
-`image show` puts a **PNG** or a **baseline JPEG** from `/data` in the middle of the round panel,
-where it stays until something else takes the screen. There is no task and no timing behind it:
-a still is drawn once and then simply left, exactly as a [colour](../reference/console.md) is.
+`image show` puts a **PNG**, a **baseline JPEG** or a **GIF** from `/data` in the middle of the
+round panel, where it stays until something else takes the screen. A still has no task and no
+timing behind it: it is drawn once and then simply left, exactly as a
+[colour](../reference/console.md) is. An animated GIF plays — see [Animated GIFs](#animated-gifs).
 
-For moving pictures, see [Video clips](video.md).
+For clips, see [Video clips](video.md).
 
 ## Preparing a file
 
@@ -72,6 +73,59 @@ Nothing that fails ever disturbs the screen. The file, its format and its size a
 before the panel is touched, so a rejected `image show` leaves whatever was already showing in
 place.
 
+## Animated GIFs
+
+A GIF with more than one frame plays, on its own frame delays, the same way a clip plays on its
+own timing:
+
+```
+image show r2-wave.gif
+image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
+```
+
+It loops the way the file says, which is how it looks in a browser: forever, a set number of
+times, or once if the file does not say. When a GIF that stops runs out of passes, **its last
+frame stays up** — it was shown as an image, and an image stays until something replaces it.
+`screen` says `playing` while it moves and `showing` once it has stopped.
+
+It plays on the same task as clips, so everything that works on a clip works on a GIF:
+`video stop` stops it and puts the panel to sleep, `video status` reports its frame times, and
+another image, clip or colour replaces it without the panel blinking. A one-frame GIF is a
+still like any other.
+
+### Making one
+
+From a clip or any video, at 240 pixels across and a frame rate the panel can keep up with:
+
+```sh
+ffmpeg -i <input> -vf "fps=15,scale=240:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" r2-wave.gif
+```
+
+The palette pair builds one 256-colour palette for the whole animation instead of a generic
+one; the difference is obvious. ffmpeg also writes each frame as only the rectangle that
+changed, which is what makes a GIF cheap to play here — see the table below.
+
+!!! note "Very short frame delays play at 100 ms"
+    A frame with no delay, or a delay of 10 ms or less, stays up 100 ms. That is what Chrome and
+    Firefox do, and files that ask for no delay were made expecting it — so a GIF runs at the
+    speed it has in a browser, not faster.
+
+### What it costs
+
+Measured on the board with `video status`. What matters is how much of the picture changes
+from frame to frame, not how big the picture is: only the changed area is decoded and painted.
+
+| GIF | Frame budget | Decode + draw per frame | Late |
+|---|---|---|---|
+| ffmpeg, 240×240, 20 fps (a test pattern with moving parts) | 50 ms | 5.9 ms | none |
+| ffmpeg, 120×120, 20 fps | 50 ms | 1.9 ms | none |
+| Every pixel changing, flat colours, 240×240 | — | 30.7 ms | — |
+| Every pixel changing, random noise, 240×240, 25 fps | 40 ms | 44.9 ms | all |
+
+The last row is the ceiling: a 240×240 GIF that repaints the whole panel with incompressible
+content every frame manages about **22 fps**. Real animations rarely come near it. If one
+stutters, `video status` will show frames running late; drop its frame rate, or its size.
+
 ## Looking at a file
 
 ```
@@ -85,12 +139,20 @@ reports what the file contains without decoding it or touching the panel:
 parsed in 3.2 ms
 ```
 
+For a GIF it counts the frames and adds up their delays, by the same rule it plays them:
+
+```
+/data/r2-wave.gif: GIF 240x240, 24 frames, loops forever, 1.60 s a pass, 412306 bytes
+```
+
 As with [`video info`](video.md#looking-at-a-clip), it is the quickest way to find out whether a
-file survived its upload intact.
+file survived its upload intact. A GIF cut short in transfer is refused outright —
+`truncated: it ends before the GIF trailer` — rather than played with its last frame half
+garbage.
 
 ## How it is decoded
 
-Both formats end up in the same place: 16 lines at a time into one of two small DMA buffers, each
+PNG and JPEG end up in the same place: 16 lines at a time into one of two small DMA buffers, each
 block sent to the panel while the next is prepared. It is the mechanism the clip player uses,
 because a still has the same problem — a 240×240 frame is 115 KB, more than the largest free
 block of internal RAM.
@@ -107,7 +169,12 @@ Adam7 interlacing cannot be read row by row: each of its seven passes writes onl
 into rows the later passes fill in, so every row has to be resident at once. That is 173 KB, which
 goes to PSRAM. A still has no frame to miss, so the slower path costs nothing but the wait.
 
-## What it costs
+A GIF is different, because its frames are rarely whole pictures: most are a rectangle drawn
+over the ones before. So it is composited onto a 240×240 canvas held in PSRAM, and then only
+what changed is sent, in the same 16-line blocks. `video status` calls this
+`changed area only, from a PSRAM canvas`.
+
+## What a still costs
 
 Measured on this board, from the command to the last pixel on the panel — decode, convert and
 paint together, which is what `image show` reports:

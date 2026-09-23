@@ -1,7 +1,7 @@
 # Holo Player
 
 Firmware for the **Waveshare ESP32-S3-Touch-LCD-1.28**, driving a droid's holoprojector: it plays
-Motion-JPEG clips and shows stills on a 240×240 round panel, lights a NeoPixel ring, and aims two servos the way a
+Motion-JPEG clips and shows images — animated GIFs included — on a 240×240 round panel, lights a NeoPixel ring, and aims two servos the way a
 dome's basic holoprojectors move. Everything is driven from a console on the board's USB-C port.
 
 The board is an ESP32-S3R2 with 2 MB of PSRAM and 16 MB of flash, carrying a GC9A01 round IPS
@@ -28,11 +28,12 @@ onto the board over the same serial console, as does new firmware.
 
     Make a Motion-JPEG file, put it on the board, and play it.
 
--   **[Show a still](use/images.md)**
+-   **[Show an image](use/images.md)**
 
     ---
 
-    A PNG or a JPEG on the panel, where it stays until something replaces it.
+    A PNG, JPEG or GIF on the panel, where it stays until something replaces it. Animated GIFs
+    play.
 
 -   **[Wire the LED ring](connect/leds.md)**
 

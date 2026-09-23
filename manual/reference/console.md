@@ -30,19 +30,20 @@ lining the panel up behind a dome's lens — see
 
 | Command | Does |
 |---|---|
-| `image show <file>` | Show a PNG or baseline JPEG, centred. It stays until something else takes the screen |
-| `image info <file>` | What the file is — format, size, bit depth — without decoding it or touching the panel |
+| `image show <file>` | Show a PNG, baseline JPEG or GIF, centred. It stays until something else takes the screen. An animated GIF plays, looping as the file says, and leaves its last frame up if it stops |
+| `image info <file>` | What the file is — format, size, bit depth; for a GIF, frames, loops and length — without decoding it or touching the panel |
 
-An image larger than 240×240 is refused rather than scaled. PNG transparency is composited over
-black. Full detail in [Still images](../use/images.md).
+An image larger than 240×240 is refused rather than scaled. Transparency is composited over
+black. An animated GIF plays on the video player's task, so `video stop` and `video status` work
+on it. Full detail in [Images](../use/images.md).
 
 ## Video
 
 | Command | Does |
 |---|---|
 | `video play <file> [loop] [frame]` | Play a Motion-JPEG QuickTime clip, centred, on the clip's own timing. `loop` repeats it; `frame` forces whole-frame decoding |
-| `video stop` | Stop, and turn the screen off |
-| `video status` | Per-frame read, decode, decode-plus-draw and paint times |
+| `video stop` | Stop a clip or an animated GIF, and turn the screen off |
+| `video status` | Per-frame read, decode, decode-plus-draw and paint times, for a clip or an animated GIF |
 | `video info <file>` | What the file contains, without playing it |
 | `video verify <file> [step]` | Decode sample frames both ways and compare them byte for byte |
 
