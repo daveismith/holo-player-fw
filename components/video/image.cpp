@@ -1,12 +1,14 @@
 /*
- * A still image on the panel: `image show <file>`.
+ * An image on the panel: `image show <file>`.
  *
  * A JPEG still is one frame of a clip without the container or the clock, so it goes through
  * the same esp_new_jpeg paths the player uses (jpeg_decode.h) -- 16-line blocks where the
- * dimensions allow it, the whole image otherwise. PNG is its own decoder, in png_image.c.
+ * dimensions allow it, the whole image otherwise. PNG is its own decoder, in png_image.c, and
+ * GIF is bitbank2's AnimatedGIF, in gif_image.cpp.
  *
- * Unlike a clip there is no task and no timing: the image is drawn on the console's own task
- * and then simply stays, as a colour does, until something else takes the panel.
+ * A still has no task and no timing: it is drawn on the console's own task and then simply
+ * stays, as a colour does, until something else takes the panel. An animated GIF is the one
+ * exception -- it has a clock, so it is handed to the video player's task, which paces clips.
  *
  * Everything that can fail cheaply -- the file, the format, the size, the buffers -- is made
  * to fail before the panel is woken, so a rejected `image show` leaves what was already on the
@@ -19,6 +21,7 @@
 #include "esp_console.h"
 #include "esp_heap_caps.h"
 #include "board.h"
+#include "gif_image.h"
 #include "image.h"
 #include "jpeg_decode.h"
 #include "png_image.h"
@@ -29,9 +32,10 @@ namespace {
 constexpr size_t PATH_LEN = 160;
 constexpr size_t ERR_LEN = 96;
 constexpr uint32_t BLOCK_LINES = 16;
-/* A still that will not fit the panel cannot be this big; anything larger is a mistake, most
- * likely `image show` aimed at a clip. */
-constexpr size_t MAX_FILE = 2u * 1024 * 1024;
+/* A JPEG that fits the panel cannot be this big; anything larger is a mistake, most likely
+ * `image show` aimed at a clip. Only JPEG is read whole -- PNG and GIF stream from the file,
+ * and an animated GIF can reasonably be bigger than this. */
+constexpr size_t MAX_JPEG = 2u * 1024 * 1024;
 
 using jpg::can_stream;
 using jpg::decode_blocks;
@@ -52,11 +56,7 @@ bool sniff(const char *path, uint8_t sig[8], size_t *len_out)
     const long size = ftell(f);
     fclose(f);
     if (n < 8 || size <= 0) {
-        printf("image: %s is not a PNG or JPEG\n", path);
-        return false;
-    }
-    if ((size_t)size > MAX_FILE) {
-        printf("image: %s is %ld bytes; too large to read\n", path, size);
+        printf("image: %s is not a PNG, JPEG or GIF\n", path);
         return false;
     }
     *len_out = (size_t)size;
@@ -68,9 +68,14 @@ bool is_jpeg_file(const uint8_t *sig)
     return sig[0] == 0xFF && sig[1] == 0xD8 && sig[2] == 0xFF;
 }
 
-/* The whole file, for the decoder to work over. PNG never needs this: libpng reads as it goes. */
+/* The whole file, for the JPEG decoder to work over. PNG and GIF never need this: their
+ * decoders read as they go. */
 uint8_t *read_file(const char *path, size_t len)
 {
+    if (len > MAX_JPEG) {
+        printf("image: %s is %u bytes; too large to read\n", path, (unsigned)len);
+        return nullptr;
+    }
     /* Internal for the decoder's sake, but it reads this with the CPU rather than DMA, so
      * PSRAM will do when internal memory is short. */
     uint8_t *buf = static_cast<uint8_t *>(
@@ -208,6 +213,112 @@ esp_err_t show_jpeg(const uint8_t *buf, size_t len, uint32_t w, uint32_t h, int 
     return rc == JPEG_ERR_OK ? ESP_OK : ESP_FAIL;
 }
 
+/* How the file says to loop, in words. */
+void describe_loops(int loop_count, char *out, size_t len)
+{
+    if (loop_count < 0) {
+        snprintf(out, len, "plays once");
+    } else if (loop_count == 0) {
+        snprintf(out, len, "loops forever");
+    } else {
+        snprintf(out, len, "plays %d times", loop_count + 1);
+    }
+}
+
+/* The header, and everything that can refuse the file, before the panel is touched. */
+bool probe_gif(const char *path, GifHeader *hdr)
+{
+    char err[ERR_LEN] = "";
+    const esp_err_t rc = gif_probe(path, hdr, err, sizeof(err));
+    if (rc == ESP_ERR_INVALID_SIZE) {
+        /* Wider than the decoder takes: the same refusal as any other oversized image. */
+        fits(path, hdr->width, hdr->height);
+        return false;
+    }
+    if (rc != ESP_OK) {
+        printf("image: %s: %s\n", path, err[0] != '\0' ? err : esp_err_to_name(rc));
+        return false;
+    }
+    return fits(path, hdr->width, hdr->height);
+}
+
+/*
+ * A GIF: one frame is a still, painted here like any other; more than one is an animation,
+ * handed to the video player's task. Either way the decoder and its buffers are ready before
+ * the panel is touched.
+ */
+int show_gif(const char *path)
+{
+    GifHeader hdr;
+    if (!probe_gif(path, &hdr)) {
+        return 1;
+    }
+    char err[ERR_LEN] = "";
+    GifFile *g = gif_open(path, err, sizeof(err));
+    if (g == nullptr) {
+        printf("image: %s: %s\n", path, err);
+        return 1;
+    }
+
+    if (hdr.frames > 1) {
+        char loops[32];
+        describe_loops(hdr.loop_count, loops, sizeof(loops));
+        if (video_play_gif(g, hdr, path) != ESP_OK) {
+            return 1;
+        }
+        printf("image: playing %s (%" PRIu32 "x%" PRIu32 " GIF, %" PRId32 " frames, %s)\n",
+               path, hdr.width, hdr.height, hdr.frames, loops);
+        return 0;
+    }
+
+    screen_take_panel();
+    const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
+    const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
+    const int64_t t0 = now_us();
+    esp_err_t rc = board_lcd_power_on(0x0000);
+    if (rc == ESP_OK) {
+        int delay_ms;
+        bool drew, last;
+        int64_t decode_us, paint_start, paint_end;
+        rc = gif_next(g, x, y, &delay_ms, &drew, &last, &decode_us, &paint_start, &paint_end,
+                      err, sizeof(err));
+    }
+    const int64_t took_us = now_us() - t0;
+    gif_close(g);
+    if (rc != ESP_OK) {
+        board_lcd_fill(0x0000);
+        printf("image: %s: %s\n", path, err[0] != '\0' ? err : esp_err_to_name(rc));
+        return 1;
+    }
+    screen_set_image(path, hdr.width, hdr.height);
+    printf("image: showing %s (%" PRIu32 "x%" PRIu32 " GIF, %.1f ms)\n", path, hdr.width,
+           hdr.height, took_us / 1000.0);
+    return 0;
+}
+
+int info_gif(const char *path, size_t len, int64_t t0)
+{
+    GifHeader hdr;
+    char err[ERR_LEN] = "";
+    const esp_err_t rc = gif_probe(path, &hdr, err, sizeof(err));
+    if (rc != ESP_OK && rc != ESP_ERR_INVALID_SIZE) {
+        printf("image: %s: %s\n", path, err[0] != '\0' ? err : esp_err_to_name(rc));
+        return 1;
+    }
+    char loops[32];
+    describe_loops(hdr.loop_count, loops, sizeof(loops));
+    if (hdr.frames > 1) {
+        printf("%s: GIF %" PRIu32 "x%" PRIu32 ", %" PRId32 " frames, %s, %.2f s a pass, "
+               "%u bytes\n", path, hdr.width, hdr.height, hdr.frames, loops,
+               hdr.duration_ms / 1000.0, (unsigned)len);
+    } else {
+        printf("%s: GIF %" PRIu32 "x%" PRIu32 ", one frame, %u bytes\n", path, hdr.width,
+               hdr.height, (unsigned)len);
+    }
+    printf("parsed in %.1f ms\n", (now_us() - t0) / 1000.0);
+    return 0;
+}
+
 int show(const char *path)
 {
     uint8_t sig[8];
@@ -215,9 +326,12 @@ int show(const char *path)
     if (!sniff(path, sig, &len)) {
         return 1;
     }
+    if (gif_is_gif(sig, sizeof(sig))) {
+        return show_gif(path);
+    }
     const bool png = png_is_png(sig, sizeof(sig));
     if (!png && !is_jpeg_file(sig)) {
-        printf("image: %s is not a PNG or JPEG\n", path);
+        printf("image: %s is not a PNG, JPEG or GIF\n", path);
         return 1;
     }
 
@@ -313,8 +427,11 @@ int info(const char *path)
         printf("parsed in %.1f ms\n", (now_us() - t0) / 1000.0);
         return 0;
     }
+    if (gif_is_gif(sig, sizeof(sig))) {
+        return info_gif(path, len, t0);
+    }
     if (!is_jpeg_file(sig)) {
-        printf("image: %s is not a PNG or JPEG\n", path);
+        printf("image: %s is not a PNG, JPEG or GIF\n", path);
         return 1;
     }
     uint8_t *buf = read_file(path, len);
@@ -356,8 +473,9 @@ extern "C" void register_image_command(void)
 {
     esp_console_cmd_t cmd = {};
     cmd.command = "image";
-    cmd.help = "Show a PNG or baseline JPEG on the panel, centred, where it stays until "
-               "something else takes the screen; or describe one without showing it";
+    cmd.help = "Show a PNG, baseline JPEG or GIF on the panel, centred, where it stays until "
+               "something else takes the screen -- an animated GIF plays, on the video "
+               "player's task; or describe one without showing it";
     cmd.hint = "show <file> | info <file>";
     cmd.func = cmd_image;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));

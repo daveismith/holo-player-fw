@@ -11,6 +11,10 @@
  *
  *   whole frame -- decode the frame, then send it. Needed when a dimension is not a multiple of
  *     8 (block mode's requirement), and kept for comparison: `video play <file> frame`.
+ *
+ * The same task plays animated GIFs, which `image show` hands over already open (gif_image.cpp
+ * decodes and paints them). What they share with a clip is everything around the decoder: the
+ * clock, stopping, being replaced without the panel blinking, and `video status`.
  */
 #include <errno.h>
 #include <inttypes.h>
@@ -24,6 +28,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "board.h"
+#include "gif_image.h"
 #include "image.h"
 #include "jpeg_decode.h"
 #include "quicktime.h"
@@ -49,6 +54,8 @@ struct Request {
     char path[PATH_LEN];
     bool loop;
     bool whole_frame;
+    GifFile *gif;            /* an animated GIF, already open; null for a clip */
+    GifHeader gif_hdr;
 };
 
 struct Stats {
@@ -56,6 +63,7 @@ struct Stats {
     uint32_t width, height, frames;
     double fps;              /* the file's */
     const char *mode;        /* how frames reach the panel, for the report */
+    bool gif;                /* reads inside the decoder, so there is no read time of its own */
     uint32_t shown;
     uint32_t late;           /* frames that finished after the next one was due */
     uint32_t errors;
@@ -127,10 +135,19 @@ void report(void)
            " in %.1f s (%.2f fps)%s\n",
            s.path, s.width, s.height, s.frames, s.fps, s.shown, secs,
            secs > 0 ? s.shown / secs : 0.0, s.loops > 1 ? " over several loops" : "");
-    printf("per frame: read %.2f ms, decode %.2f ms, decode+draw %.2f ms of a %.1f ms frame; "
-           "paint %.2f ms (max %.2f)\n",
-           s.read_us / 1000.0 / n, s.decode_us / 1000.0 / n, s.render_us / 1000.0 / n,
-           s.fps > 0 ? 1000.0 / s.fps : 0.0, s.paint_us / 1000.0 / n, s.paint_max_us / 1000.0);
+    if (s.gif) {
+        printf("per frame: decode %.2f ms (reading included), decode+draw %.2f ms of a %.1f ms "
+               "average frame; paint %.2f ms (max %.2f)\n",
+               s.decode_us / 1000.0 / n, s.render_us / 1000.0 / n,
+               s.fps > 0 ? 1000.0 / s.fps : 0.0, s.paint_us / 1000.0 / n,
+               s.paint_max_us / 1000.0);
+    } else {
+        printf("per frame: read %.2f ms, decode %.2f ms, decode+draw %.2f ms of a %.1f ms "
+               "frame; paint %.2f ms (max %.2f)\n",
+               s.read_us / 1000.0 / n, s.decode_us / 1000.0 / n, s.render_us / 1000.0 / n,
+               s.fps > 0 ? 1000.0 / s.fps : 0.0, s.paint_us / 1000.0 / n,
+               s.paint_max_us / 1000.0);
+    }
     printf("%" PRIu32 " late, %" PRIu32 " decode errors; %s\n", s.late, s.errors,
            s.mode != nullptr ? s.mode : "");
 }
@@ -307,10 +324,87 @@ void play_clip(const Request &req)
     fclose(f);
 }
 
+/*
+ * An animated GIF, paced by its own frame delays the way a clip is by its time-to-sample table.
+ * It loops as the file asks: NETSCAPE's count is of repeats, so n plays it n + 1 times, 0 plays
+ * it forever, and a file without the extension plays once. When the passes run out the last
+ * frame stays up, as a still does -- a GIF is shown with `image show`, and an image stays.
+ */
+void play_gif(const Request &req)
+{
+    GifFile *g = req.gif;
+    const GifHeader &hdr = req.gif_hdr;
+    Stats &s = s_stats;
+    s = {};
+    strlcpy(s.path, req.path, sizeof(s.path));
+    s.width = hdr.width;
+    s.height = hdr.height;
+    s.frames = (uint32_t)hdr.frames;
+    s.fps = hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0;
+    s.mode = "changed area only, from a PSRAM canvas";
+    s.gif = true;
+
+    board_lcd_power_on(0x0000);
+    const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
+    const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
+    const int passes = hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+
+    s.started_us = now_us();
+    bool held = false, broken = false;
+    char err[64] = "";
+    while (!s_stop && !broken) {
+        const int64_t pass_start = now_us();
+        int64_t elapsed_ms = 0;
+        bool last = false;
+        while (!last && !s_stop) {
+            int delay_ms = 0;
+            bool drew = false;
+            int64_t decode_us = 0, paint_start = 0, paint_end = 0;
+            const int64_t t1 = now_us();
+            const esp_err_t rc = gif_next(g, x, y, &delay_ms, &drew, &last, &decode_us,
+                                          &paint_start, &paint_end, err, sizeof(err));
+            const int64_t t2 = now_us();
+            s.decode_us += decode_us;
+            if (rc != ESP_OK) {
+                s.errors++;
+                printf("image: %s: frame %" PRIu32 ": %s\n", req.path, s.shown, err);
+                broken = true;
+                break;
+            }
+            if (!drew) {
+                break;
+            }
+            elapsed_ms += gif_frame_delay_ms(delay_ms);
+            const int64_t due = pass_start + elapsed_ms * 1000;
+            count_frame(t2 - t1, paint_start, paint_end, t2, due);
+            sleep_until(due);
+        }
+        if (broken || s_stop) {
+            break;
+        }
+        s.loops++;
+        if (passes != 0 && (int)s.loops >= passes) {
+            held = true;
+            break;
+        }
+        gif_rewind(g);
+    }
+    end_playback(held);
+    if (held) {
+        /* From here it is a still, and `screen` says so. */
+        screen_set_image(req.path, hdr.width, hdr.height);
+    }
+    gif_close(g);
+}
+
 void player_task(void *arg)
 {
     Request *req = static_cast<Request *>(arg);
-    play_clip(*req);
+    if (req->gif != nullptr) {
+        play_gif(*req);
+    } else {
+        play_clip(*req);
+    }
     delete req;
     s_task = nullptr;
     vTaskDelete(nullptr);
@@ -672,6 +766,25 @@ extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
         delete req;
         s_task = nullptr;
         printf("video: cannot start the playback task\n");
+        return ESP_ERR_NO_MEM;
+    }
+    return ESP_OK;
+}
+
+esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path)
+{
+    screen_take_panel();
+    Request *req = new Request{};
+    strlcpy(req->path, path, sizeof(req->path));
+    req->gif = g;
+    req->gif_hdr = hdr;
+    s_stop = false;
+    if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
+                                TASK_CORE) != pdPASS) {
+        delete req;
+        s_task = nullptr;
+        gif_close(g);
+        printf("image: cannot start the playback task\n");
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
