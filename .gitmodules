@@ -1,3 +1,6 @@
 [submodule "external/esp-console-kit"]
 	path = external/esp-console-kit
 	url = git@github.com:daveismith/esp-console-kit.git
+[submodule "external/AnimatedGIF"]
+	path = external/AnimatedGIF
+	url = https://github.com/bitbank2/AnimatedGIF.git
