@@ -19,16 +19,22 @@
 #include <string.h>
 #include "esp_console.h"
 #include "esp_heap_caps.h"
-#include "esp_jpeg_dec.h"
 #include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "board.h"
+#include "jpeg_decode.h"
 #include "quicktime.h"
+#include "screen_state.h"
 #include "video_player.h"
 
 namespace {
+
+using jpg::can_stream;
+using jpg::decode_blocks;
+using jpg::decode_frame;
+using jpg::now_us;
 
 constexpr size_t PATH_LEN = 160;
 constexpr uint32_t TASK_STACK = 8192;
@@ -72,8 +78,6 @@ volatile bool s_replacing;
 esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
 
-int64_t now_us() { return esp_timer_get_time(); }
-
 void timer_cb(void *)
 {
     TaskHandle_t task = s_task;
@@ -102,96 +106,6 @@ bool is_jpeg(uint32_t codec)
     /* ffmpeg's -c:v mjpeg writes 'jpeg'; Motion-JPEG A frames are plain JPEGs too */
     return codec == quicktime::FourCC('j', 'p', 'e', 'g') ||
            codec == quicktime::FourCC('m', 'j', 'p', 'a');
-}
-
-bool can_stream(uint32_t w, uint32_t h)
-{
-    return w % 8 == 0 && h % 8 == 0;
-}
-
-/* The whole frame into `fb` (w x h, 16-byte aligned). */
-int decode_frame(const uint8_t *jpg, size_t len, uint16_t *fb, uint32_t w, uint32_t h)
-{
-    jpeg_dec_config_t cfg = DEFAULT_JPEG_DEC_CONFIG();
-    cfg.output_type = JPEG_PIXEL_FORMAT_RGB565_BE;   /* the panel's byte order */
-    jpeg_dec_handle_t dec = nullptr;
-    jpeg_error_t err = jpeg_dec_open(&cfg, &dec);
-    if (err != JPEG_ERR_OK) {
-        return err;
-    }
-    jpeg_dec_io_t io = {};
-    io.inbuf = const_cast<uint8_t *>(jpg);
-    io.inbuf_len = (int)len;
-    io.outbuf = reinterpret_cast<uint8_t *>(fb);
-    jpeg_dec_header_info_t info;
-    err = jpeg_dec_parse_header(dec, &io, &info);
-    if (err == JPEG_ERR_OK) {
-        err = (info.width == w && info.height == h) ? jpeg_dec_process(dec, &io)
-                                                    : JPEG_ERR_INVALID_PARAM;
-    }
-    jpeg_dec_close(dec);
-    return err;
-}
-
-/*
- * The frame a block at a time, alternating between bufs[0] and bufs[1] (each `buf_len` bytes,
- * 16-byte aligned): before(i) runs before block i is decoded into bufs[i & 1] -- the moment to
- * make sure that buffer is free -- and after(row, lines, pixels) once it is. Returns the
- * decoder's error; *decode_us gets the time spent inside it.
- */
-template <typename Before, typename After>
-int decode_blocks(const uint8_t *jpg, size_t len, uint32_t w, uint32_t h, uint8_t *const bufs[2],
-                  size_t buf_len, int64_t *decode_us, Before before, After after)
-{
-    jpeg_dec_config_t cfg = DEFAULT_JPEG_DEC_CONFIG();
-    cfg.output_type = JPEG_PIXEL_FORMAT_RGB565_BE;
-    cfg.block_enable = true;
-    jpeg_dec_handle_t dec = nullptr;
-    jpeg_error_t err = jpeg_dec_open(&cfg, &dec);
-    if (err != JPEG_ERR_OK) {
-        return err;
-    }
-    jpeg_dec_io_t io = {};
-    io.inbuf = const_cast<uint8_t *>(jpg);
-    io.inbuf_len = (int)len;
-    jpeg_dec_header_info_t info;
-    int blocks = 0, block_len = 0;
-    err = jpeg_dec_parse_header(dec, &io, &info);
-    if (err == JPEG_ERR_OK && (info.width != w || info.height != h)) {
-        err = JPEG_ERR_INVALID_PARAM;
-    }
-    if (err == JPEG_ERR_OK) {
-        err = jpeg_dec_get_process_count(dec, &blocks);
-    }
-    if (err == JPEG_ERR_OK) {
-        err = jpeg_dec_get_outbuf_len(dec, &block_len);
-    }
-    if (err == JPEG_ERR_OK && (blocks <= 0 || block_len <= 0 || (size_t)block_len > buf_len)) {
-        err = JPEG_ERR_NO_MEM;
-    }
-    uint32_t row = 0;
-    for (int i = 0; i < blocks && err == JPEG_ERR_OK && row < h; i++) {
-        before(i);
-        io.outbuf = bufs[i & 1];
-        const int64_t t0 = now_us();
-        err = jpeg_dec_process(dec, &io);
-        *decode_us += now_us() - t0;
-        if (err != JPEG_ERR_OK) {
-            break;
-        }
-        /* Rows are the image's width, unpadded; the last block of a 120-line frame is 8 lines
-         * of a 16-line MCU row, and the count clips anything beyond the image. */
-        uint32_t lines = (uint32_t)io.out_size / (w * 2);
-        if (lines > h - row) {
-            lines = h - row;
-        }
-        if (lines > 0) {
-            after(row, lines, reinterpret_cast<const uint16_t *>(io.outbuf));
-            row += lines;
-        }
-    }
-    jpeg_dec_close(dec);
-    return err;
 }
 
 void resolve(const char *in, char *out, size_t len)
@@ -456,11 +370,15 @@ int verify(const char *path, int step)
 
 /* ------------------------------------------------------------------ the screen */
 
-/* The colour on show, if one is (and no clip). */
-bool s_colour_shown;
-uint8_t s_colour_rgb[3];
-/* The calibration pattern is on show (and no clip, and no colour). */
-bool s_calibration;
+/*
+ * What the panel is showing, and the detail `screen` needs to name it. Only one of these can
+ * be true at a time: each way of drawing takes the panel from the last.
+ */
+enum class Showing { Nothing, Colour, Calibration, Image };
+Showing s_showing = Showing::Nothing;
+uint8_t s_colour_rgb[3];         /* Showing::Colour */
+char s_image_path[PATH_LEN];     /* Showing::Image */
+uint32_t s_image_w, s_image_h;
 
 uint16_t rgb565(int r, int g, int b)
 {
@@ -576,12 +494,15 @@ int cmd_screen(int argc, char **argv)
     if (argc == 1 || strcmp(sub, "status") == 0) {
         if (video_playing()) {
             printf("playing %s (backlight %d%%)\n", s_stats.path, board_lcd_get_backlight());
-        } else if (s_calibration && board_lcd_powered()) {
+        } else if (s_showing == Showing::Calibration && board_lcd_powered()) {
             printf("showing the calibration pattern (backlight %d%%)\n",
                    board_lcd_get_backlight());
-        } else if (s_colour_shown && board_lcd_powered()) {
+        } else if (s_showing == Showing::Colour && board_lcd_powered()) {
             printf("showing #%02x%02x%02x (backlight %d%%)\n", s_colour_rgb[0], s_colour_rgb[1],
                    s_colour_rgb[2], board_lcd_get_backlight());
+        } else if (s_showing == Showing::Image && board_lcd_powered()) {
+            printf("showing %s (%" PRIu32 "x%" PRIu32 ", backlight %d%%)\n", s_image_path,
+                   s_image_w, s_image_h, board_lcd_get_backlight());
         } else {
             printf("off: panel asleep, backlight off\n");
         }
@@ -668,16 +589,36 @@ int cmd_video(int argc, char **argv)
 
 }  // namespace
 
-extern "C" esp_err_t screen_show_colour(uint16_t rgb)
+extern "C" void screen_take_panel(void)
 {
-    /* Over a clip, the panel stays on; from sleep, it wakes with the colour already in place. */
+    /* Over a clip the panel stays on, so what replaces it appears in its place rather than
+     * after a blink; from sleep the caller wakes the panel itself. */
     s_replacing = true;
     video_stop();
     s_replacing = false;
+    s_showing = Showing::Nothing;
+}
+
+extern "C" void screen_set_image(const char *path, uint32_t w, uint32_t h)
+{
+    strlcpy(s_image_path, path, sizeof(s_image_path));
+    s_image_w = w;
+    s_image_h = h;
+    s_showing = Showing::Image;
+}
+
+extern "C" void screen_resolve_path(const char *in, char *out, size_t len)
+{
+    resolve(in, out, len);
+}
+
+extern "C" esp_err_t screen_show_colour(uint16_t rgb)
+{
+    /* Over a clip, the panel stays on; from sleep, it wakes with the colour already in place. */
+    screen_take_panel();
     const esp_err_t err = board_lcd_power_on(rgb);
-    s_calibration = false;
-    s_colour_shown = err == ESP_OK;
-    if (s_colour_shown) {
+    s_showing = err == ESP_OK ? Showing::Colour : Showing::Nothing;
+    if (s_showing == Showing::Colour) {
         s_colour_rgb[0] = (uint8_t)(((rgb >> 11) & 0x1F) * 255 / 31);
         s_colour_rgb[1] = (uint8_t)(((rgb >> 5) & 0x3F) * 255 / 63);
         s_colour_rgb[2] = (uint8_t)((rgb & 0x1F) * 255 / 31);
@@ -688,30 +629,22 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
 extern "C" esp_err_t screen_show_calibration(void)
 {
     /* As for a colour: over a clip the panel stays on, and from sleep it wakes already black. */
-    s_replacing = true;
-    video_stop();
-    s_replacing = false;
-    s_colour_shown = false;
+    screen_take_panel();
     const esp_err_t err = draw_calibration();
-    s_calibration = err == ESP_OK;
+    s_showing = err == ESP_OK ? Showing::Calibration : Showing::Nothing;
     return err;
 }
 
 extern "C" esp_err_t screen_clear(void)
 {
     video_stop();
-    s_colour_shown = false;
-    s_calibration = false;
+    s_showing = Showing::Nothing;
     return board_lcd_power_off();
 }
 
 extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
 {
-    s_replacing = true;
-    video_stop();
-    s_replacing = false;
-    s_colour_shown = false;
-    s_calibration = false;
+    screen_take_panel();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
     req->loop = loop;
@@ -766,8 +699,8 @@ extern "C" void register_video_commands(const char *base_path)
     esp_console_cmd_t screen = {};
     screen.command = "screen";
     screen.help = "What is on the screen: a solid colour, the alignment crosshair, or clear it "
-                  "(panel asleep, backlight off); alone, what is showing. The screen is off "
-                  "whenever nothing is.";
+                  "(panel asleep, backlight off); alone, what is showing, including a clip or "
+                  "an image. The screen is off whenever nothing is.";
     screen.hint = "[colour <name|#RRGGBB|R,G,B|0xRGB565> | calibration | clear]";
     screen.func = cmd_screen;
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen));
