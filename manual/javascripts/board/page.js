@@ -2,7 +2,7 @@
 // has, and its console.
 
 import { code, h } from "../common/dom.js";
-import { GROUPS, groupOf } from "./commands.js";
+import { entries, GROUPS, groupOf } from "./commands.js";
 import { FileManager } from "./filemanager.js";
 import { confirmed, explain, Runner, vet } from "./runner.js";
 import { session } from "./session.js";
@@ -81,16 +81,28 @@ class Commands {
     const groups = new Map(order.map((name) => [name, []]));
     for (const command of commands) groups.get(groupOf(command.name)).push(command);
     this.filter.hidden = false;
-    this.body.replaceChildren(...[...groups].filter(([, list]) => list.length).map(([name, list]) =>
-      h("details", { class: "hb-group" },
-        h("summary", {}, name, h("span", { class: "hb-count" }, String(list.length))),
-        list.map((command) => {
-          const runner = new Runner({ name: command.name, hint: command.hint, glossary: command.glossary });
-          return h("section", { class: "hb-command", "data-name": command.name, "data-text": `${command.name} ${command.hint} ${command.description}`.toLowerCase() },
-            h("h3", {}, code(command.name), command.hint ? h("span", { class: "hb-hint" }, ` ${command.hint}`) : null),
-            command.description ? h("p", { class: "hb-desc" }, command.description) : null,
-            runner.el);
-        }))));
+    this.body.replaceChildren(...[...groups].filter(([, list]) => list.length).map(([name, list]) => {
+      const blocks = list.map((command) => this.#command(command));
+      const count = blocks.reduce((n, block) => n + block.querySelectorAll(".hb-entry").length, 0);
+      return h("details", { class: "hb-group" }, h("summary", {}, name, h("span", { class: "hb-count" }, String(count))), blocks);
+    }));
+  }
+
+  // A command: its name and description, then an entry for each way to run it.
+  #command(command) {
+    const list = entries(command.name, command.hint);
+    const single = list.length === 1 && list[0].label === command.name;
+    const about = `${command.name} ${command.description}`.toLowerCase();
+    return h("section", { class: "hb-command", "data-name": command.name },
+      h("h3", {}, code(command.name), single && list[0].hint ? h("span", { class: "hb-hint" }, ` ${list[0].hint}`) : null),
+      command.description ? h("p", { class: "hb-desc" }, command.description) : null,
+      command.glossary ? h("details", { class: "hb-glossary" }, h("summary", {}, "Options"), h("pre", {}, command.glossary)) : null,
+      list.map((entry) => {
+        const runner = new Runner({ name: command.name, hint: entry.hint, line: entry.line, chips: false });
+        return h("div", { class: "hb-entry", "data-text": `${entry.label} ${entry.hint} ${about}`.toLowerCase() },
+          single ? null : h("h4", {}, code(entry.label), entry.hint ? h("span", { class: "hb-hint" }, ` ${entry.hint}`) : null),
+          runner.el);
+      }));
   }
 
   #applyFilter() {
@@ -98,9 +110,14 @@ class Commands {
     for (const group of this.body.querySelectorAll(".hb-group")) {
       let shown = 0;
       for (const command of group.querySelectorAll(".hb-command")) {
-        const match = words.every((word) => command.dataset.text.includes(word));
-        command.hidden = !match;
-        shown += match;
+        let here = 0;
+        for (const entry of command.querySelectorAll(".hb-entry")) {
+          const match = words.every((word) => entry.dataset.text.includes(word));
+          entry.hidden = !match;
+          here += match;
+        }
+        command.hidden = !here;
+        shown += here;
       }
       group.hidden = !shown;
       group.open = words.length > 0 && shown > 0;

@@ -40,6 +40,10 @@ The file manager shows `/data`, the board's clip volume (see
   already there is only replaced if you say so.
 - ▶ plays a clip, and ◉ shows an image, on the board's screen.
 - ↓ downloads a file. ✎ renames it and ✕ deletes it.
+- To move a file or folder, drag it onto a folder, onto `..`, or onto a folder in the path above
+  the list. The page asks before it moves anything. Renaming to a path, such as
+  `clips/leia.mjpeg.mov`, moves it too.
+- Files dropped from the computer onto a folder upload into that folder.
 
 Every upload is checked the way `fs_xfer.py` checks it. The board hashes what it received and
 the page compares that with the file's SHA-256. Then the board reads the file back from flash
@@ -53,11 +57,16 @@ down tabs in the background. `fs_xfer.py` on the command line is no faster. See
 
 ## Commands
 
-The command list comes from the board itself, so it always matches the firmware it runs. Each
-command has a line to edit and run:
+The command list comes from the board itself, so it always matches the firmware it runs. It is
+grouped by what the commands are for: display, images, video, LEDs, the holoprojector, files,
+firmware, system, networking, and so on. A command the page doesn't know yet goes under
+**Other**. The filter box finds a command by name or by what it does.
 
-- The buttons above the line are the ways to call it, taken from its own syntax. Pressing one
-  fills in the line and selects the first part to replace, such as `<file>`.
+A command with sub-commands has an entry for each: `video play`, `video stop`, `video status`,
+and the rest. Each entry has a line to edit and run:
+
+- The line starts with the entry's required parts to fill in, such as `<file>`. Run refuses a
+  line that still has one.
 - **Insert a file…** puts the name of a file on the board into the line. **Colour** puts in a
   colour.
 - **Stop** ends a command that runs until a key is pressed, such as `imu`. Pressing it again

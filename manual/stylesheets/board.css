@@ -692,3 +692,33 @@
 .md-typeset details.hb-group[open] > summary {
   border-bottom: none;
 }
+
+/* A sub-command's entry under its command on the Board page. */
+.md-typeset .hb-entry {
+  margin: 0.3em 0 0.6em;
+}
+
+.md-typeset .hb-entry h4 {
+  margin: 0.6em 0 0.3em;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.md-typeset .hb-entry .hb-runner {
+  margin: 0.2em 0 0.4em;
+}
+
+/* Moving by drag and drop. */
+.md-typeset .hb-row[draggable="true"] {
+  cursor: grab;
+}
+
+.md-typeset .hb-row.hb-dragged {
+  opacity: 0.4;
+}
+
+.md-typeset .hb-drop-target {
+  outline: 1px dashed var(--md-accent-fg-color);
+  outline-offset: -1px;
+  background: var(--md-accent-fg-color--transparent);
+}

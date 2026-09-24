@@ -14,10 +14,12 @@ so the release tag is the version baked into the image and reported by `version`
 
 - **The board in the browser.** A new documentation page talks to a board running Holo Player
   over Web Serial (desktop Chrome, Edge or Opera), with no tools to install:
-  - a file manager for `/data`: upload by dropping files, download, rename, delete, and play or
-    show what is there, with every transfer checked by SHA-256 as `fs_xfer.py` checks it;
-  - every command the board lists in `help`, grouped, each with a line to edit and run, buttons
-    for the ways to call it, and a picker for the board's files;
+  - a file manager for `/data`: upload by dropping files, download, rename, delete, move by
+    dragging onto a folder (after a confirmation), and play or show what is there, with every
+    transfer checked by SHA-256 as `fs_xfer.py` checks it;
+  - every command the board lists in `help`, in groups by what it is for (display, images, video,
+    LEDs, …, and "Other" for any the page doesn't know), with an entry for each sub-command
+    (`video play`, `video stop`, …) to edit and run, and a picker for the board's files;
   - the console, with everything the board prints.
 - **Run buttons throughout the documentation.** In those browsers, each board command in the
   pages has a ▶ that runs it on a connected board, with the output underneath. The connection

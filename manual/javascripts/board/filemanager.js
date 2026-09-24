@@ -8,6 +8,7 @@ import { explain } from "./runner.js";
 import { session } from "./session.js";
 
 const VIDEO = /\.(mov|mjpeg)$/i;
+const DRAG_TYPE = "application/x-holo-path";   // a file or folder on the board, being moved
 const IMAGE = /\.(png|jpe?g|gif)$/i;
 
 export function formatSize(bytes) {
@@ -55,7 +56,7 @@ export class FileManager {
     this.panel = h("div", { class: "hb-files-panel" },
       h("div", { class: "hb-files-head" }, this.crumbs, h("span", { class: "hb-usage-wrap" }, this.usage, this.meter)),
       this.list,
-      h("p", { class: "hb-drop-hint" }, "Or drop files on the list to upload them here."),
+      h("p", { class: "hb-drop-hint" }, "Drop files on the list to upload them here, or on a folder to upload them there. Drag a file onto a folder, .., or a folder in the path above to move it."),
       this.toolbar,
       this.transfers,
       this.note);
@@ -64,12 +65,13 @@ export class FileManager {
 
     // Drop files anywhere on the list to upload them into the folder shown.
     this.list.addEventListener("dragover", (event) => {
-      if (!event.dataTransfer?.types.includes("Files")) return;
+      if (!event.dataTransfer?.types.includes("Files") || event.dataTransfer.types.includes(DRAG_TYPE)) return;
       event.preventDefault();
       this.list.classList.add("hb-dragging");
     });
     this.list.addEventListener("dragleave", () => this.list.classList.remove("hb-dragging"));
     this.list.addEventListener("drop", (event) => {
+      if (!event.dataTransfer?.types.includes("Files") || event.dataTransfer.types.includes(DRAG_TYPE)) return;
       event.preventDefault();
       this.list.classList.remove("hb-dragging");
       this.#upload([...event.dataTransfer.files]);
@@ -125,9 +127,8 @@ export class FileManager {
 
   #render(usage) {
     const parts = this.dir ? this.dir.split("/") : [];
-    this.crumbs.replaceChildren(
-      h("button", { type: "button", class: "hb-crumb", onclick: () => this.#open("") }, "/data"),
-      parts.map((part, i) => ["/", h("button", { type: "button", class: "hb-crumb", onclick: () => this.#open(parts.slice(0, i + 1).join("/")) }, part)]));
+    const crumb = (label, dir) => this.#target(h("button", { type: "button", class: "hb-crumb", onclick: () => this.#open(dir) }, label), dir);
+    this.crumbs.replaceChildren(crumb("/data", ""), ...parts.flatMap((part, i) => ["/", crumb(part, parts.slice(0, i + 1).join("/"))]));
     if (usage) {
       this.usage.textContent = `${formatSize(usage.usedKB * 1024)} of ${formatSize(usage.totalKB * 1024)} used`;
       this.meter.value = usage.usedKB / usage.totalKB;
@@ -137,10 +138,10 @@ export class FileManager {
 
     const rows = [];
     if (this.dir) {
-      rows.push(h("div", { class: "hb-row", role: "row" },
+      rows.push(this.#target(h("div", { class: "hb-row", role: "row", title: "Drop here to move up a folder" },
         h("span", { class: "hb-icon", "aria-hidden": "true" }, "↩"),
         h("button", { type: "button", class: "hb-name hb-link", onclick: () => this.#open(parent(this.dir)) }, ".."),
-        h("span", { class: "hb-size" }), h("span", { class: "hb-actions" })));
+        h("span", { class: "hb-size" }), h("span", { class: "hb-actions" })), parent(this.dir)));
     }
     for (const entry of this.entries) {
       const path = join(this.dir, entry.name);
@@ -149,18 +150,68 @@ export class FileManager {
       if (VIDEO.test(entry.name)) actions.push(action("▶", "Play", () => this.#show(`video play ${quoteArg(path)}`)));
       if (IMAGE.test(entry.name)) actions.push(action("◉", "Show", () => this.#show(`image show ${quoteArg(path)}`)));
       if (!entry.dir) actions.push(action("↓", "Download", () => this.#download(path, entry.size)));
-      actions.push(action("✎", "Rename", () => this.#rename(entry, path)));
+      actions.push(action("✎", "Rename or move", () => this.#rename(entry, path)));
       actions.push(action("✕", "Delete", () => this.#delete(entry, path), "hb-danger"));
-      rows.push(h("div", { class: "hb-row", role: "row" },
+      const row = h("div", {
+        class: "hb-row", role: "row", draggable: "true",
+        ondragstart: (event) => {
+          event.dataTransfer.setData(DRAG_TYPE, path);
+          event.dataTransfer.setData("text/plain", path);
+          event.dataTransfer.effectAllowed = "move";
+          row.classList.add("hb-dragged");
+        },
+        ondragend: () => row.classList.remove("hb-dragged"),
+      },
         h("span", { class: "hb-icon", "aria-hidden": "true" }, icon(entry)),
         entry.dir
           ? h("button", { type: "button", class: "hb-name hb-link", onclick: () => this.#open(path) }, `${entry.name}/`)
           : h("span", { class: "hb-name" }, entry.name),
         h("span", { class: "hb-size" }, formatSize(entry.size)),
-        h("span", { class: "hb-actions" }, actions)));
+        h("span", { class: "hb-actions" }, actions));
+      rows.push(entry.dir ? this.#target(row, path) : row);
     }
     if (!this.entries.length) rows.push(h("p", { class: "hb-empty" }, this.dir ? "This folder is empty." : "No files yet. Upload a clip or an image."));
     this.list.replaceChildren(...rows);
+  }
+
+  // Make `el` somewhere to drop: a file or folder dragged from the list moves into `dir`, and files
+  // dragged from the computer upload there.
+  #target(el, dir) {
+    const accepts = (event) => event.dataTransfer?.types.includes(DRAG_TYPE) || event.dataTransfer?.types.includes("Files");
+    el.addEventListener("dragover", (event) => {
+      if (!accepts(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = event.dataTransfer.types.includes(DRAG_TYPE) ? "move" : "copy";
+      el.classList.add("hb-drop-target");
+    });
+    el.addEventListener("dragleave", () => el.classList.remove("hb-drop-target"));
+    el.addEventListener("drop", (event) => {
+      if (!accepts(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      el.classList.remove("hb-drop-target");
+      this.list.classList.remove("hb-dragging");
+      const from = event.dataTransfer.getData(DRAG_TYPE);
+      if (from) this.#move(from, dir);
+      else this.#upload([...event.dataTransfer.files], dir);
+    });
+    return el;
+  }
+
+  async #move(from, dir) {
+    const name = from.split("/").pop();
+    if (parent(from) === dir) return;   // dropped where it already is
+    if (dir === from || dir.startsWith(`${from}/`)) return this.fail("A folder can't go inside itself.");
+    const to = join(dir, name);
+    if (!confirm(`Move ${from} to /data/${to}?`)) return;
+    try {
+      await session.files.mv(from, to);
+      this.say(`Moved ${name} to /data/${dir ? `${dir}/` : ""}.`);
+      session.dispatchEvent(new Event("files"));
+    } catch (error) {
+      this.fail(...explain(error));
+    }
   }
 
   #open(dir) {
@@ -196,7 +247,7 @@ export class FileManager {
   }
 
   async #rename(entry, path) {
-    const name = prompt(`Rename ${entry.name} to`, entry.name);
+    const name = prompt(`Rename ${entry.name} to (a path such as clips/${entry.name} moves it; drag it onto a folder to do the same)`, entry.name);
     if (!name || name === entry.name) return;
     try {
       await session.files.mv(path, name.includes("/") ? name : join(this.dir, name));
@@ -223,15 +274,17 @@ export class FileManager {
     this.picker.value = "";
   }
 
-  #upload(files) {
-    const existing = new Set(this.entries.map((e) => e.name));
+  // Upload into `dir`. Only the folder shown is known well enough to ask before replacing a file;
+  // elsewhere the board refuses to overwrite, and says so.
+  #upload(files, dir = this.dir) {
+    const existing = new Set(dir === this.dir ? this.entries.map((e) => e.name) : []);
     for (const file of files) {
       let force = false;
       if (existing.has(file.name)) {
         if (!confirm(`${file.name} is already on the board. Replace it?`)) continue;
         force = true;
       }
-      this.#enqueue({ kind: "up", name: file.name, path: join(this.dir, file.name), file, force, size: file.size });
+      this.#enqueue({ kind: "up", name: file.name, path: join(dir, file.name), file, force, size: file.size });
     }
   }
 

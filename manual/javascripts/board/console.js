@@ -61,6 +61,7 @@ export class Console {
     this.queue = null;         // while a transfer holds the port
     this.dirty = true;         // not known to be at a prompt: sync before the next command
     this.quiet = false;        // a page's own query is running: keep its output out of onText
+    this.onCommand = null;     // (cmd or null) => void: a command that isn't quiet starts, or ends
     port.sink = (bytes) => this.#feed(bytes);
   }
 
@@ -163,6 +164,7 @@ export class Console {
     return this.lock.run(async () => {
       this.running = cmd;
       this.quiet = quiet;
+      if (!quiet) this.onCommand?.(cmd);
       try {
         if (this.dirty) await this.#sync();
         this.take();
@@ -178,6 +180,7 @@ export class Console {
       } finally {
         this.running = null;
         this.quiet = false;
+        if (!quiet) this.onCommand?.(null);
       }
     });
   }

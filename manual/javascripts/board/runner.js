@@ -77,9 +77,11 @@ const FILE_ARG = /<(file|path|from|to)>/;
 const COLOUR_ARG = /<(c|name\|#RRGGBB[^>]*)>|\bcolour\b/;
 
 export class Runner {
-  // `name`: the command; `hint`: its hint, for the ways to call it; `line`: what the input starts
-  // with; `autorun`: run as soon as it is shown (a Run button on a complete line).
-  constructor({ name, hint = "", line = name, glossary = "", compact = false } = {}) {
+  // `name`: the command; `hint`: its hint, for the ways to call it and the helpers it gets; `line`:
+  // what the input starts with.
+  // `chips: false` leaves out the buttons for the ways to call it, where the page lists each way
+  // as an entry of its own.
+  constructor({ name, hint = "", line = name, glossary = "", compact = false, chips: showChips = true } = {}) {
     this.name = name;
     this.controller = null;
 
@@ -95,7 +97,7 @@ export class Runner {
     this.terminal.pre.hidden = true;
 
     const variants = hintVariants(hint);
-    const chips = variants.length > 1 || (variants.length === 1 && variants[0].template !== "")
+    const chips = showChips && (variants.length > 1 || (variants.length === 1 && variants[0].template !== ""))
       ? h("div", { class: "hb-chips", role: "group", "aria-label": "Ways to call it" },
         variants.map((v) => h("button", {
           type: "button", class: "hb-chip", title: `${name} ${v.full}`,
@@ -104,7 +106,9 @@ export class Runner {
       : null;
 
     const helpers = [];
-    if (FILE_ARG.test(hint) || ["video", "image", "fs"].includes(name)) {
+    // By the line's own syntax; where the whole command's hint is shown instead, by the commands
+    // that take files at all.
+    if (FILE_ARG.test(hint) || (showChips && ["video", "image", "fs"].includes(name))) {
       this.filePicker = h("select", { class: "hb-pick", "aria-label": "Insert a file from the board", onfocus: () => this.#loadFiles(), onchange: (e) => this.#insertFile(e) },
         h("option", { value: "" }, "Insert a file…"));
       helpers.push(this.filePicker);

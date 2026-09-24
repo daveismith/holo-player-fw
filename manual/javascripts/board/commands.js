@@ -1,28 +1,60 @@
-// Every console command the firmware registers, grouped as manual/reference/console.md groups
-// them, and what the pages need to know before running one. tools/check_command_docs.py checks
-// that GROUPS names every registered command, so a new command can't be missed here.
+// Every console command the firmware registers, in the groups the Board page lists them in.
+// Anything the board lists that isn't here goes under "Other". tools/check_command_docs.py checks
+// that GROUPS names every registered command, so a new one can't be missed for long.
 //
 // Pure data and functions, no DOM.
 
+import { hintVariants } from "./parse.js";
+
 export const GROUPS = [
-  ["The board", ["screen", "lcd", "touch", "imu"]],
+  ["Display", ["screen", "lcd"]],
   ["Images", ["image"]],
   ["Video", ["video"]],
   ["LEDs", ["leds"]],
-  ["The holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
-  ["Files and firmware", ["fs", "ota"]],
-  ["System", ["help", "version", "restart", "free", "heap", "membench", "flash-stats", "tasks", "top", "log_level", "gpio",
-    "deep_sleep", "light_sleep"]],
-  ["Networking", ["wifi", "wifi_save", "wifi_forget", "wifi_known", "join", "wifi_link", "wifi_ps", "wifi_txpower", "ip", "ping",
-    "iperf", "traceroute", "dig"]],
-  ["NVS and I2C", ["nvs_set", "nvs_get", "nvs_erase", "nvs_erase_namespace", "nvs_namespace", "nvs_list", "i2cconfig",
-    "i2cdetect", "i2cget", "i2cset", "i2cdump"]],
+  ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
+  ["Touch and motion", ["touch", "imu"]],
+  ["Files", ["fs"]],
+  ["Firmware", ["version", "ota", "restart"]],
+  ["System", ["help", "free", "heap", "membench", "flash-stats", "tasks", "top", "log_level", "gpio", "deep_sleep",
+    "light_sleep"]],
+  ["Wi-Fi", ["wifi", "wifi_save", "wifi_forget", "wifi_known", "join", "wifi_link", "wifi_ps", "wifi_txpower"]],
+  ["Network", ["ip", "ping", "iperf", "traceroute", "dig"]],
+  ["NVS", ["nvs_set", "nvs_get", "nvs_erase", "nvs_erase_namespace", "nvs_namespace", "nvs_list"]],
+  ["I2C", ["i2cconfig", "i2cdetect", "i2cget", "i2cset", "i2cdump"]],
 ];
 
 export const COMMANDS = new Set(GROUPS.flatMap(([, names]) => names));
 
 export function groupOf(name) {
   return GROUPS.find(([, names]) => names.includes(name))?.[0] ?? "Other";
+}
+
+// `fs` lists its sub-commands in its hint but not their arguments; these are its usage text's.
+const SUB_HINTS = {
+  fs: {
+    ls: "[path]", stat: "<path>", mkdir: "<path>", rmdir: "<path>", rm: "<path>", mv: "<from> <to>", cat: "<path>",
+    hexdump: "<path> [offset] [len]", sha256: "<path>", bench: "[kb]",
+  },
+};
+
+// The entries the Board page lists for a command from `help`: one a sub-command (`video play`,
+// `video stop`, …), plus the command on its own when it can be run bare (`leds` reports the
+// strip). Each is { label, hint, line }: the line starts the entry's input, with its required
+// <placeholders> in. Sub-commands the pages won't run (fs put, ota put) are left out.
+export function entries(name, hint) {
+  const variants = hintVariants(hint);
+  const list = [];
+  if (!variants.length || !hint || hint.startsWith("[")) list.push({ label: name, hint: variants.length ? "" : hint, line: name });
+  for (const variant of variants) {
+    const sub = variant.label;
+    const extra = SUB_HINTS[name]?.[sub];
+    const args = extra ?? variant.full.slice(sub.length).trim();
+    const required = extra ? extra.split(" ").filter((a) => /^<[^>]+>$/.test(a)) : [];
+    const line = [name, variant.template, ...required].join(" ");
+    if (refusal(line)) continue;
+    list.push({ label: `${name} ${sub}`, hint: args, line });
+  }
+  return list;
 }
 
 // Split a command line into words, as esp_console does closely enough for these checks.

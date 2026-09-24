@@ -19,7 +19,7 @@ import { Files } from "../manual/javascripts/board/files.js";
 import {
   hintVariants, parseDf, parseHelp, parseLs, parseOta, parseSha256, parseVersion, placeholders,
 } from "../manual/javascripts/board/parse.js";
-import { COMMANDS, commandLine, danger, groupOf, isCommand, refusal, words } from "../manual/javascripts/board/commands.js";
+import { COMMANDS, commandLine, danger, entries, groupOf, isCommand, refusal, words } from "../manual/javascripts/board/commands.js";
 import { ACK, CAN, crc16, EOT, frame, NAK, receive, send, SOH, STX, SUB } from "../manual/javascripts/board/xmodem.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -104,6 +104,30 @@ test("hints into ways to call a command", () => {
   }
 });
 
+test("entries: a command split into its sub-commands", () => {
+  const help = parseHelp(text("help.txt"));
+  const of = (name) => entries(name, help.find((c) => c.name === name).hint).map((e) => [e.label, e.hint, e.line]);
+  assert.deepEqual(of("video"), [
+    ["video play", "<file> [loop] [frame]", "video play <file>"], ["video stop", "", "video stop"],
+    ["video status", "", "video status"], ["video info", "<file>", "video info <file>"],
+    ["video verify", "<file> [step]", "video verify <file>"]]);
+  // Runnable bare, so listed bare too: `leds` reports the strip.
+  assert.deepEqual(of("leds").slice(0, 2), [["leds", "", "leds"], ["leds colour", "<c>", "leds colour <c>"]]);
+  // fs's arguments come from its usage text; put and get are the file manager's.
+  const fs = of("fs");
+  assert.deepEqual(fs.find(([label]) => label === "fs mv"), ["fs mv", "<from> <to>", "fs mv <from> <to>"]);
+  assert.ok(!fs.some(([label]) => label === "fs put" || label === "fs get"));
+  assert.deepEqual(of("ota"), [["ota", "", "ota"]]);
+  assert.deepEqual(of("free"), [["free", "", "free"]]);
+  assert.deepEqual(of("ping")[0].slice(0, 1), ["ping"]);
+  // Every command gives at least one entry, and no entry's line has an optional part.
+  for (const command of help) {
+    const list = entries(command.name, command.hint);
+    assert.ok(list.length, command.name);
+    for (const entry of list) assert.doesNotMatch(entry.line, /\[/, entry.label);
+  }
+});
+
 test("placeholders", () => {
   assert.deepEqual(placeholders("video play <file> loop").map((p) => [p.text, p.start]), [["<file>", 11]]);
   assert.deepEqual(placeholders("leds colour #ff8000"), []);
@@ -111,7 +135,8 @@ test("placeholders", () => {
 
 test("commands: grouping, lines from the docs, what needs a confirmation", () => {
   assert.equal(groupOf("leds"), "LEDs");
-  assert.equal(groupOf("servo_move"), "The holoprojector");
+  assert.equal(groupOf("servo_move"), "Holoprojector");
+  assert.equal(groupOf("screen"), "Display");
   assert.equal(groupOf("nonesuch"), "Other");
   assert.equal(commandLine("holo help       # every verb and its options"), "holo help");
   assert.equal(commandLine("leds colour #ff8000"), "leds colour #ff8000");

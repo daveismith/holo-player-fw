@@ -3,7 +3,7 @@
 //
 //   state   the connection changed: session.state is "idle", "connecting" or "connected"
 //   text    { detail: text } everything the board printed, as the console shows it
-//   busy    { detail: command or null } a command started or finished
+//   busy    { detail: command or null } a command started or finished (not the pages' own queries)
 //
 // Moving to another page drops the port. When the user was connected, the next page reopens it
 // without asking -- a port once granted to the site is in navigator.serial.getPorts() -- so the
@@ -79,6 +79,7 @@ class Session extends EventTarget {
       this.port = port;
       this.console = new Console(port);
       this.console.onText = (text) => this.dispatchEvent(new CustomEvent("text", { detail: text }));
+      this.console.onCommand = (line) => this.#busy(line);
       port.onLost = () => this.#lost();
       await this.console.start();
       this.files = new Files(this.console);
@@ -139,13 +140,10 @@ class Session extends EventTarget {
     if (!this.connected) throw new BoardError("not-connected");
     const listener = (event) => onText?.(event.detail);
     this.addEventListener("text", listener);
-    const queued = this.console.command(line, { signal });
-    this.#busy(line);
     try {
-      return await queued;
+      return await this.console.command(line, { signal });
     } finally {
       this.removeEventListener("text", listener);
-      this.#busy(null);
     }
   }
 
