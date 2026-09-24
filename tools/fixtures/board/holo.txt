@@ -1,0 +1,4 @@
+holo   horizontal pan, vertical tilt, light none
+       motion hold, position unknown
+       h      pan     closed 1150 open 1900 us, not moved since boot (default range, not saved)
+       v      tilt    closed 1300 open 1950 us, not moved since boot (default range, not saved)

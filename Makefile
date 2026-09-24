@@ -14,13 +14,13 @@ venv:                  ## python venv for the documentation tools
 docs-setup: venv       ## install the pinned docs toolchain (requirements-docs.txt)
 	@$(PY) -m pip install -q -r requirements-docs.txt
 
-docs-check:            ## every registered console command is documented, the pattern image is current, the installer's JavaScript is intact and passes its tests (stdlib only, no venv needed)
+docs-check:            ## every registered console command is documented, the pattern image is current, the installer's and board pages' JavaScript is intact and passes its tests (stdlib only, no venv needed)
 	@python3 tools/check_command_docs.py
 	@python3 tools/render_calibration.py --check
 	@python3 tools/vendor_js.py --check
 	@python3 tools/web_install_manifest.py --fixtures build/installer-fixtures >/dev/null
-	@if command -v node >/dev/null; then node --test --test-reporter=dot tools/test_installer.mjs; \
-	 else echo "node not found: skipping the installer's tests (the docs workflow runs them)"; fi
+	@if command -v node >/dev/null; then node --test --test-reporter=dot tools/test_installer.mjs tools/test_board.mjs; \
+	 else echo "node not found: skipping the JavaScript tests (the docs workflow runs them)"; fi
 
 docs-image:            ## re-render manual/images/calibration.png from the firmware's own geometry
 	@python3 tools/render_calibration.py

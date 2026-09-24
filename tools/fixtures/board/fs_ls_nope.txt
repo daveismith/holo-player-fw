@@ -1,0 +1,2 @@
+fs: ls /data/nope: No such file or directory
+Command returned non-zero error code: 0x1 (ERROR)

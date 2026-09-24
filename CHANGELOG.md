@@ -10,6 +10,35 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Added
+
+- **The board in the browser.** A new documentation page talks to a board running Holo Player
+  over Web Serial (desktop Chrome, Edge or Opera), with no tools to install:
+  - a file manager for `/data`: upload by dropping files, download, rename, delete, move by
+    dragging onto a folder (after a confirmation), and play or show what is there, with every
+    transfer checked by SHA-256 as `fs_xfer.py` checks it;
+  - every command the board lists in `help`, in groups by what it is for (display, images, video,
+    LEDs, …, and "Other" for any the page doesn't know), with an entry for each sub-command
+    (`video play`, `video stop`, …) to edit and run, and a picker for the board's files;
+  - the console, with everything the board prints.
+- **Run buttons throughout the documentation.** In those browsers, each board command in the
+  pages has a ▶ that runs it on a connected board, with the output underneath. The connection
+  shows in the header on every page and follows you from page to page. Commands that change
+  something ask first. "Files on the board" embeds the file manager.
+- Connecting doesn't restart the board, and it works in the offline documentation through
+  `serve.py`, like the installer.
+
+### Changed
+
+- Board output in the documentation is in `text` code blocks. Bare code blocks hold only board
+  commands, and `tools/check_command_docs.py` checks that, so every ▶ runs a real command.
+
+### Known issues
+
+- On macOS, `fs_xfer.py put` fails through Apple's driver (`cu.usbmodem…`): 1 KB XMODEM blocks
+  arrive corrupted. Use `cu.wchusbserial…`. The browser's file manager switches to 128-byte blocks
+  there instead.
+
 ## [1.0.0] - 2026-09-23
 
 ### Added

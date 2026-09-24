@@ -48,6 +48,13 @@ onto the board over the same serial console, as does new firmware.
 
     The motions, and calibrating each axis' travel.
 
+-   **[The board in the browser](use/board.md)**
+
+    ---
+
+    Put clips and images on the board, and try every command, from Chrome or Edge. No tools
+    to install.
+
 -   **[Console commands](reference/console.md)**
 
     ---

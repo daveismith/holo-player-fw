@@ -3,6 +3,10 @@
 The console is the board's whole interface. It runs on UART0 at 115200 baud, reached over the
 USB-C port. Type `help` for the full list with hints; this page is the annotated version.
 
+In desktop Chrome, Edge or Opera, the ▶ beside a command tries it on a board connected to the
+computer. [The board in the browser](../use/board.md) has every command the board lists, and its
+console.
+
 Command history is kept in `/data/history.txt` and survives a restart.
 
 !!! note "A colour is written the same way everywhere"

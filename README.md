@@ -37,6 +37,9 @@ To install a release, no toolchain is needed: the Install page of the documentat
 from Chrome, Edge or Opera, and each Release also carries the images for esptool. See
 [Install](manual/install/flashing.md).
 
+Once it is installed, the same browsers can put clips on the board and run every console command
+from the documentation: [The board in the browser](manual/use/board.md).
+
 ## Build and flash
 
 ```sh
@@ -63,7 +66,7 @@ over the console instead of USB — see [Updating over serial](manual/use/ota.md
 | `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`), `servo`, `holo` |
 | `external/AnimatedGIF/` | Submodule: [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), Apache-2.0, pinned to `c2478ec` |
 | `manual/` | The documentation site's pages (`mkdocs.yml`) |
-| `tools/` | `check_command_docs.py` (every command is documented), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs) and `test_installer.mjs` |
+| `tools/` | `check_command_docs.py` (every command is documented), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs), and `test_installer.mjs` and `test_board.mjs` with their `fixtures/` (the pages' JavaScript) |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Versioning
