@@ -139,3 +139,19 @@
 : The release divides the flash up differently from the firmware on the board, so the settings
   and clips it would keep could be misread. Copy off anything you want to keep with `fs_xfer.py`,
   install with **Complete overwrite**, and put them back.
+
+**A ▶ or the Board page says the port is in use.**
+: One program at a time: close `idf.py monitor`, any serial terminal and `fs_xfer.py`. The Install
+  page counts too, and so does another browser tab. The connection follows you from page to page
+  within one tab, but two tabs can't share it
+  ([details](use/board.md#connecting)).
+
+**The Board page says the board didn't answer at its console.**
+: It isn't running Holo Player: it is blank, held in its bootloader, or running something else.
+  Press **RESET** and connect again. A blank board needs [installing](install/flashing.md) first.
+
+**An upload through the browser is slow, or seems stuck.**
+: About 7 KB/s is normal, so a 1.9 MB clip takes four to five minutes. Keep the tab in front,
+  because browsers slow down background tabs. Cancel an upload that stops moving: the board keeps
+  nothing from an upload that doesn't finish, so send it again
+  ([details](use/board.md#files)).

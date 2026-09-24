@@ -24,6 +24,18 @@ fs bench
 `fs df` reports how much of the volume is used; `fs bench` measures read and write throughput,
 which is worth running once if playback is stuttering.
 
+## In the browser
+
+In desktop Chrome, Edge or Opera, this is the board's volume, live. Upload by dropping files on
+the list, and play, show, download, rename or delete what is there. It is the same file manager
+as on [The board in the browser](board.md), and it checks every transfer the same way
+`fs_xfer.py` does.
+
+<div class="holo-files hb-static" markdown>
+Managing the files from this page needs desktop Chrome, Edge or Opera, and JavaScript. Every
+other browser can use `fs_xfer.py`, described next.
+</div>
+
 ## From the host
 
 `fs put` and `fs get` move bytes over the console itself, using XMODEM-1K. You could drive them by
@@ -73,3 +85,9 @@ managed only 7.5 KB/s. In the other direction, data coming *from* the board abov
 bytes whatever the block size, which is why downloads are slower than uploads.
 
 On another host, try higher rates with `--xfer-baud` and `--get-baud`.
+
+!!! warning "On macOS, upload through `cu.wchusbserial…`"
+    macOS lists the board twice. Through Apple's own driver (`cu.usbmodem…`), every 1 KB XMODEM
+    block reaches the board with its data changed, so `fs_xfer.py put` fails on its first block.
+    Downloads and the console work through either. The browser's file manager copes: it switches
+    to 128-byte blocks, which arrive intact, at a small cost in speed.
