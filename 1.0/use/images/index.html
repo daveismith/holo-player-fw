@@ -1,0 +1,1608 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player">
+      
+      
+      
+      
+        <link rel="prev" href="../video/">
+      
+      
+        <link rel="next" href="../leds/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+      
+        <title>Images - Holo Player</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#images" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Holo Player" class="md-header__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Holo Player
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Images
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/flashing/" class="md-tabs__link">
+          
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../video/" class="md-tabs__link">
+          
+  
+  Use
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/console/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Holo Player" class="md-nav__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Holo Player
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/flashing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preparing a file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#showing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Showing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animated GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#making-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Making one
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#looking-at-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Looking at a file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-is-decoded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it is decoded
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-still-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What a still costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating over serial
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/video-internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Preparing a file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#showing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Showing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animated GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#making-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Making one
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#looking-at-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Looking at a file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-is-decoded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it is decoded
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-still-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What a still costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="images">Images<a class="headerlink" href="#images" title="Permanent link">&para;</a></h1>
+<p><code>image show</code> puts a <strong>PNG</strong>, a <strong>baseline JPEG</strong> or a <strong>GIF</strong> from <code>/data</code> in the middle of the
+round panel, where it stays until something else takes the screen. A still has no task and no
+timing behind it: it is drawn once and then simply left, exactly as a
+<a href="../../reference/console/">colour</a> is. An animated GIF plays — see <a href="#animated-gifs">Animated GIFs</a>.</p>
+<p>For clips, see <a href="../video/">Video clips</a>.</p>
+<h2 id="preparing-a-file">Preparing a file<a class="headerlink" href="#preparing-a-file" title="Permanent link">&para;</a></h2>
+<p>The panel is 240×240, and an image has to fit it — anything larger is refused rather than
+scaled or cropped, so the framing stays yours. Resize on the host:</p>
+<div class="highlight"><pre><span></span><code>sips<span class="w"> </span>-z<span class="w"> </span><span class="m">240</span><span class="w"> </span><span class="m">240</span><span class="w"> </span>&lt;input&gt;<span class="w"> </span>--out<span class="w"> </span>r2.png<span class="w">            </span><span class="c1"># macOS, built in</span>
+ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-vf<span class="w"> </span><span class="nv">scale</span><span class="o">=</span><span class="m">240</span>:240<span class="w"> </span>r2.png<span class="w">      </span><span class="c1"># anywhere</span>
+</code></pre></div>
+<p>Smaller images are centred, with the rest of the panel black.</p>
+<div class="admonition warning">
+<p class="admonition-title">A JPEG has to be baseline <strong>and</strong> 4:2:0</p>
+<p>The decoder reads baseline JPEG at 4:2:0 chroma subsampling. Two things it will not read,
+and what each reports:</p>
+<table>
+<thead>
+<tr>
+<th>The file is</th>
+<th><code>image show</code> says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Progressive</td>
+<td><code>only baseline JPEG is supported</code></td>
+</tr>
+<tr>
+<td>4:4:4</td>
+<td><code>unsupported colour sampling; re-encode as 4:2:0</code></td>
+</tr>
+<tr>
+<td>4:2:2</td>
+<td><code>bad JPEG data: corrupt, or colour sampling the decoder cannot read</code></td>
+</tr>
+</tbody>
+</table>
+<p>This catches people out because <strong>ffmpeg picks 4:4:4 by default when the input is a still
+RGB image</strong> — unlike a clip, where the input is already 4:2:0. Ask for it explicitly:</p>
+<div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-c:v<span class="w"> </span>mjpeg<span class="w"> </span>-q:v<span class="w"> </span><span class="m">3</span><span class="w"> </span>-pix_fmt<span class="w"> </span>yuvj420p<span class="w"> </span>r2.jpg
+</code></pre></div>
+</div>
+<p>PNG is far more forgiving: palette, greyscale, grey+alpha, RGB and RGBA, at 1, 2, 4, 8 or 16 bits,
+interlaced or not, all decode. Unless you have a reason to send a JPEG, send a PNG.</p>
+<p>Transparency is composited <strong>over black</strong>, which is what the panel wakes to — so a transparent
+background comes out the same as a black one, not white.</p>
+<p>A file that was truncated in transfer is refused rather than half-drawn, with libpng's own reason:
+<code>image: /data/r2.png: Read Error</code>.</p>
+<p>Put the file on the board with <a href="../files/"><code>fs_xfer.py put</code></a>, then show it.</p>
+<h2 id="showing">Showing<a class="headerlink" href="#showing" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>image show r2.png
+image show leia.jpg
+</code></pre></div>
+<p>Each reports what it did:</p>
+<div class="highlight"><pre><span></span><code>image: showing /data/r2.png (240x240 PNG, 16-line blocks, 118.4 ms)
+</code></pre></div>
+<p>The image stays until a clip, a colour, the calibration pattern or another image replaces it.
+<code>screen</code> reports it while it is up, and <code>screen clear</code> takes it away and puts the panel back to
+sleep.</p>
+<div class="highlight"><pre><span></span><code>screen
+showing /data/r2.png (240x240, backlight 100%)
+</code></pre></div>
+<p>Nothing that fails ever disturbs the screen. The file, its format and its size are all checked
+before the panel is touched, so a rejected <code>image show</code> leaves whatever was already showing in
+place.</p>
+<h2 id="animated-gifs">Animated GIFs<a class="headerlink" href="#animated-gifs" title="Permanent link">&para;</a></h2>
+<p>A GIF with more than one frame plays, on its own frame delays, the same way a clip plays on its
+own timing:</p>
+<div class="highlight"><pre><span></span><code>image show r2-wave.gif
+image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
+</code></pre></div>
+<p>It loops the way the file says, which is how it looks in a browser: forever, a set number of
+times, or once if the file does not say. When a GIF that stops runs out of passes, <strong>its last
+frame stays up</strong> — it was shown as an image, and an image stays until something replaces it.
+<code>screen</code> says <code>playing</code> while it moves and <code>showing</code> once it has stopped.</p>
+<p>It plays on the same task as clips, so everything that works on a clip works on a GIF:
+<code>video stop</code> stops it and puts the panel to sleep, <code>video status</code> reports its frame times, and
+another image, clip or colour replaces it without the panel blinking. A one-frame GIF is a
+still like any other.</p>
+<h3 id="making-one">Making one<a class="headerlink" href="#making-one" title="Permanent link">&para;</a></h3>
+<p>From a clip or any video, at 240 pixels across and a frame rate the panel can keep up with:</p>
+<div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-vf<span class="w"> </span><span class="s2">"fps=15,scale=240:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse"</span><span class="w"> </span>r2-wave.gif
+</code></pre></div>
+<p>The palette pair builds one 256-colour palette for the whole animation instead of a generic
+one; the difference is obvious. ffmpeg also writes each frame as only the rectangle that
+changed, which is what makes a GIF cheap to play here — see the table below.</p>
+<div class="admonition note">
+<p class="admonition-title">Very short frame delays play at 100 ms</p>
+<p>A frame with no delay, or a delay of 10 ms or less, stays up 100 ms. That is what Chrome and
+Firefox do, and files that ask for no delay were made expecting it — so a GIF runs at the
+speed it has in a browser, not faster.</p>
+</div>
+<h3 id="what-it-costs">What it costs<a class="headerlink" href="#what-it-costs" title="Permanent link">&para;</a></h3>
+<p>Measured on the board with <code>video status</code>. What matters is how much of the picture changes
+from frame to frame, not how big the picture is: only the changed area is decoded and painted.</p>
+<table>
+<thead>
+<tr>
+<th>GIF</th>
+<th>Frame budget</th>
+<th>Decode + draw per frame</th>
+<th>Late</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ffmpeg, 240×240, 20 fps (a test pattern with moving parts)</td>
+<td>50 ms</td>
+<td>5.9 ms</td>
+<td>none</td>
+</tr>
+<tr>
+<td>ffmpeg, 120×120, 20 fps</td>
+<td>50 ms</td>
+<td>1.9 ms</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Every pixel changing, flat colours, 240×240</td>
+<td>—</td>
+<td>30.7 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Every pixel changing, random noise, 240×240, 25 fps</td>
+<td>40 ms</td>
+<td>44.9 ms</td>
+<td>all</td>
+</tr>
+</tbody>
+</table>
+<p>The last row is the ceiling: a 240×240 GIF that repaints the whole panel with incompressible
+content every frame manages about <strong>22 fps</strong>. Real animations rarely come near it. If one
+stutters, <code>video status</code> will show frames running late; drop its frame rate, or its size.</p>
+<h2 id="looking-at-a-file">Looking at a file<a class="headerlink" href="#looking-at-a-file" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>image info r2.png
+</code></pre></div>
+<p>reports what the file contains without decoding it or touching the panel:</p>
+<div class="highlight"><pre><span></span><code>/data/r2.png: PNG 200x150, 8-bit RGBA, non-interlaced, 14233 bytes
+parsed in 3.2 ms
+</code></pre></div>
+<p>For a GIF it counts the frames and adds up their delays, by the same rule it plays them:</p>
+<div class="highlight"><pre><span></span><code>/data/r2-wave.gif: GIF 240x240, 24 frames, loops forever, 1.60 s a pass, 412306 bytes
+</code></pre></div>
+<p>As with <a href="../video/#looking-at-a-clip"><code>video info</code></a>, it is the quickest way to find out whether a
+file survived its upload intact. A GIF cut short in transfer is refused outright —
+<code>truncated: it ends before the GIF trailer</code> — rather than played with its last frame half
+garbage.</p>
+<h2 id="how-it-is-decoded">How it is decoded<a class="headerlink" href="#how-it-is-decoded" title="Permanent link">&para;</a></h2>
+<p>PNG and JPEG end up in the same place: 16 lines at a time into one of two small DMA buffers, each
+block sent to the panel while the next is prepared. It is the mechanism the clip player uses,
+because a still has the same problem — a 240×240 frame is 115 KB, more than the largest free
+block of internal RAM.</p>
+<p>Two things fall back to decoding the whole image first, and <code>image show</code> names which:</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Mode reported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The usual one</td>
+<td><code>16-line blocks</code></td>
+</tr>
+<tr>
+<td>A JPEG whose width or height is not a multiple of 8</td>
+<td><code>whole image</code></td>
+</tr>
+<tr>
+<td>An <strong>interlaced</strong> PNG</td>
+<td><code>whole image, in PSRAM</code></td>
+</tr>
+</tbody>
+</table>
+<p>Adam7 interlacing cannot be read row by row: each of its seven passes writes only its own pixels
+into rows the later passes fill in, so every row has to be resident at once. That is 173 KB, which
+goes to PSRAM. A still has no frame to miss, so the slower path costs nothing but the wait.</p>
+<p>A GIF is different, because its frames are rarely whole pictures: most are a rectangle drawn
+over the ones before. So it is composited onto a 240×240 canvas held in PSRAM, and then only
+what changed is sent, in the same 16-line blocks. <code>video status</code> calls this
+<code>changed area only, from a PSRAM canvas</code>.</p>
+<h2 id="what-a-still-costs">What a still costs<a class="headerlink" href="#what-a-still-costs" title="Permanent link">&para;</a></h2>
+<p>Measured on this board, from the command to the last pixel on the panel — decode, convert and
+paint together, which is what <code>image show</code> reports:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Mode</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>240×240 PNG, RGB</td>
+<td>16-line blocks</td>
+<td>101 ms</td>
+</tr>
+<tr>
+<td>240×240 PNG, RGBA</td>
+<td>16-line blocks</td>
+<td>107 ms</td>
+</tr>
+<tr>
+<td>240×240 PNG, interlaced</td>
+<td>whole image, in PSRAM</td>
+<td>175 ms</td>
+</tr>
+<tr>
+<td>120×120 PNG, RGB</td>
+<td>16-line blocks</td>
+<td>40 ms</td>
+</tr>
+<tr>
+<td>240×240 JPEG, 4:2:0</td>
+<td>16-line blocks</td>
+<td>27 ms</td>
+</tr>
+<tr>
+<td>120×120 JPEG, 4:2:0</td>
+<td>16-line blocks</td>
+<td>17 ms</td>
+</tr>
+</tbody>
+</table>
+<p>JPEG is three to four times quicker than PNG at the same size, which is the difference between a
+decoder written for this chip and a general-purpose one doing zlib on the CPU. Neither matters
+much for something shown once — but the very first <code>image show</code> after a restart takes about twice
+as long as the table says, while libpng and zlib claim their buffers for the first time.</p>
+<p>Why it is built this way is in <a href="../../reference/video-internals/#still-images">Video internals</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../video/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Video clips">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Video clips
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../leds/" class="md-footer__link md-footer__link--next" aria-label="Next: LED patterns">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                LED patterns
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.footer","content.code.copy","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1704 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player">
+      
+      
+      
+      
+        <link rel="prev" href="../config/">
+      
+      
+        <link rel="next" href="../../changelog/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+      
+        <title>Video internals - Holo Player</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#video-internals" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Holo Player" class="md-header__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Holo Player
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Video internals
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/flashing/" class="md-tabs__link">
+          
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../use/video/" class="md-tabs__link">
+          
+  
+  Use
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../console/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Holo Player" class="md-nav__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Holo Player
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/flashing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating over serial
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-frames-are-streamed-in-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why frames are streamed in blocks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Measured
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#turning-the-screen-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Turning the screen on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flash-writes-and-late-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flash writes and late frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-decoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing the decoder
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Still images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Still images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-png_imagec-is-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why <code>png_image.c</code> is C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-canvas-not-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A canvas, not frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-and-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing and integrity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-frames-are-streamed-in-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why frames are streamed in blocks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Measured
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#turning-the-screen-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Turning the screen on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flash-writes-and-late-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flash writes and late frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-decoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing the decoder
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Still images
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Still images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-png_imagec-is-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why <code>png_image.c</code> is C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gifs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GIFs
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GIFs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-canvas-not-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A canvas, not frames
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-and-integrity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Timing and integrity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-costs_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="video-internals">Video internals<a class="headerlink" href="#video-internals" title="Permanent link">&para;</a></h1>
+<p>How <code>components/video</code> puts clips and images on the panel, and why it is built the way it is.
+For using it, see <a href="../../use/video/">Video clips</a> and <a href="../../use/images/">Images</a>.</p>
+<p>The component's parts:</p>
+<ul>
+<li><strong><code>quicktime.cpp</code></strong> — a QuickTime atom parser, ported from the Flash_PNG Arduino sketch to
+  stdio and the VFS, and hardened considerably: real chunk-table seeking through <code>stsc</code> with
+  <code>stco</code>/<code>co64</code>, frame durations from <code>stts</code>, a codec check in <code>stsd</code>, 64-bit atom sizes, and
+  enough bounds validation that a damaged file fails to open rather than playing garbage.</li>
+<li><strong><code>video_player.cpp</code></strong> — the player, decoding with Espressif's <code>esp_new_jpeg</code> on a task pinned
+  to core 1. It plays animated GIFs too, and owns what the screen is showing.</li>
+<li><strong><code>image.cpp</code></strong>, <strong><code>png_image.c</code></strong> and <strong><code>gif_image.cpp</code></strong> — <code>image show</code>, with libpng and
+  bitbank2's AnimatedGIF; see <a href="#still-images">Still images</a> and <a href="#gifs">GIFs</a> below.</li>
+</ul>
+<p>Each frame is read from <code>/data</code> and drawn centred on the panel, timed by the clip's own
+time-to-sample table.</p>
+<h2 id="why-frames-are-streamed-in-blocks">Why frames are streamed in blocks<a class="headerlink" href="#why-frames-are-streamed-in-blocks" title="Permanent link">&para;</a></h2>
+<p>A 240×240 frame of RGB565 is <strong>115 KB</strong>. That is larger than the biggest free block of internal
+RAM on this board, so the whole frame cannot be held in a DMA-capable buffer at all.</p>
+<p>Instead, <code>esp_new_jpeg</code>'s block mode decodes <strong>16 lines at a time</strong> into one of two small DMA
+buffers. Each block is handed to the panel while the next one decodes, so decoding and the SPI
+transfer overlap and neither waits for the other. The panel is locked for the duration of the
+frame, between <code>board_lcd_stream_begin()</code> and <code>board_lcd_stream_end()</code>, and
+<code>board_lcd_stream_wait(1)</code> is what stops the decoder from overwriting a buffer that is still
+going out.</p>
+<p>Block mode needs both dimensions to be multiples of 8, because JPEG is coded in 8×8 blocks. Clips
+that are not fall back to decoding whole frames — correct, but roughly twice as slow at 240×240.
+PSRAM is large enough to hold a whole frame, which is what makes the fallback possible at all.</p>
+<p><code>video verify</code> decodes sample frames both ways and compares them byte for byte, which is how the
+fast path is kept honest against the slow one.</p>
+<h2 id="measured">Measured<a class="headerlink" href="#measured" title="Permanent link">&para;</a></h2>
+<p>At 30 fps, a frame budget of 33.3 ms:</p>
+<table>
+<thead>
+<tr>
+<th>Clip</th>
+<th>Streamed: decode+draw</th>
+<th>Streamed: paint</th>
+<th>Whole frame: decode+draw</th>
+<th>Whole frame: paint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>120×120</td>
+<td>4.6 ms</td>
+<td>4.1 ms</td>
+<td>4.9–5.2 ms</td>
+<td>3.2 ms</td>
+</tr>
+<tr>
+<td>240×240</td>
+<td>14.2–14.6 ms, none late</td>
+<td>13.6 ms</td>
+<td>28.3–30.2 ms, some late</td>
+<td>17.8 ms (frame in PSRAM)</td>
+</tr>
+</tbody>
+</table>
+<p><em>Paint</em> is the time from the first pixels of a frame reaching the panel to the last — how long the
+panel spends halfway through an update, which is what tearing depends on. <code>video status</code> reports
+all of these.</p>
+<h2 id="turning-the-screen-on">Turning the screen on<a class="headerlink" href="#turning-the-screen-on" title="Permanent link">&para;</a></h2>
+<p>The panel is off — asleep, backlight off — whenever nothing is showing. Starting a clip therefore
+has an ordering problem: a freshly woken panel still holds whatever was in its memory, and its
+backlight coming up before there are pixels shows it.</p>
+<p>So the player:</p>
+<ol>
+<li>wakes the panel and fills it black <strong>while the display is still off</strong>, so the stale contents
+   are never visible;</li>
+<li>turns the display on;</li>
+<li>waits two panel refreshes;</li>
+<li>turns the backlight on;</li>
+<li>only then draws frame 0 and starts the clip's clock.</li>
+</ol>
+<p><code>board_lcd_power_on(rgb565)</code> exists precisely to make steps 1 and 2 a single operation that
+cannot be got wrong.</p>
+<p>When the clip ends, or on <code>video stop</code>, the panel goes back to sleep. Starting another clip, or a
+<code>screen colour</code>, over a playing one keeps it on.</p>
+<h2 id="flash-writes-and-late-frames">Flash writes and late frames<a class="headerlink" href="#flash-writes-and-late-frames" title="Permanent link">&para;</a></h2>
+<p>Writing to flash pauses <strong>both</strong> CPU cores for the duration of the write, because the cache is
+disabled while it happens. During playback that shows up as an occasional late frame.</p>
+<p>The console's command history is the one flash write the firmware controls, and the machinery
+around it is worth knowing about because it explains behaviour that otherwise looks arbitrary:</p>
+<ul>
+<li>The console task is the <strong>only</strong> task that ever writes the history file. Other tasks call
+  <code>console_history_request_save()</code> and the write happens later, on the console task.</li>
+<li>While a clip is playing, the save waits until the screen turns off: when the clip ends by
+  itself, on <code>video stop</code>, or on <code>screen clear</code>.</li>
+<li>If a <code>screen colour</code> replaces the clip, the screen stays on, so the save happens with the next
+  command instead.</li>
+<li>When a clip ends by itself, the player signals the console task, which does the write while
+  waiting for the next keystroke — inside linenoise's input wait. Anything already typed on the
+  command line is left alone.</li>
+</ul>
+<p><code>board_lcd_set_off_hook()</code> is the general form of this: a callback invoked after the panel goes
+from on to off, from whichever task turned it off. Nothing is showing at that moment, so it is the
+safe point for work that would disturb playback.</p>
+<p>LittleFS is also tuned for this workload — 4096-byte caches, 256-byte reads, and
+<code>CONFIG_LITTLEFS_MMAP_PARTITION</code> so reads go through the flash cache rather than
+<code>esp_flash_read()</code>, which would stall both cores the same way a write does. See
+<a href="../config/">Configuration</a>.</p>
+<h2 id="choosing-the-decoder">Choosing the decoder<a class="headerlink" href="#choosing-the-decoder" title="Permanent link">&para;</a></h2>
+<p><code>esp_new_jpeg</code> was picked after measuring it against JPEGDEC 1.5.0 and 1.8.4 and TJpgDec on this
+hardware. On a 120×120 clip frame it decoded in <strong>1.79 ms</strong>, against 2.63 ms for JPEGDEC 1.8.4.
+JPEGDEC 1.5.0 also leaves the last 8 rows of a 120-row frame unwritten, which rules it out
+regardless of speed. The full results are in the commit message of <code>3a7182e</code>.</p>
+<p>The build uses <code>CONFIG_COMPILER_OPTIMIZATION_PERF</code> (<code>-O2</code>) partly for this reason: <code>esp_new_jpeg</code>
+ships prebuilt and optimised, so at the default <code>-Og</code> a source-built decoder would lose the
+comparison for reasons that have nothing to do with the decoders.</p>
+<h2 id="still-images">Still images<a class="headerlink" href="#still-images" title="Permanent link">&para;</a></h2>
+<p><code>image show</code> is in the same component, and lands in the same place: 16 lines at a time into one of
+two DMA buffers, each block on its way to the panel while the next is prepared. A still has the
+same problem a frame does — 115 KB at 240×240, more than the largest free internal block — so it
+gets the same answer, minus the container and the clock.</p>
+<p><strong>JPEG stills reuse the player's decoder outright</strong>, and inherit its limits: baseline only, and
+4:2:0. A 4:4:4 file is refused by the header parse; a 4:2:2 file parses and then fails to decode,
+in blocks and whole alike. Because there is no way to tell in advance which files block mode will
+turn down, a still that fails to stream falls back to decoding whole and drawing again — the
+half-drawn attempt is simply overwritten. It costs nothing on the files that work, and it is why
+a JPEG can report <code>whole image</code> at a size that is a multiple of 8.</p>
+<p><code>decode_frame()</code> and <code>decode_blocks()</code> moved
+out of <code>video_player.cpp</code> into <code>jpeg_decode.h</code> so both callers share them; <code>decode_blocks()</code> is a
+template so the caller's per-block work inlines into the decode loop, which is why it is in a
+header rather than a source file. The one thing a still needs and a clip does not is
+<code>jpeg_probe()</code>: a clip reads its frames' dimensions from the QuickTime sample description before
+it reads a frame, while a still has only the file, so it parses the header first and sizes its
+buffers from that.</p>
+<p><strong>PNG is libpng</strong>, in <code>png_image.c</code>. Rows come out one at a time and are converted to big-endian
+RGB565 straight into the block buffers, so no whole image is held.</p>
+<p>Three details of that path are load-bearing:</p>
+<ul>
+<li><strong>The file is read buffered</strong>, unlike a clip. A clip sets <code>setvbuf(_IONBF)</code> because whole frames
+  are read straight into the decoder's input and stdio would only add a copy. libpng is the
+  opposite: it reads 8-byte chunk headers and 4-byte CRCs constantly, and buffering turns dozens
+  of tiny reads into one.</li>
+<li><strong>Transparency is composited over black</strong> with <code>png_set_background()</code>, not stripped. Stripping
+  the alpha channel keeps whatever RGB sits under a transparent pixel, which in most exports is
+  white — a transparent PNG would arrive with a white halo. Black is also what the panel wakes to,
+  so a smaller image and its transparent regions match.</li>
+<li><strong>No gamma is set.</strong> With libpng's screen gamma left at zero it builds no gamma tables, which
+  for a 16-bit input would be tens of KB of internal RAM for a correction nobody asked for.</li>
+</ul>
+<p>Interlaced PNGs cannot stream. Adam7 writes each of its seven passes into rows the later passes
+fill in, so <code>png_read_image()</code> needs every row resident: 173 KB of RGB, which goes to PSRAM,
+zeroed so a decode that dies partway can only ever show black. The same block loop then feeds off
+it. This mirrors the clip player's whole-frame-in-PSRAM fallback, and <code>image show</code> names which
+path it took.</p>
+<h3 id="why-png_imagec-is-c">Why <code>png_image.c</code> is C<a class="headerlink" href="#why-png_imagec-is-c" title="Permanent link">&para;</a></h3>
+<p>libpng reports errors by <code>longjmp</code>. A jump out of a C++ frame skips every destructor on the way,
+so the <code>setjmp</code> lives in a C file among locals that have none. Two rules follow, and both are
+easy to get wrong:</p>
+<ul>
+<li>The jump target is set <strong>before</strong> libpng is handed anything at all, including
+  <code>png_create_read_struct()</code>, which can itself fail through the error handler. Without a valid
+  target, libpng's default is <code>abort()</code> — a corrupt file would panic the firmware rather than
+  print a message.</li>
+<li>Every local the cleanup reads is <code>volatile</code>. Otherwise the compiler may keep it in a register
+  that <code>longjmp</code> restores to the value it held at the <code>setjmp</code>, and the cleanup frees a stale
+  pointer or leaks a live one. GCC does not warn about this unless asked.</li>
+</ul>
+<p>The error handler also installs a warning function that does nothing, because libpng's default
+writes to <code>stderr</code> — which here is the console. An ordinary Photoshop export would otherwise
+print <code>iCCP: known incorrect sRGB profile</code> over the prompt.</p>
+<h3 id="what-it-costs">What it costs<a class="headerlink" href="#what-it-costs" title="Permanent link">&para;</a></h3>
+<p>libpng and zlib add <strong>78 KB</strong> to the image, which sits in a 2304 KB slot. Peak memory for a
+240×240 RGBA PNG is about 34 KB of internal RAM — zlib's inflate state, libpng's two filter rows,
+the IDAT read buffer and the two DMA blocks — plus zlib's 32 KB inflate window, which
+<code>CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL</code> sends to PSRAM. An interlaced file adds its 173 KB there
+too.</p>
+<p>Console commands run on the main task, so <code>CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> was raised from 7168
+to 8192 to carry libpng's read path. Measured afterwards with <code>tasks</code>, on the worst file to hand —
+240×240, 16-bit RGBA, interlaced, with an ancillary text chunk — <code>main</code> still had <strong>3240 bytes</strong>
+free, so the margin is real rather than assumed. <code>tasks</code> reports the same number for a file of
+your own.</p>
+<h2 id="gifs">GIFs<a class="headerlink" href="#gifs" title="Permanent link">&para;</a></h2>
+<p><code>image show</code> takes GIFs too. The decoder is <a href="https://github.com/bitbank2/AnimatedGIF">bitbank2's AnimatedGIF</a>,
+because the Espressif registry has none. It is a submodule at <code>external/AnimatedGIF</code>, pinned to
+upstream <code>c2478ec</code> (library version 2.2.3, which upstream has not tagged — the last tag, 2.2.0,
+lacks fixes for disposal method 2 and for a crash on corrupt files). <code>components/animatedgif</code> is
+only packaging: upstream is used unmodified, and a small forced-in header supplies the <code>millis()</code>
+and <code>delay()</code> it still calls when it is built for neither Arduino, Linux nor macOS.</p>
+<p><strong>An animated GIF plays on this component's player task</strong>, the one that plays clips. What a GIF
+shares with a clip is everything around the decoder: a clock, a way to stop, being replaced
+without the panel blinking, <code>video status</code>, and the console history being held back while it
+plays (see <a href="#flash-writes-and-late-frames">Flash writes and late frames</a>). A second task would
+have had to reproduce all of it. <code>image show</code> opens the file, checks it and allocates everything
+before the panel is touched, then hands it to the player already open.</p>
+<h3 id="a-canvas-not-frames">A canvas, not frames<a class="headerlink" href="#a-canvas-not-frames" title="Permanent link">&para;</a></h3>
+<p>A GIF frame is rarely a picture on its own. Most are a rectangle drawn over the frames before
+it; some have transparent holes the earlier picture shows through; some ask for their area to be
+erased to the background when the next frame arrives (disposal method 2). So the decoder keeps a
+canvas and composites every frame onto it — AnimatedGIF's <em>cooked</em> mode — and the player paints
+from the canvas.</p>
+<p>It has to be the full-sized frame buffer with <strong>no draw callback</strong>, 3 bytes a pixel: the canvas
+as palette indices, then again as big-endian RGB565. That is 173 KB at 240×240, in PSRAM. The
+smaller arrangement the library also offers, a callback per line out of <code>allocFrameBuf()</code>, is
+wrong twice over here:</p>
+<ul>
+<li>Lines come out of one shared line buffer, and a transparent pixel is simply not written — so
+  it arrives carrying the colour of the same column on the line above.</li>
+<li>Disposal method 2 writes the background into the RGB565 half of the canvas, which that buffer
+  does not have. It would write past the end of it.</li>
+</ul>
+<p>What changed is then painted in 16-line blocks, copied out of the canvas: this frame's
+rectangle, joined with the previous frame's. The previous one is included because it may have
+just been erased to background, and the decoder keeps the previous frame's disposal to itself.
+For a well-made GIF, where each frame is a small rectangle, that is a small area — which is why
+ffmpeg's GIFs cost a few milliseconds a frame.</p>
+<h3 id="timing-and-integrity">Timing and integrity<a class="headerlink" href="#timing-and-integrity" title="Permanent link">&para;</a></h3>
+<p>Delays are the file's own, with one rule: <strong>10 ms or less becomes 100 ms</strong>, as in Chrome and
+Firefox, so a GIF runs at the speed it runs in a browser. The decoder is inconsistent about this
+itself — it rounds only a zero up when it plays, and rounds short delays to 20 ms when it counts
+them — so the rule lives in one place, <code>gif_frame_delay_ms()</code>, and both the player and
+<code>image info</code> use it. <code>image info</code> counts frames and adds up delays by walking the file's blocks,
+not with the decoder's own walk, so the length it reports is the length it plays.</p>
+<p>The walk also refuses a file that ends before its trailer byte. The LZW decoder carries on
+through data that runs out partway, so a GIF cut short in transfer would otherwise play with its
+last frame half garbage.</p>
+<p>The NETSCAPE loop count is a count of repeats: 0 is forever, <em>n</em> plays <em>n</em> + 1 times, and a file
+without the extension plays once. When the passes run out, the last frame stays up and <code>screen</code>
+reports it as an image.</p>
+<h3 id="what-it-costs_1">What it costs<a class="headerlink" href="#what-it-costs_1" title="Permanent link">&para;</a></h3>
+<p>The GIF path adds <strong>11 KB</strong> of flash. At 240×240 the decoder's state is 24 KB, in internal RAM
+for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task keeps
+6.7 KB of its 8 KB stack free while a GIF plays, and repeated plays leave the heap where it was.</p>
+<p>The ceiling is a GIF that changes every pixel of a 240×240 panel with incompressible content:
+30.9 ms to decode and 14 ms to paint, about <strong>22 fps</strong>. The decoder's <em>turbo</em> mode, which trades
+memory for decoding speed, does not help. Its 82 KB buffer only fits in PSRAM, where it decoded
+the same frames slower (33.6 ms), and its decoding path skips disposal method 2 altogether.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../config/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../changelog/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Changelog
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.footer","content.code.copy","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+    
+  </body>
+</html>
