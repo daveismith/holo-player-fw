@@ -10,6 +10,8 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-23
+
 ### Added
 
 - **Install from the browser.** The Install page in each release's documentation flashes that
@@ -70,5 +72,6 @@ you can name, flash and report.
   `tools/fs_xfer.py` in esp-console-kit.
 - **Documentation site** built from `manual/`, published per version.
 
-[Unreleased]: https://github.com/daveismith/holo-player-fw/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/daveismith/holo-player-fw/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0
 [0.1.0]: https://github.com/daveismith/holo-player-fw/releases/tag/v0.1.0
