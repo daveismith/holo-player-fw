@@ -1,0 +1,12 @@
+
+holo> version
+App:holo-player-fw 5c48843
+	built:Sep 23 2026 23:16:59
+	ELF SHA-256:77e7c39c8
+IDF Version:v6.1
+Chip info:
+	model:ESP32-S3
+	cores:2
+	feature:/802.11bgn/BLE/External-Flash:16 MB
+	revision number:2
+holo> 

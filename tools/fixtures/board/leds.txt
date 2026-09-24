@@ -1,0 +1,1 @@
+off; brightness 100%; 16 LEDs on GPIO16, 800 kHz, GRB

@@ -1,0 +1,4 @@
+      3260  calibration.png
+     <dir>  clips/
+       180  history.txt
+2 files, 3440 bytes; 1 directory

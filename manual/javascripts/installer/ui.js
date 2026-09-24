@@ -11,36 +11,10 @@
 
 import { assess, parsePartitionTable } from "./inspect.js";
 import { md5Hex } from "./md5.js";
+import { code, h, siteRoot } from "../common/dom.js";
 
 const BAUDS = [460800, 921600, 230400, 115200];
 const BOOT_LOG_MS = 6000;
-
-// --- DOM helpers: everything from the board or the manifest goes in as text, never HTML. ------
-
-function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value === false || value === null || value === undefined) continue;
-    if (key === "class") el.className = value;
-    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
-    else el.setAttribute(key, value === true ? "" : value);
-  }
-  for (const child of children.flat()) {
-    if (child !== null && child !== undefined && child !== false) el.append(child);
-  }
-  return el;
-}
-
-const code = (text) => h("code", {}, text);
-
-function siteRoot() {
-  try {
-    const base = JSON.parse(document.getElementById("__config").textContent).base;
-    return new URL(base.endsWith("/") ? base : `${base}/`, location.href);
-  } catch {
-    return new URL("./", location.href);
-  }
-}
 
 // --- the static notices, for when this copy of the page cannot install ----------------------
 
