@@ -54,6 +54,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/installer.css">
+    
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -415,7 +417,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -1003,7 +1005,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100-2026-09-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.0.0 - 2026-09-23
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.0.0 - 2026-09-23">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1116,7 +1129,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100-2026-09-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        1.0.0 - 2026-09-23
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.0.0 - 2026-09-23">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1188,9 +1212,22 @@
 <p>The version is not written down anywhere in the source. ESP-IDF derives it from <code>git describe</code>,
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
-<h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v0.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.0.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="100-2026-09-23"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0">1.0.0</a> - 2026-09-23<a class="headerlink" href="#100-2026-09-23" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Install from the browser.</strong> The Install page in each release's documentation flashes that
+  release onto the board over Web Serial (desktop Chrome, Edge or Opera), with no toolchain. It
+  reads the board first: on one running Holo Player with the same partition layout it
+  <strong>updates</strong>, keeping settings and clips; on a blank board or other firmware it does a <strong>fresh
+  install</strong>; and a <strong>complete overwrite</strong> is always available behind a confirmation. Images are
+  checked against SHA-256 before writing and MD5 after, and the boot log confirms the result.
+  The offline documentation zip carries the same installer and firmware, served on localhost by
+  its <code>serve.py</code> with no internet. esptool and building from source stay documented for other
+  browsers. Documented in <a href="../manual/install/flashing/">Install</a>.</li>
+<li><strong>Every image a blank board needs, on the Release.</strong> Besides the application, each Release
+  now carries the bootloader, partition table and initial OTA data, so esptool can install a
+  release without ESP-IDF.</li>
 <li><strong>GIFs, animated too.</strong> <code>image show</code> takes a GIF. A one-frame GIF is a still; an animated one
   plays on the video player's task — so <code>video stop</code> and <code>video status</code> work on it — looping as
   the file says and leaving its last frame up when it stops. Frames are composited onto a canvas
@@ -1324,6 +1361,8 @@ you can name, flash and report.</p>
     
     
       <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../javascripts/installer/ui.js" type="module"></script>
       
     
   </body>

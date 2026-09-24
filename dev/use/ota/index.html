@@ -56,6 +56,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -417,7 +419,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -1204,7 +1206,7 @@
 
 
 <h1 id="updating-over-serial">Updating over serial<a class="headerlink" href="#updating-over-serial" title="Permanent link">&para;</a></h1>
-<p><code>idf.py flash</code> needs the USB-C port and its auto-reset circuit. Once the board is mounted inside a
+<p><a href="../../install/flashing/">Installing over USB</a> needs the USB-C port and its auto-reset circuit. Once the board is mounted inside a
 droid that may not be reachable, so the firmware can also replace itself through the console it is
 already talking on.</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>external/esp-console-kit/tools/fs_xfer.py<span class="w"> </span>-p<span class="w"> </span>&lt;port&gt;<span class="w"> </span>ota<span class="w"> </span>build/holo-player-fw.bin
@@ -1232,8 +1234,9 @@ boots the previous image instead.</p>
 <div class="admonition note">
 <p class="admonition-title">Rollback lives in the bootloader</p>
 <p>The trial-and-confirm logic is part of the bootloader, and the bootloader is only written by
-<code>idf.py flash</code> over USB. A board that has never been flashed over USB with this firmware does
-not have it.</p>
+<a href="../../install/flashing/">installing over USB</a> — from the browser, with esptool, or with
+<code>idf.py flash</code>. A board that has never been installed over USB with this firmware does not
+have it.</p>
 </div>
 <h2 id="checking-the-slots">Checking the slots<a class="headerlink" href="#checking-the-slots" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>ota
@@ -1276,7 +1279,8 @@ version gets there.</p>
 <p><code>-d</code> is the useful one when a transfer is failing and you want to know whether the problem is the
 link or the flash. <code>fs_xfer.py ota --dry-run</code> does the same from the host.</p>
 <h2 id="going-back">Going back<a class="headerlink" href="#going-back" title="Permanent link">&para;</a></h2>
-<p><code>idf.py flash</code> over USB always writes to <code>ota_0</code> and boots it, whichever slot was running before.
+<p><a href="../../install/flashing/">Installing over USB</a> always writes to <code>ota_0</code> and boots it, whichever
+slot was running before — whether from the browser, with esptool, or with <code>idf.py flash</code>.
 That is the way back if an update leaves the board in a state you would rather leave behind.</p>
 
 
@@ -1383,6 +1387,8 @@ That is the way back if an update leaves the board in a state you would rather l
     
     
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
       
     
   </body>

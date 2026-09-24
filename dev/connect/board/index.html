@@ -56,6 +56,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -422,7 +424,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -1405,7 +1407,8 @@ alongside it in <code>main/main.c</code>. <code>gpio set</code> on one of them r
 GPIO19 and GPIO20, are not connected.</p>
 <p>Two consequences run through the rest of these pages:</p>
 <ul>
-<li>The bridge's DTR/RTS lines drive the auto-download circuit, so <code>idf.py flash</code> needs no buttons.</li>
+<li>The bridge's DTR/RTS lines drive the auto-download circuit, so installing firmware — from the
+  browser, with esptool, or with <code>idf.py flash</code> — needs no buttons.</li>
 <li>Everything else — the console, uploading clips, updating the firmware — is a serial port, and
   <strong>only one program can hold it at a time</strong>. Close <code>idf.py monitor</code> before running any host-side
   tool.</li>
@@ -1447,7 +1450,7 @@ GPIO19 and GPIO20, are not connected.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../install/flashing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Build and flash">
+          <a href="../../install/flashing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Install">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1457,7 +1460,7 @@ GPIO19 and GPIO20, are not connected.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Build and flash
+                Install
               </div>
             </div>
           </a>
@@ -1515,6 +1518,8 @@ GPIO19 and GPIO20, are not connected.</p>
     
     
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
       
     
   </body>

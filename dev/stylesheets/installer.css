@@ -1,0 +1,116 @@
+/* The browser installer (javascripts/installer/ui.js). Colours come from the theme's variables,
+   so it follows the light and dark schemes. */
+
+#holo-installer {
+  margin: 1em 0 1.5em;
+}
+
+/* The panels below set their own display, which would otherwise override `hidden`. */
+#holo-installer [hidden] {
+  display: none !important;
+}
+
+#holo-installer .hi,
+#holo-installer.hi-notice,
+#holo-installer .hi-notice {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 0.2em 1em 0.6em;
+}
+
+#holo-installer.hi-notice,
+#holo-installer .hi-notice {
+  border-left: 0.2rem solid var(--md-accent-fg-color);
+}
+
+#holo-installer .hi-head {
+  margin-bottom: 0.4em;
+}
+
+#holo-installer .hi-advanced p {
+  margin: 0.3em 0 0.6em;
+  color: var(--md-default-fg-color--light);
+}
+
+#holo-installer select {
+  font: inherit;
+  color: inherit;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.1rem;
+}
+
+#holo-installer .hi-status:empty {
+  display: none;
+}
+
+#holo-installer .hi-error {
+  border-left: 0.2rem solid #e53935;
+  padding-left: 0.6em;
+}
+
+#holo-installer .hi-modes {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  margin: 0.8em 0;
+  padding: 0.4em 0.8em;
+}
+
+#holo-installer .hi-modes legend {
+  font-weight: 700;
+  padding: 0 0.3em;
+}
+
+#holo-installer .hi-mode {
+  display: flex;
+  gap: 0.6em;
+  align-items: flex-start;
+  margin: 0.5em 0;
+  cursor: pointer;
+}
+
+#holo-installer .hi-mode input {
+  margin-top: 0.3em;
+  accent-color: var(--md-primary-fg-color);
+}
+
+#holo-installer .hi-mode.hi-disabled {
+  cursor: default;
+  color: var(--md-default-fg-color--light);
+}
+
+#holo-installer .hi-confirm input {
+  accent-color: var(--md-accent-fg-color);
+}
+
+#holo-installer button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#holo-installer .hi-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 1em;
+  margin: 0.8em 0;
+}
+
+#holo-installer progress {
+  flex: 1 1 12em;
+  height: 0.6em;
+  accent-color: var(--md-primary-fg-color);
+}
+
+#holo-installer pre {
+  max-height: 16em;
+  overflow: auto;
+  margin: 0.5em 0;
+  padding: 0.6em 0.8em;
+  font-size: 0.75em;
+  background: var(--md-code-bg-color);
+  color: var(--md-code-fg-color);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+

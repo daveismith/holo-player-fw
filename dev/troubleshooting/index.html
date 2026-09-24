@@ -56,6 +56,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/installer.css">
+    
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -417,7 +419,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -1103,9 +1105,36 @@
 <dd>If the new image was installed with <code>ota put -n</code> it was made the boot image without restarting.
   Otherwise, a reset before the new image confirmed itself rolls back to the previous one by
   design (<a href="../use/ota/#rollback">details</a>).</dd>
-<dt><strong><code>idf.py flash</code> put back an old version.</strong></dt>
-<dd>Flashing over USB always writes <code>ota_0</code> and boots it, whichever slot the console-installed
-  firmware was using.</dd>
+<dt><strong>Installing over USB put back an old version.</strong></dt>
+<dd>The browser installer, esptool and <code>idf.py flash</code> all write <code>ota_0</code> and boot it, whichever slot
+  the console-installed firmware was using.</dd>
+<dt><strong>The Install page says the browser can't talk to serial ports.</strong></dt>
+<dd>Web Serial is only in desktop Chrome, Edge and Opera — not Firefox, Safari, or any phone. Use
+  one of those, or install with esptool (<a href="../install/flashing/#install-the-firmware">details</a>).</dd>
+<dt><strong>The Install page says there is no firmware to install.</strong></dt>
+<dd>Only a release's documentation carries firmware; the development version (<code>dev</code>) and previews
+  do not. Switch to a release with the version selector at the top of the page.</dd>
+<dt><strong>Opened from the documentation zip, the Install page says the installer can't run.</strong></dt>
+<dd>Browsers won't use a serial port from a page opened as a file. Run <code>python3 serve.py</code> in the
+  unzipped folder; it serves the pages on <code>localhost</code> with no internet needed
+  (<a href="../install/flashing/#install-the-firmware">details</a>).</dd>
+<dt><strong>The browser lists no serial port for the board.</strong></dt>
+<dd>Try another USB-C cable — some carry only power. On Windows and older macOS, the CH343P needs
+  WCH's driver. The board appears as <code>cu.wchusbserial…</code> or <code>cu.usbmodem…</code> on macOS and as
+  <em>USB-SERIAL CH343</em> on Windows.</dd>
+<dt><strong>The installer says the port is in use.</strong></dt>
+<dd>Another program has it: <code>idf.py monitor</code>, a serial terminal, <code>fs_xfer.py</code>, or another browser
+  tab. Close it and connect again.</dd>
+<dt><strong>The installer says the board didn't answer.</strong></dt>
+<dd>Its reset into the bootloader didn't take. Hold <strong>BOOT</strong>, tap <strong>RESET</strong>, let go of BOOT, and
+  connect again.</dd>
+<dt><strong>Writing fails part way through.</strong></dt>
+<dd>Install again; the board may not start until an install completes. If it keeps failing, lower
+  the baud rate under <strong>Advanced</strong>, and avoid USB hubs.</dd>
+<dt><strong>The installer won't offer to update: the partition layout changed.</strong></dt>
+<dd>The release divides the flash up differently from the firmware on the board, so the settings
+  and clips it would keep could be misread. Copy off anything you want to keep with <code>fs_xfer.py</code>,
+  install with <strong>Complete overwrite</strong>, and put them back.</dd>
 </dl>
 
 
@@ -1212,6 +1241,8 @@
     
     
       <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../javascripts/installer/ui.js" type="module"></script>
       
     
   </body>

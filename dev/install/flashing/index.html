@@ -25,7 +25,7 @@
     
     
       
-        <title>Build and flash - Holo Player</title>
+        <title>Install - Holo Player</title>
       
     
     
@@ -56,6 +56,8 @@
       
     
     
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -81,7 +83,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#build-and-flash" class="md-skip">
+        <a href="#install" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +121,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Build and flash
+              Install
             
           </span>
         </div>
@@ -431,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -448,7 +450,7 @@
   <span class="md-ellipsis">
     
   
-  Build and flash
+  Install
 
     
   </span>
@@ -474,10 +476,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-get-the-source" class="md-nav__link">
+  <a href="#install-the-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        1. Get the source
+        Install the firmware
       </span>
     </span>
   </a>
@@ -485,10 +487,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-build" class="md-nav__link">
+  <a href="#check-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        2. Build
+        Check it
       </span>
     </span>
   </a>
@@ -496,32 +498,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-flash" class="md-nav__link">
+  <a href="#line-the-screen-up" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        3. Flash
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-check-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        4. Check it
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-line-the-screen-up" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        5. Line the screen up
+        Line the screen up
       </span>
     </span>
   </a>
@@ -1120,10 +1100,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-get-the-source" class="md-nav__link">
+  <a href="#install-the-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        1. Get the source
+        Install the firmware
       </span>
     </span>
   </a>
@@ -1131,10 +1111,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-build" class="md-nav__link">
+  <a href="#check-it" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        2. Build
+        Check it
       </span>
     </span>
   </a>
@@ -1142,32 +1122,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-flash" class="md-nav__link">
+  <a href="#line-the-screen-up" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        3. Flash
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-check-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        4. Check it
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-line-the-screen-up" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        5. Line the screen up
+        Line the screen up
       </span>
     </span>
   </a>
@@ -1203,53 +1161,172 @@
   
 
 
-<h1 id="build-and-flash">Build and flash<a class="headerlink" href="#build-and-flash" title="Permanent link">&para;</a></h1>
-<p>The firmware builds with <strong>ESP-IDF 6.1</strong> for the <code>esp32s3</code> target. There is no Arduino path and no
-prebuilt binary to download for the first install: the bootloader has to go on over USB at least
-once, after which the firmware can update itself over the console.</p>
-<h2 id="1-get-the-source">1. Get the source<a class="headerlink" href="#1-get-the-source" title="Permanent link">&para;</a></h2>
-<p>Two things live in git submodules — the shared console commands, and the GIF decoder — so clone
-recursively:</p>
+<h1 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h1>
+<p>The firmware goes onto the board over its USB-C port. There are three ways to do it, and all
+three write the same four images: the bootloader, the partition table, the boot selection and the
+application.</p>
+<ul>
+<li><strong>In the browser</strong>: nothing to install. Needs desktop Chrome, Edge or Opera.</li>
+<li><strong>With esptool</strong>: works in any browser and on any OS, with no ESP-IDF, using the images from a
+  release.</li>
+<li><strong>From source</strong>: build it yourself with ESP-IDF, for changing the firmware.</li>
+</ul>
+<p>On a board that already runs Holo Player, each way can either <strong>update</strong> it or <strong>overwrite it
+completely</strong>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Settings (NVS)</th>
+<th>Clips and images (<code>/data</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Update</strong></td>
+<td>kept</td>
+<td>kept</td>
+</tr>
+<tr>
+<td><strong>Fresh install / complete overwrite</strong></td>
+<td>erased</td>
+<td>erased</td>
+</tr>
+</tbody>
+</table>
+<p>An update keeps them because it writes nothing outside the four images. A fresh install erases
+the whole flash first. That is the right choice for a board that is blank or runs something
+else, and the fix for a board in a state you would rather not keep.</p>
+<h2 id="install-the-firmware">Install the firmware<a class="headerlink" href="#install-the-firmware" title="Permanent link">&para;</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">In the browser</label><label for="__tabbed_1_2">With esptool</label><label for="__tabbed_1_3">From source</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><div id="holo-installer" class="hi-notice" markdown>
+<strong>The installer can't run on this page.</strong> Opened from the documentation zip? Browsers won't
+run it from a file: run <code>python3 serve.py</code> in the unzipped folder, as described below.
+Otherwise it needs JavaScript. Or use one of the other tabs.
+</div></p>
+<ol>
+<li>Connect the board's USB-C port to the computer, then press <strong>Connect to the board</strong> and
+   pick its port. The bridge is a CH343P: on macOS it appears as <code>cu.wchusbserial…</code> (or
+   <code>cu.usbmodem…</code>), on Windows as a COM port named <em>USB-SERIAL CH343</em>. If nothing is listed,
+   see <a href="../../troubleshooting/">Troubleshooting</a>.</li>
+<li>The installer reads the board and says what it found: the Holo Player version in each
+   firmware slot and which one boots, other firmware, or a blank flash. Nothing is written
+   yet.</li>
+<li>
+<p>Choose what to do. The installer preselects the sensible choice.</p>
+<p><strong>Update: keep settings and clips</strong> is the default when the board runs Holo Player. It
+is unavailable when this release divides the flash up differently from the firmware on
+the board, since kept data could then be misread. It warns when the release is older
+than what is installed.</p>
+<p><strong>Fresh install</strong> is the default for a blank board or other firmware. It is called
+<strong>Complete overwrite</strong> when the board runs Holo Player, and then asks you to confirm,
+because it deletes every clip and setting.</p>
+</li>
+<li>
+<p>Press <strong>Install</strong>. Every image is checked against its SHA-256 before anything is
+   written, and every region is read back and checked after. Erasing the whole flash takes
+   about 30 seconds; writing takes about 30 more at the default speed.</p>
+</li>
+<li>The installer restarts the board and shows its boot messages. When the board reports
+   the version just installed, it's done, and the port is free for a terminal.</li>
+</ol>
+<p>If writing fails part way, the board may not start until an install completes. Connect and
+install again. Setting a lower baud rate under <strong>Advanced</strong> helps with a poor cable or
+hub.</p>
+<details class="note">
+<summary>Installing without internet access</summary>
+<p>The documentation zip attached to each <a href="https://github.com/daveismith/holo-player-fw/releases">release</a> contains the same installer
+and firmware. A browser won't use a serial port from a page opened as a file, so unzip
+it and run the small server inside:</p>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>serve.py
+</code></pre></div>
+<p>It serves the folder on <code>localhost</code> only, fetches nothing from the internet, and opens
+this page, where the installer then works. Stop it with Ctrl-C. To host the
+documentation on an internal web server instead, serve it over HTTPS: browsers only
+allow serial ports on secure pages.</p>
+</details>
+</div>
+<div class="tabbed-block">
+<p>For Firefox, Safari, or anywhere else the browser installer can't run. You need Python and
+<a href="https://docs.espressif.com/projects/esptool/">esptool</a>:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>esptool
+</code></pre></div>
+<p>From the <a href="https://github.com/daveismith/holo-player-fw/releases">release</a> you want, download the four images and <code>SHA256SUMS</code>.
+Replace <code>vX.Y.Z</code> in the commands below with its version. The documentation zip has the
+same files in its <code>firmware/</code> folder. Then check that the download is intact:</p>
+<div class="highlight"><pre><span></span><code>sha256sum<span class="w"> </span>--ignore-missing<span class="w"> </span>-c<span class="w"> </span>SHA256SUMS<span class="w">           </span><span class="c1"># Linux</span>
+shasum<span class="w"> </span>-a<span class="w"> </span><span class="m">256</span><span class="w"> </span>--ignore-missing<span class="w"> </span>-c<span class="w"> </span>SHA256SUMS<span class="w">       </span><span class="c1"># macOS</span>
+</code></pre></div>
+<p><strong>Update</strong>, keeping settings and clips:</p>
+<div class="highlight"><pre><span></span><code>esptool<span class="w"> </span>--chip<span class="w"> </span>esp32s3<span class="w"> </span>-p<span class="w"> </span>PORT<span class="w"> </span>-b<span class="w"> </span><span class="m">460800</span><span class="w"> </span>write-flash<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>0x0<span class="w">     </span>holo-player-fw-vX.Y.Z-bootloader.bin<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>0x8000<span class="w">  </span>holo-player-fw-vX.Y.Z-partition-table.bin<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>0xe000<span class="w">  </span>holo-player-fw-vX.Y.Z-ota-data-initial.bin<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>0x10000<span class="w"> </span>holo-player-fw-vX.Y.Z.bin
+</code></pre></div>
+<p><strong>Fresh install or complete overwrite</strong>: erase first, then run the same command.</p>
+<div class="highlight"><pre><span></span><code>esptool<span class="w"> </span>--chip<span class="w"> </span>esp32s3<span class="w"> </span>-p<span class="w"> </span>PORT<span class="w"> </span>erase-flash
+</code></pre></div>
+<p><code>PORT</code> is <code>/dev/cu.wchusbserial…</code> on macOS, <code>/dev/ttyUSB0</code> on Linux, <code>COM3</code> on Windows.
+Only update a board whose partition layout is the release's. When a release changes it,
+its notes say so, and a fresh install is needed.</p>
+</div>
+<div class="tabbed-block">
+<p>The firmware builds with <strong>ESP-IDF 6.1</strong> for the <code>esp32s3</code> target. There is no Arduino
+path.</p>
+<p><strong>1. Get the source.</strong> Two things live in git submodules — the shared console commands,
+and the GIF decoder — so clone recursively:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/daveismith/holo-player-fw
 </code></pre></div>
 <p>In a clone that already exists, and again after pulling a change that adds one:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init
 </code></pre></div>
-<p>Without them the build fails: at <code>main/CMakeLists.txt</code>, which requires the console components by
-name, or at <code>components/animatedgif</code>, whose sources are the other submodule.</p>
-<h2 id="2-build">2. Build<a class="headerlink" href="#2-build" title="Permanent link">&para;</a></h2>
+<p>Without them the build fails: at <code>main/CMakeLists.txt</code>, which requires the console
+components by name, or at <code>components/animatedgif</code>, whose sources are the other
+submodule.</p>
+<p><strong>2. Build.</strong></p>
 <div class="highlight"><pre><span></span><code>idf.py<span class="w"> </span>build
 </code></pre></div>
-<p><code>sdkconfig</code> is not committed. Everything the build needs is in <code>sdkconfig.defaults</code>, so the first
-build writes a fresh <code>sdkconfig</code> from it — see <a href="../../reference/config/">Configuration</a> for what is
-set and why. The component manager restores <code>managed_components/</code> from <code>dependencies.lock</code> on the
-first build, which needs network access.</p>
-<h2 id="3-flash">3. Flash<a class="headerlink" href="#3-flash" title="Permanent link">&para;</a></h2>
+<p><code>sdkconfig</code> is not committed. Everything the build needs is in <code>sdkconfig.defaults</code>, so the
+first build writes a fresh <code>sdkconfig</code> from it — see
+<a href="../../reference/config/">Configuration</a> for what is set and why. The component manager
+restores <code>managed_components/</code> from <code>dependencies.lock</code> on the first build, which needs
+network access.</p>
+<p><strong>3. Flash.</strong> This is an update: settings and clips are kept.</p>
 <div class="highlight"><pre><span></span><code>idf.py<span class="w"> </span>-p<span class="w"> </span>/dev/cu.wchusbserial5B910448341<span class="w"> </span>flash<span class="w"> </span>monitor
 </code></pre></div>
-<p>Use your own port: <code>/dev/cu.wchusbserial…</code> on macOS, <code>/dev/ttyUSB0</code> on Linux, <code>COM3</code> on Windows.</p>
+<p>For a fresh install or complete overwrite, add <code>erase-flash</code> before <code>flash</code>.</p>
+<p>Use your own port: <code>/dev/cu.wchusbserial…</code> on macOS, <code>/dev/ttyUSB0</code> on Linux, <code>COM3</code> on
+Windows.</p>
+</div>
+</div>
+</div>
 <p>The board's USB-C port goes through a <strong>CH343P</strong> USB-UART bridge to UART0 at 115200 baud. Its
-DTR/RTS lines drive the auto-download circuit, so flashing needs no button presses. The ESP32-S3's
-native USB pins are not connected on this board, which is why every host-side tool here talks to a
-serial port rather than USB.</p>
+DTR/RTS lines drive the auto-download circuit, so none of these needs button presses. The
+ESP32-S3's native USB pins are not connected on this board, which is why every tool here talks to
+a serial port rather than USB.</p>
 <div class="admonition note">
-<p class="admonition-title">Flashing over USB always returns to the first slot</p>
-<p><code>idf.py flash</code> writes the application to <code>ota_0</code> and resets the boot selection. That is worth
+<p class="admonition-title">Installing over USB always returns to the first slot</p>
+<p>All three ways write the application to <code>ota_0</code> and reset the boot selection. That is worth
 knowing if you have been updating over the console, which alternates between two slots —
 see <a href="../../use/ota/">Updating over serial</a>.</p>
 </div>
-<h2 id="4-check-it">4. Check it<a class="headerlink" href="#4-check-it" title="Permanent link">&para;</a></h2>
-<p>The console comes up on the same port the firmware was flashed over. At the prompt:</p>
+<h2 id="check-it">Check it<a class="headerlink" href="#check-it" title="Permanent link">&para;</a></h2>
+<p>The console comes up on the same port the firmware was installed over, at 115200 baud. The
+browser installer lets go of the port once it is done; only one program can hold it at a time. At
+the prompt:</p>
 <div class="highlight"><pre><span></span><code>version
 </code></pre></div>
-<p>It reports the firmware's own version, when it was built, and the chip it is running on. A build
-from a release tag reports that tag, such as <code>v0.1.0</code>; a build from an untagged working tree
-reports the commit it came from, with <code>-dirty</code> appended if there were uncommitted changes.</p>
+<p>It reports the firmware's own version, when it was built, and the chip it is running on. A
+release reports its tag, such as <code>v0.1.0</code>; a build from an untagged working tree reports the
+commit it came from, with <code>-dirty</code> appended if there were uncommitted changes.</p>
 <div class="highlight"><pre><span></span><code>help
 </code></pre></div>
 <p>lists every command. The screen stays off until something is shown on it — try
 <code>screen colour red</code>, then <code>screen clear</code>.</p>
-<h2 id="5-line-the-screen-up">5. Line the screen up<a class="headerlink" href="#5-line-the-screen-up" title="Permanent link">&para;</a></h2>
+<h2 id="line-the-screen-up">Line the screen up<a class="headerlink" href="#line-the-screen-up" title="Permanent link">&para;</a></h2>
 <p>Before the panel is fixed behind a dome's lens, put up the alignment pattern:</p>
 <div class="highlight"><pre><span></span><code>screen calibration
 </code></pre></div>
@@ -1365,6 +1442,8 @@ access, which matters when the board is mounted inside a droid. See
     
     
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
       
     
   </body>
