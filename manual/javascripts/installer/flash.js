@@ -91,16 +91,50 @@ export class Board {
     return { chip, flashSize };
   }
 
+  // Read `size` bytes of flash through the stub, and wait for the MD5 it sends after the data.
+  //
+  // esptool-js's own readFlash returns as soon as the data is in and leaves that MD5 packet
+  // unread, so the next command goes out while the board is still sending. Apple's USB serial
+  // driver, which Chrome may pick for this board's CH343 bridge (cu.usbmodem…), then loses the
+  // command: nothing answers, and esptool-js reports "Serial data stream stopped". Reproduced on
+  // the board, 11 failures in 12 at 115200; consuming the MD5 first fixed it. It also means
+  // every read is checked.
+  async readFlash(addr, size) {
+    const loader = this.loader;
+    const transport = this.transport;
+    const args = [addr, size, 0x1000, 64].map((value) => loader._intToByteArray(value));
+    const packet = args.reduce((all, part) => loader._appendArray(all, part), new Uint8Array(0));
+    const status = await loader.checkCommand("read flash", loader.ESP_READ_FLASH, packet);
+    if (status !== 0) throw new InstallError("read", `read flash at 0x${addr.toString(16)}: status ${status}`);
+
+    let data = new Uint8Array(0);
+    while (data.length < size) {
+      const chunk = await transport.read(loader.FLASH_READ_TIMEOUT);
+      if (!(chunk instanceof Uint8Array)) throw new InstallError("read", `read flash: ${chunk}`);
+      if (!chunk.length) continue;
+      data = loader._appendArray(data, chunk);
+      await transport.write(loader._intToByteArray(data.length));
+    }
+    if (data.length > size) data = data.subarray(0, size);
+
+    const digest = await transport.read(3000);
+    const want = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (digest.length !== 16 || md5Hex(data) !== want) {
+      throw new InstallError("read", `read flash at 0x${addr.toString(16)}: MD5 mismatch`);
+    }
+    return data;
+  }
+
   // Read what decides the installer's offer: the partition table, otadata, and the header of
   // every app partition. About 12 KB, all reads.
   async inspect() {
-    const table = parsePartitionTable(await this.loader.readFlash(TABLE_OFFSET, TABLE_LENGTH), md5Hex);
+    const table = parsePartitionTable(await this.readFlash(TABLE_OFFSET, TABLE_LENGTH), md5Hex);
     const board = { table, otadata: null, apps: [] };
     if (!table.valid) return board;
     const ota = otadataPartition(table);
-    if (ota) board.otadata = await this.loader.readFlash(ota.offset, Math.min(ota.size, OTADATA_LENGTH));
+    if (ota) board.otadata = await this.readFlash(ota.offset, Math.min(ota.size, OTADATA_LENGTH));
     for (const entry of appPartitions(table)) {
-      board.apps.push({ entry, bytes: await this.loader.readFlash(entry.offset, APP_HEADER_LENGTH) });
+      board.apps.push({ entry, bytes: await this.readFlash(entry.offset, APP_HEADER_LENGTH) });
     }
     return board;
   }
