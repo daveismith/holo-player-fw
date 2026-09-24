@@ -378,6 +378,13 @@ class FakeBoard {
       this.say(`xmodem: ready to send ${this.files.get(path).length} bytes at 115200 baud: /data/${path}\r\n`)
         .then(() => this.xmodemOut(path));
       return;
+    } else if (name === "help") {
+      // As a UART may deliver it: in two reads, the first ending just after "<ssid> ", which
+      // looks like a prompt to anything that only checks for "> " at the end.
+      const help = text("help.txt").replace(/\n/g, "\r\n");
+      const cut = help.indexOf("<ssid> ") + "<ssid> ".length;
+      this.say(help.slice(0, cut)).then(() => sleep(30)).then(() => this.say(help.slice(cut))).then(() => this.prompt());
+      return;
     } else if (name === "log") {
       this.say("I (1234) wifi: something happened\r\n");
     } else if (name === "imu") {
@@ -545,6 +552,15 @@ test("an abandoned command leaves the console usable", async () => {
   // The next command resynchronises first: its Enter is the key that ends the stream.
   const df = await console.command("fs df", { timeout: 5000 });
   assert.deepEqual(parseDf(df.text), { mount: "/data", usedKB: 496, totalKB: 11264, freeKB: 10768 });
+  await port.close();
+});
+
+test("help arrives whole, whatever the reads end on", async () => {
+  const { console, port } = await connect();
+  const result = await console.command("help", { timeout: 5000 });
+  const names = parseHelp(result.text).map((c) => c.name);
+  assert.equal(names.length, parseHelp(text("help.txt")).length);
+  assert.equal(names.at(-1), "holo");
   await port.close();
 });
 

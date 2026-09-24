@@ -10,8 +10,11 @@ import { BoardError, ByteQueue } from "./serial.js";
 const ESC = "\x1b";
 const ANSI = /\x1b\[[0-9;?]*[A-Za-z]/g;
 const PARTIAL_ESCAPE = /\x1b(\[[0-9;?]*)?$/;
-// The prompt, once ANSI colours are gone: "holo> " at the end of what has arrived.
-const PROMPT = /(?:^|\n)[^\n]*\S+> $/;
+// The prompt, once ANSI colours are gone: a line of its own, one word and "> " ("holo> "), at the
+// end of what has arrived. A whole line, because output can pause anywhere: `help` has the line
+// "join  [--timeout=<t>] <ssid> [<pass>]", and a read that ends after "<ssid> " is not a prompt.
+// A \r starts a line too: smart linenoise redraws its prompt after one.
+const PROMPT = /(?:^|[\r\n])[^\s>]+> $/;
 export const READY = /xmodem: ready to (receive|send) (\d+|\?) bytes at (\d+) baud: (\S+)/;
 const FAILED = /^(Command returned non-zero error code: .*|Unrecognized command)\s*$/m;
 
@@ -86,7 +89,7 @@ export class Console {
   }
 
   atPrompt() {
-    return PROMPT.test(this.text.replace(/\r/g, ""));
+    return PROMPT.test(this.text);
   }
 
   // At the prompt that follows a line just sent. In smart mode linenoise redraws the prompt as
@@ -94,7 +97,7 @@ export class Console {
   // one of those prompts; only the Enter that ends the line produces a newline.
   #doneAfterLine() {
     const newline = this.text.indexOf("\n");
-    return newline >= 0 && PROMPT.test(this.text.slice(newline).replace(/\r/g, ""));
+    return newline >= 0 && PROMPT.test(this.text.slice(newline));
   }
 
   take() {
@@ -134,7 +137,7 @@ export class Console {
     for (let attempt = 0; attempt < 2; attempt++) {
       this.take();
       await this.#send("");
-      if (await this.#until(() => this.#doneAfterLine() || /^[^\r\n]*\S+> $/.test(this.text), ms)) {
+      if (await this.#until(() => this.#doneAfterLine() || /^[^\s>]+> $/.test(this.text), ms)) {
         this.take();
         this.dirty = false;
         return;
