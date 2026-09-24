@@ -58,6 +58,8 @@
     
       <link rel="stylesheet" href="../../stylesheets/installer.css">
     
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -887,6 +889,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../ota/" class="md-nav__link">
         
   
@@ -1323,7 +1352,8 @@ image show leia.jpg
 <code>screen</code> reports it while it is up, and <code>screen clear</code> takes it away and puts the panel back to
 sleep.</p>
 <div class="highlight"><pre><span></span><code>screen
-showing /data/r2.png (240x240, backlight 100%)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>showing /data/r2.png (240x240, backlight 100%)
 </code></pre></div>
 <p>Nothing that fails ever disturbs the screen. The file, its format and its size are all checked
 before the panel is touched, so a rejected <code>image show</code> leaves whatever was already showing in
@@ -1332,7 +1362,8 @@ place.</p>
 <p>A GIF with more than one frame plays, on its own frame delays, the same way a clip plays on its
 own timing:</p>
 <div class="highlight"><pre><span></span><code>image show r2-wave.gif
-image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
 </code></pre></div>
 <p>It loops the way the file says, which is how it looks in a browser: forever, a set number of
 times, or once if the file does not say. When a GIF that stops runs out of passes, <strong>its last
@@ -1602,6 +1633,8 @@ as long as the table says, while libpng and zlib claim their buffers for the fir
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
       
         <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
       
     
   </body>

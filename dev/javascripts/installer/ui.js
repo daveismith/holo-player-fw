@@ -11,36 +11,10 @@
 
 import { assess, parsePartitionTable } from "./inspect.js";
 import { md5Hex } from "./md5.js";
+import { code, h, pageUrl, siteRoot } from "../common/dom.js";
 
 const BAUDS = [460800, 921600, 230400, 115200];
 const BOOT_LOG_MS = 6000;
-
-// --- DOM helpers: everything from the board or the manifest goes in as text, never HTML. ------
-
-function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (value === false || value === null || value === undefined) continue;
-    if (key === "class") el.className = value;
-    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
-    else el.setAttribute(key, value === true ? "" : value);
-  }
-  for (const child of children.flat()) {
-    if (child !== null && child !== undefined && child !== false) el.append(child);
-  }
-  return el;
-}
-
-const code = (text) => h("code", {}, text);
-
-function siteRoot() {
-  try {
-    const base = JSON.parse(document.getElementById("__config").textContent).base;
-    return new URL(base.endsWith("/") ? base : `${base}/`, location.href);
-  } catch {
-    return new URL("./", location.href);
-  }
-}
 
 // --- the static notices, for when this copy of the page cannot install ----------------------
 
@@ -301,7 +275,8 @@ class Installer {
     const running = /App version:\s*([^\s\x1b]+)/.exec(this.bootLog.textContent)?.[1];
     if (running === version) {
       this.say(h("strong", {}, `Installed. The board is running ${version}. `),
-        "The port is free again: open a terminal on it at 115200 and type ", code("version"), ".");
+        "Next, put some clips on it from ", h("a", { href: pageUrl("use/board").href }, "the board in the browser"),
+        ", or open a terminal on the port at 115200 and type ", code("version"), ".");
     } else {
       this.say(h("strong", {}, "Installed and verified. "),
         running ? `The board reports ${running}, not ${version}. ` : "The board's boot messages weren't seen. ",

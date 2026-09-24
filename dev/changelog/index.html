@@ -56,6 +56,8 @@
     
       <link rel="stylesheet" href="../stylesheets/installer.css">
     
+      <link rel="stylesheet" href="../stylesheets/board.css">
+    
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -739,6 +741,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../use/ota/" class="md-nav__link">
         
   
@@ -1005,6 +1034,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Known issues
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1020,7 +1088,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1048,7 +1116,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1129,6 +1197,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Known issues
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1144,7 +1251,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1172,7 +1279,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1213,8 +1320,37 @@
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.0.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<h2 id="100-2026-09-23"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0">1.0.0</a> - 2026-09-23<a class="headerlink" href="#100-2026-09-23" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The board in the browser.</strong> A new documentation page talks to a board running Holo Player
+  over Web Serial (desktop Chrome, Edge or Opera), with no tools to install:</li>
+<li>a file manager for <code>/data</code>: upload by dropping files, download, rename, delete, move by
+    dragging onto a folder (after a confirmation), and play or show what is there, with every
+    transfer checked by SHA-256 as <code>fs_xfer.py</code> checks it;</li>
+<li>every command the board lists in <code>help</code>, in groups by what it is for (display, images, video,
+    LEDs, …, and "Other" for any the page doesn't know), with an entry for each sub-command
+    (<code>video play</code>, <code>video stop</code>, …) to edit and run, and a picker for the board's files;</li>
+<li>the console, with everything the board prints.</li>
+<li><strong>Run buttons throughout the documentation.</strong> In those browsers, each board command in the
+  pages has a ▶ that runs it on a connected board, with the output underneath. The connection
+  shows in the header on every page and follows you from page to page. Commands that change
+  something ask first. "Files on the board" embeds the file manager.</li>
+<li>Connecting doesn't restart the board, and it works in the offline documentation through
+  <code>serve.py</code>, like the installer.</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Board output in the documentation is in <code>text</code> code blocks. Bare code blocks hold only board
+  commands, and <code>tools/check_command_docs.py</code> checks that, so every ▶ runs a real command.</li>
+</ul>
+<h3 id="known-issues">Known issues<a class="headerlink" href="#known-issues" title="Permanent link">&para;</a></h3>
+<ul>
+<li>On macOS, <code>fs_xfer.py put</code> fails through Apple's driver (<code>cu.usbmodem…</code>): 1 KB XMODEM blocks
+  arrive corrupted. Use <code>cu.wchusbserial…</code>. The browser's file manager switches to 128-byte blocks
+  there instead.</li>
+</ul>
+<h2 id="100-2026-09-23"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0">1.0.0</a> - 2026-09-23<a class="headerlink" href="#100-2026-09-23" title="Permanent link">&para;</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Install from the browser.</strong> The Install page in each release's documentation flashes that
   release onto the board over Web Serial (desktop Chrome, Edge or Opera), with no toolchain. It
@@ -1250,7 +1386,7 @@ so the release tag is the version baked into the image and reported by <code>ver
 <h2 id="010-2026-09-20"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v0.1.0">0.1.0</a> - 2026-09-20<a class="headerlink" href="#010-2026-09-20" title="Permanent link">&para;</a></h2>
 <p>First tagged release. Everything below already worked; this is the point it became a version
 you can name, flash and report.</p>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Video.</strong> Motion-JPEG QuickTime playback on the round panel, on the clip's own timing, with
   <code>video play|stop|status|info|verify</code>. Frames decode 16 lines at a time into alternating DMA
@@ -1363,6 +1499,8 @@ you can name, flash and report.</p>
       <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
       
         <script src="../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../javascripts/board/ui.js" type="module"></script>
       
     
   </body>

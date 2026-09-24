@@ -14,7 +14,7 @@
         <link rel="prev" href="../holo/">
       
       
-        <link rel="next" href="../ota/">
+        <link rel="next" href="../board/">
       
       
         
@@ -57,6 +57,8 @@
     
     
       <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -789,6 +791,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In the browser
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#from-the-host" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -825,6 +838,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1111,6 +1151,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In the browser
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#from-the-host" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1180,6 +1231,15 @@ fs bench
 </code></pre></div>
 <p><code>fs df</code> reports how much of the volume is used; <code>fs bench</code> measures read and write throughput,
 which is worth running once if playback is stuttering.</p>
+<h2 id="in-the-browser">In the browser<a class="headerlink" href="#in-the-browser" title="Permanent link">&para;</a></h2>
+<p>In desktop Chrome, Edge or Opera, this is the board's volume, live. Upload by dropping files on
+the list, and play, show, download, rename or delete what is there. It is the same file manager
+as on <a href="../board/">The board in the browser</a>, and it checks every transfer the same way
+<code>fs_xfer.py</code> does.</p>
+<div class="holo-files hb-static">
+<p>Managing the files from this page needs desktop Chrome, Edge or Opera, and JavaScript. Every
+other browser can use <code>fs_xfer.py</code>, described next.</p>
+</div>
 <h2 id="from-the-host">From the host<a class="headerlink" href="#from-the-host" title="Permanent link">&para;</a></h2>
 <p><code>fs put</code> and <code>fs get</code> move bytes over the console itself, using XMODEM-1K. You could drive them by
 hand, but the host-side tool does the framing, the baud switching and the verification:</p>
@@ -1233,6 +1293,13 @@ between the driver and the bridge at 460800 and above; the tool works around it 
 managed only 7.5 KB/s. In the other direction, data coming <em>from</em> the board above 230400 loses
 bytes whatever the block size, which is why downloads are slower than uploads.</p>
 <p>On another host, try higher rates with <code>--xfer-baud</code> and <code>--get-baud</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">On macOS, upload through <code>cu.wchusbserial…</code></p>
+<p>macOS lists the board twice. Through Apple's own driver (<code>cu.usbmodem…</code>), every 1 KB XMODEM
+block reaches the board with its data changed, so <code>fs_xfer.py put</code> fails on its first block.
+Downloads and the console work through either. The browser's file manager copes: it switches
+to 128-byte blocks, which arrive intact, at a small cost in speed.</p>
+</div>
 
 
 
@@ -1287,13 +1354,13 @@ bytes whatever the block size, which is why downloads are slower than uploads.</
         
         
           
-          <a href="../ota/" class="md-footer__link md-footer__link--next" aria-label="Next: Updating over serial">
+          <a href="../board/" class="md-footer__link md-footer__link--next" aria-label="Next: The board in the browser">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Updating over serial
+                The board in the browser
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1340,6 +1407,8 @@ bytes whatever the block size, which is why downloads are slower than uploads.</
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
       
         <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
       
     
   </body>
