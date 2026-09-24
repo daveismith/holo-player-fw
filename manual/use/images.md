@@ -56,7 +56,7 @@ image show leia.jpg
 
 Each reports what it did:
 
-```
+```text
 image: showing /data/r2.png (240x240 PNG, 16-line blocks, 118.4 ms)
 ```
 
@@ -66,6 +66,9 @@ sleep.
 
 ```
 screen
+```
+
+```text
 showing /data/r2.png (240x240, backlight 100%)
 ```
 
@@ -80,6 +83,9 @@ own timing:
 
 ```
 image show r2-wave.gif
+```
+
+```text
 image: playing /data/r2-wave.gif (240x240 GIF, 24 frames, loops forever)
 ```
 
@@ -134,14 +140,14 @@ image info r2.png
 
 reports what the file contains without decoding it or touching the panel:
 
-```
+```text
 /data/r2.png: PNG 200x150, 8-bit RGBA, non-interlaced, 14233 bytes
 parsed in 3.2 ms
 ```
 
 For a GIF it counts the frames and adds up their delays, by the same rule it plays them:
 
-```
+```text
 /data/r2-wave.gif: GIF 240x240, 24 frames, loops forever, 1.60 s a pass, 412306 bytes
 ```
 

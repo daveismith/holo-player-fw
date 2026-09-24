@@ -11,7 +11,7 @@
 
 import { assess, parsePartitionTable } from "./inspect.js";
 import { md5Hex } from "./md5.js";
-import { code, h, siteRoot } from "../common/dom.js";
+import { code, h, pageUrl, siteRoot } from "../common/dom.js";
 
 const BAUDS = [460800, 921600, 230400, 115200];
 const BOOT_LOG_MS = 6000;
@@ -275,7 +275,8 @@ class Installer {
     const running = /App version:\s*([^\s\x1b]+)/.exec(this.bootLog.textContent)?.[1];
     if (running === version) {
       this.say(h("strong", {}, `Installed. The board is running ${version}. `),
-        "The port is free again: open a terminal on it at 115200 and type ", code("version"), ".");
+        "Next, put some clips on it from ", h("a", { href: pageUrl("use/board").href }, "the board in the browser"),
+        ", or open a terminal on the port at 115200 and type ", code("version"), ".");
     } else {
       this.say(h("strong", {}, "Installed and verified. "),
         running ? `The board reports ${running}, not ${version}. ` : "The board's boot messages weren't seen. ",

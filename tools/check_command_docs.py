@@ -10,6 +10,13 @@ A command counts as documented only when its name appears *inside backticks*, in
 span or a fenced block. Matching bare prose would pass vacuously: `ip`, `free`, `top`, `version`
 and `wifi` are all ordinary English words that occur in ordinary sentences.
 
+Two more checks keep the documentation's Run buttons honest (manual/javascripts/board/):
+
+  * GROUPS in commands.js, the table the pages use to recognise and group the board's commands,
+    names exactly the commands the firmware registers (and esp_console's own `help`).
+  * A bare fenced block -- no language -- holds only board commands, one a line: the pages put a
+    Run button on each. The board's output, or anything else, goes in a fence marked `text`.
+
 Roughly half the command surface lives in the esp-console-kit submodule. When it is absent (a
 clone without --recursive) the kit's commands simply are not checked, and the summary says so,
 rather than the check failing for a reason that has nothing to do with the docs.
@@ -46,6 +53,14 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_-]+")
 
 # Commands deliberately left out of the manual. Add an entry only with a reason.
 KNOWN_UNDOCUMENTED: dict[str, str] = {}
+
+# The board pages' table of commands, and the commands esp_console registers itself.
+COMMANDS_JS = MANUAL / "javascripts" / "board" / "commands.js"
+GROUPS_RE = re.compile(r"export const GROUPS = \[(.*?)\n\];", re.S)
+BUILT_IN = {"help"}
+
+# A fence's opening or closing line, at any indent, and its language if it has one.
+FENCE_LINE_RE = re.compile(r"^( *)```(.*)$")
 
 
 def registered_commands() -> tuple[dict[str, list[str]], bool]:
@@ -87,6 +102,37 @@ def documented_tokens() -> set[str]:
     return tokens
 
 
+def grouped_commands() -> set[str]:
+    """The command names in commands.js's GROUPS (its group titles are the first string of each)."""
+    match = GROUPS_RE.search(COMMANDS_JS.read_text(encoding="utf-8"))
+    if not match:
+        sys.exit(f"error: no GROUPS table in {COMMANDS_JS.relative_to(ROOT)}; has it changed shape?")
+    names: set[str] = set()
+    for group in re.finditer(r"\[\s*\"[^\"]+\",\s*\[(.*?)\]\s*\]", match.group(1), re.S):
+        names.update(re.findall(r'"([^"]+)"', group.group(1)))
+    return names
+
+
+def bare_block_problems(known: set[str]) -> list[str]:
+    """Lines of bare fenced blocks that don't start with a board command."""
+    problems = []
+    for path in sorted(MANUAL.rglob("*.md")):
+        fence = None   # (indent, language) while inside a fence
+        for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            match = FENCE_LINE_RE.match(line)
+            if fence is None:
+                if match:
+                    fence = (match.group(1), match.group(2).strip())
+                continue
+            if match and match.group(1) == fence[0] and not match.group(2).strip():
+                fence = None
+                continue
+            words = line.split()
+            if fence[1] == "" and words and words[0] not in known:
+                problems.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
+    return problems
+
+
 def main() -> int:
     if not MANUAL.is_dir():
         print(f"error: no manual/ directory at {MANUAL}", file=sys.stderr)
@@ -115,6 +161,7 @@ def main() -> int:
         for name, why in sorted(KNOWN_UNDOCUMENTED.items()):
             print(f"note: `{name}` deliberately undocumented ({why})")
 
+    failed = False
     if missing:
         print(f"\n{len(missing)} command(s) registered but not documented in manual/:", file=sys.stderr)
         for name in missing:
@@ -125,9 +172,32 @@ def main() -> int:
             "or, if it is deliberately undocumented, to KNOWN_UNDOCUMENTED in this script.",
             file=sys.stderr,
         )
-        return 1
+        failed = True
 
-    return 0
+    grouped = grouped_commands()
+    ungrouped = sorted(set(commands) - grouped)
+    # Without the submodule, the kit's commands are in GROUPS but not in `commands`: only check
+    # that direction when both are complete.
+    stale = sorted(grouped - set(commands) - BUILT_IN) if submodule_present else []
+    if ungrouped or stale:
+        where = COMMANDS_JS.relative_to(ROOT)
+        for name in ungrouped:
+            print(f"error: `{name}` is registered but not in GROUPS in {where}", file=sys.stderr)
+        for name in stale:
+            print(f"error: `{name}` is in GROUPS in {where} but not registered", file=sys.stderr)
+        failed = True
+    else:
+        print(f"{len(grouped)} commands in the board pages' table, all registered")
+
+    problems = bare_block_problems(grouped)
+    if problems:
+        print("\nBare code blocks hold board commands, one a line -- each gets a Run button.", file=sys.stderr)
+        print("These lines aren't; put output in a ```text fence:", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        failed = True
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

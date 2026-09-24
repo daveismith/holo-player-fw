@@ -52,7 +52,7 @@ image it holds, plus its state.
 
 This is where the release version becomes visible on the board:
 
-```
+```text
 ota_0    0x010000  2304 KB  running, boots    holo-player-fw v0.1.0, built Sep 20 2026 14:02:11
 ```
 

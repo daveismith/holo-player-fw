@@ -60,6 +60,7 @@ export class Console {
     this.running = null;       // the command in progress, for the pages' "running" state
     this.queue = null;         // while a transfer holds the port
     this.dirty = true;         // not known to be at a prompt: sync before the next command
+    this.quiet = false;        // a page's own query is running: keep its output out of onText
     port.sink = (bytes) => this.#feed(bytes);
   }
 
@@ -79,7 +80,7 @@ export class Console {
     const clean = text.replace(ANSI, "").replace(/\0/g, "");   // smart mode pads its queries with NULs
     if (!clean) return;
     this.text += clean;
-    this.onText?.(clean);
+    if (!this.quiet) this.onText?.(clean);
     for (const wake of this.waiters) wake();
   }
 
@@ -156,10 +157,12 @@ export class Console {
 
   // Run a command and return { ok, text }: its output without the echo and the prompt, and
   // whether the console reported it as failed. With no `timeout` it waits for the prompt as long
-  // as it takes, until `signal` aborts; then the console is resynchronised.
-  command(cmd, { timeout = Infinity, signal } = {}) {
+  // as it takes, until `signal` aborts; then the console is resynchronised. `quiet` keeps the
+  // exchange out of onText: for the pages' own questions (`help`, `fs ls`), not the user's.
+  command(cmd, { timeout = Infinity, signal, quiet = false } = {}) {
     return this.lock.run(async () => {
       this.running = cmd;
+      this.quiet = quiet;
       try {
         if (this.dirty) await this.#sync();
         this.take();
@@ -174,6 +177,7 @@ export class Console {
         return { ok: !FAILED.test(text), text: text.replace(FAILED, "").replace(/\n+$/, "") };
       } finally {
         this.running = null;
+        this.quiet = false;
       }
     });
   }

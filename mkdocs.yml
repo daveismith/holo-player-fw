@@ -36,12 +36,18 @@ theme:
 # The browser installer (install/flashing.md). ui.js does nothing on pages without the installer,
 # and imports the flasher -- esptool-js, vendored by tools/vendor_js.py, never from a CDN, so the
 # offline bundle works with no internet -- only where it is needed.
+#
+# The board pages (use/board.md, the header's dock, and a Run button beside each board command):
+# javascripts/board/, all of it in this repository, and nothing at all without Web Serial.
 extra_javascript:
   - path: javascripts/installer/ui.js
+    type: module
+  - path: javascripts/board/ui.js
     type: module
 
 extra_css:
   - stylesheets/installer.css
+  - stylesheets/board.css
 
 extra:
   version:
@@ -79,6 +85,7 @@ nav:
       - LED patterns: use/leds.md
       - The holoprojector: use/holo.md
       - Files on the board: use/files.md
+      - The board in the browser: use/board.md
       - Updating over serial: use/ota.md
       - Troubleshooting: troubleshooting.md
   - Reference:

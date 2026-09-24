@@ -26,22 +26,24 @@ export class Files {
     this.console = console;
   }
 
-  async #run(cmd, timeout = 20000) {
-    const { ok, text } = await this.console.command(cmd, { timeout });
+  // The file manager's own reads (`fs ls`, `fs df`, `fs sha256`) stay out of the console's view;
+  // what changes something shows there, as if typed.
+  async #run(cmd, { timeout = 20000, quiet = false } = {}) {
+    const { ok, text } = await this.console.command(cmd, { timeout, quiet });
     if (!ok) throw new BoardError("fs", text.replace(/^fs: /, ""));
     return text;
   }
 
   async list(dir = "") {
-    return parseLs(await this.#run(dir ? `fs ls ${quoteArg(dir)}` : "fs ls"));
+    return parseLs(await this.#run(dir ? `fs ls ${quoteArg(dir)}` : "fs ls", { quiet: true }));
   }
 
   async usage() {
-    return parseDf(await this.#run("fs df"));
+    return parseDf(await this.#run("fs df", { quiet: true }));
   }
 
   async sha256(path) {
-    return parseSha256(await this.#run(`fs sha256 ${quoteArg(path)}`, 120000));
+    return parseSha256(await this.#run(`fs sha256 ${quoteArg(path)}`, { timeout: 120000, quiet: true }));
   }
 
   mkdir(path) {
