@@ -39,6 +39,7 @@ async function mount(el) {
     defaultModelsExpandDepth: 0,
     validatorUrl: null,
     persistAuthorization: true,
+    showExtensions: true,   // x-planned: described ahead of the firmware
   });
 }
 

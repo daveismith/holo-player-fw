@@ -28,14 +28,16 @@ means something and a stable `error` code to branch on:
 
 ## Protection
 
-- **Reading is always open**: `GET` needs nothing.
-- **Changes are guarded against other web pages.** A `PUT`, `POST` or `DELETE` must name the board
-  in its `Host` header: an IP address, `holo-xxxx` or `holo-xxxx.local`. A `POST` must also say
-  `Content-Type: application/json`. `curl` and scripts do this naturally. A web page on another site can't, because a browser won't send those requests
+- **Reading is open**: `GET` needs nothing, except downloading a file and reading the web
+  settings, which need the password once one is set (the console's history is a file, and can hold
+  what was typed).
+- **Changes are guarded against other web pages.** A `PUT`, `POST`, `PATCH` or `DELETE` must name
+  the board in its `Host` header: an IP address, `holo-xxxx` or `holo-xxxx.local`. A `POST` or
+  `PATCH` must also say `Content-Type: application/json`. `curl` and scripts do this naturally. A web page on another site can't, because a browser won't send those requests
   across sites without the board's consent, and the board gives it only to the trusted sites below.
   So a page you happen to visit can't update or restart the board, even with no password set.
-- **The password.** Once one is set with `web password <password>` on the console, changes also
-  need it, sent either way:
+- **The password.** Once one is set -- with `web password <password>` on the console, or
+  [`PATCH /api/v1/web`](#network-and-the-web-server) -- changes also need it, sent either way:
 
   ```sh
   curl -H "Authorization: Bearer <password>" ...
@@ -53,7 +55,7 @@ means something and a stable `error` code to branch on:
   web cors add http://localhost:8080
   ```
 
-  `web cors remove <origin>` takes one away, `web cors none` empties the list, and `web cors reset`
+  (or `PATCH /api/v1/web` with the whole list). `web cors remove <origin>` takes one away, `web cors none` empties the list, and `web cors reset`
   goes back to the default. An origin is `scheme://host[:port]`; `https://*.example.com` covers
   every subdomain of `example.com` but not `example.com` itself. The other checks still apply to
   these sites. **With no password set, a listed site can update and restart the board**, so set a
@@ -70,7 +72,8 @@ access point, which is WPA2.
 - `hostname`, `uptime_s` and `heap_free`;
 - `sta` and `ap`: the station link (SSID, address, signal) and the access point;
 - `via`: `ap` when the request came in on the board's access point;
-- `features`: what the web app offers on this firmware (`ota` today).
+- `features`: what the web app offers on this firmware: `ota`, `files`, `screen`, `leds`, `holo`,
+  `scenes`, `settings`, `network`.
 
 ```sh
 curl http://holo-2db0.local/api/v1/info
@@ -78,6 +81,189 @@ curl http://holo-2db0.local/api/v1/info
 
 `POST /api/v1/restart` restarts the board. The optional `{"delay_ms": 500}` gives the reply time to
 leave first.
+
+## Now, and from now on
+
+Two kinds of thing are here, kept apart:
+
+- **What the board is doing now**: `/screen`, `/leds`, `/holo`, and the servos' positions. Changing
+  these changes nothing that survives a restart.
+- **What is saved**: `/settings`, `/scenes`, a servo's calibration and drive policy, the known
+  networks and the access point's name, and `/web`. What the board does when it starts is
+  `settings.boot_scene`.
+
+The shapes follow from that:
+
+| Shape | For | Example |
+|---|---|---|
+| `GET`, then `PATCH` with only what changes; the reply is the whole new state | What it is doing now, and the settings | `PATCH /api/v1/leds` `{"brightness": 20}` |
+| `POST` with a JSON body | An action | `POST /api/v1/screen/show` `{"path": "/clips/intro.mov"}` |
+| `PUT` and `DELETE`, named in the query | A saved, named thing | `PUT /api/v1/scenes/scene?name=cantina` |
+
+**Long operations** -- an update, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run
+one at a time: another gets `409` `busy`. The server answers everything else meanwhile.
+
+## Files
+
+The board's storage volume holds the clips and images, and the console's history. A file is named by
+a `path` query parameter from the volume's root, such as `/clips/intro.mov`; `/` is the root. `..`,
+`.` and empty segments are refused (`400` `bad_path`), as are names over 63 bytes and paths over
+159.
+
+```sh
+B=http://holo-2db0.local/api/v1
+curl "$B/fs"                                            # size and free space
+curl "$B/fs/list?path=/clips"                           # a directory
+curl "$B/fs/entry?path=/clips/intro.mov&sha256=true"    # one file, hashed
+curl -T intro.mov "$B/fs/file?path=/clips/intro.mov&parents=true"
+curl -o intro.mov "$B/fs/file?path=/clips/intro.mov"
+J='Content-Type: application/json'
+curl -X POST -H "$J" -d '{"path":"/clips/old"}' "$B/fs/mkdir"
+curl -X POST -H "$J" -d '{"from":"/clips/intro.mov","to":"/clips/old/intro.mov"}' "$B/fs/move"
+curl -X POST -H "$J" -d '{"from":"/clips/old/intro.mov","to":"/clips/intro.mov"}' "$B/fs/copy"
+curl -X DELETE "$B/fs/entry?path=/clips/old&recursive=true"
+```
+
+- **An upload** (`PUT /api/v1/fs/file`) is written beside its destination as `<name>.part`, and
+  takes its place only once all of it has arrived. An upload that fails or is cut off changes
+  nothing. It refuses to replace a file unless `overwrite=true`, and a missing directory unless
+  `parents=true`. `sha256=<hex>` has the board check what arrived. A full volume is `507`
+  `no_space`; the board keeps a 32 KB margin.
+- **Moving, replacing or deleting the file on the screen** stops it first. A clip playing from the
+  volume otherwise carries on during an upload, though it may stutter while the flash is written.
+
+## The screen
+
+`GET /api/v1/screen` says what the round screen shows: `nothing` (the panel asleep), a `colour`, the
+`calibration` crosshair, an `image`, or a `clip` with its progress. `POST /api/v1/screen/show`
+shows something else:
+
+```sh
+curl -X POST -H "$J" -d '{"path":"/clips/intro.mov","loop":true}' "$B/screen/show"
+curl -X POST -H "$J" -d '{"path":"/stills/logo.png"}' "$B/screen/show"
+curl -X POST -H "$J" -d '{"colour":"#102030"}' "$B/screen/show"
+curl -X POST -H "$J" -d '{"calibration":true}' "$B/screen/show"
+curl -X DELETE "$B/screen"                                    # nothing
+curl -X PATCH -H "$J" -d '{"backlight":40}' "$B/screen"      # until the next start
+```
+
+A file is checked before the reply: a clip must be QuickTime Motion-JPEG no larger than 240×240,
+an image a PNG, baseline JPEG or GIF. Anything else is `422` `not_playable`, saying why, and the
+screen is unchanged. `GET /api/v1/media?path=/` lists every clip and image under a directory by
+their names, and `GET /api/v1/media/info?path=...` reads one file's header -- size, frames, frame
+rate -- without showing it.
+
+## The LEDs
+
+`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`), `colour`, `loop`
+and `brightness`. `PATCH` changes any of them now:
+
+```sh
+curl -X PATCH -H "$J" -d '{"mode":"solid","colour":"orange"}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"rainbow","loop":true}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"brightness":10}' "$B/leds"
+```
+
+A colour is `#rrggbb`, `R,G,B`, or a name. Keep the brightness at 30 or below when the strip is
+powered from the board.
+
+## The holoprojector and its servos
+
+`GET /api/v1/holo` is each holo's motion and position (`x` and `y`, -1 to 1, + right and up), and
+whether it can move (`ready`, or `why` not). `POST /api/v1/holo/motion` moves it, or starts or
+stops a behaviour, with the console's `holo` parameters:
+
+```sh
+curl -X POST -H "$J" -d '{"motion":"twitch","range":50,"interval_s":[2,6]}' "$B/holo/motion"
+curl -X POST -H "$J" -d '{"motion":"move","x":40,"y":-20,"duration_ms":600}' "$B/holo/motion"
+curl -X POST -H "$J" -d '{"motion":"wag","count":3}' "$B/holo/motion"
+curl -X POST -H "$J" -d '{"motion":"stop"}' "$B/holo/motion"
+```
+
+A holo that can't move -- its servos not calibrated, say -- is `409` `not_ready`, saying why.
+`POST /api/v1/holo/light` sets a holo's light, on boards whose holo has one.
+
+The servos underneath are at `GET /api/v1/servos`: the pulse each was last sent, whether it is being
+driven, its limits and its drive policy. Calibrating one is a matter of moving it to each end of the
+holo's travel, then saving that range:
+
+```sh
+curl -X POST -H "$J" -d '{"id":"pan","us":1150}' "$B/servos/move"      # closed end: full left
+curl -X POST -H "$J" -d '{"id":"pan","us":1900}' "$B/servos/move"      # open end: full right
+curl -X PUT  -H "$J" -d '{"min_us":1150,"max_us":1900}' "$B/servos/calibration?id=pan"
+curl -X POST -H "$J" -d '{"id":"all"}' "$B/servos/release"             # limp
+```
+
+`DELETE /api/v1/servos/calibration?id=pan` forgets the range. `PUT /api/v1/servos/policy?id=pan`
+saves whether a servo keeps being driven once it has settled, at each end and between them, which
+can stop the buzz of a servo held against a stop.
+
+## Scenes
+
+A scene is a saved combination of what to show, what the LEDs do, and how the holo moves. Each
+part is optional, and a part left out is left alone, so a scene with only `leds` is an LED preset.
+Up to 16 are kept.
+
+```sh
+curl -X PUT -H "$J" "$B/scenes/scene?name=cantina" -d '{
+  "screen": {"path": "/clips/cantina.mov", "loop": true},
+  "leds":   {"mode": "solid", "colour": "#ff8000", "brightness": 30},
+  "holo":   {"motion": "twitch", "range": 50}
+}'
+curl -X POST -H "$J" -d '{"name":"cantina"}' "$B/scenes/apply"
+curl "$B/scenes"
+curl -X DELETE "$B/scenes/scene?name=cantina"
+```
+
+`POST /api/v1/scenes/apply` also takes a scene that isn't saved, as `{"scene": {...}}`. It applies
+the screen, then the LEDs, then the holo, and a part that fails stops the rest, with an error
+naming it. The files a scene names are checked when it is applied, not when it is saved.
+
+## Settings
+
+`GET /api/v1/settings` is what the board starts with; `PATCH` changes it, and it is saved:
+
+- `boot_scene`: the scene applied at every start, or null for nothing;
+- `screen.backlight`: the backlight it starts at;
+- `leds.brightness`, and `leds.count`, the LEDs on the strip.
+
+```sh
+curl -X PATCH -H "$J" -d '{"boot_scene":"cantina","screen":{"backlight":80}}' "$B/settings"
+```
+
+The backlight and brightness change now too. A new `leds.count` waits for a restart, and the reply
+says so with `"restart_required": true`. `DELETE /api/v1/settings` goes back to the firmware's
+defaults, keeping scenes, calibration and networks.
+
+## Network and the web server
+
+`GET /api/v1/network` is the network the board is on, the networks it knows, and its access point.
+Passphrases are never read back.
+
+```sh
+curl -X PUT -H "$J" -d '{"passphrase":"correct horse battery"}' "$B/network/known?ssid=workshop"
+curl -X POST -H "$J" -d '{"ssid":"workshop"}' "$B/network/join"
+curl "$B/network/scan"
+curl -X DELETE "$B/network/known?ssid=cafe"
+curl -X PATCH -H "$J" -d '{"on":true}' "$B/network/ap"
+```
+
+Several of these can cut you off, so each replies first:
+
+- **joining** another network leaves the one the board is on;
+- **`PATCH /api/v1/network`** with `{"sta_enabled": false}` stops it joining any;
+- **changing the access point's name or passphrase** restarts it, dropping its clients.
+
+The access point is the way back in: `wifi ap on` on the console. It is off at every start.
+
+`GET /api/v1/web` and `PATCH /api/v1/web` are the web server's own settings: the `.local`
+hostname, the password, and the [trusted sites](#protection). `null` goes back to the default, or
+clears the password.
+
+```sh
+curl -X PATCH -H "$J" -d '{"password":"hunter22"}' "$B/web"
+curl -u any:hunter22 -X PATCH -H "$J" -d '{"hostname":"holo-dome"}' "$B/web"
+```
 
 ## Updates
 
@@ -225,16 +411,20 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 
 | Status | `error` | When |
 |---|---|---|
-| 400 | `bad_request`, `bad_json`, `bad_sha256` | The request is malformed |
+| 400 | `bad_request`, `bad_json`, `bad_sha256`, `bad_path`, `not_a_directory`, `is_a_directory` | The request is malformed, or names the wrong kind of thing |
 | 401 | `auth_required` | A password is set, and this request lacks it |
 | 403 | `forbidden_host` | The `Host` header doesn't name the board |
-| 404 | `not_found`, `no_such_slot`, `no_firmware` | No such endpoint, slot, or firmware on that channel |
-| 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another update is running, or the session isn't in the state asked of it |
+| 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, holo, network, slot, scene, or firmware on that channel |
+| 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another long operation is running, or the update session isn't in the state asked of it |
+| 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
+| 409 | `not_ready`, `no_light` | The holo can't move now (the message says why), or has no light |
 | 411 | `length_required` | An upload without a `Content-Length` |
 | 413 | `too_large` | The image won't fit the slot |
-| 415 | `content_type` | A `POST` that isn't `application/json` |
-| 422 | `invalid_image`, `sha256_mismatch` | Not a usable image. The running firmware still boots |
+| 415 | `content_type` | A `POST` or `PATCH` that isn't `application/json` |
+| 422 | `invalid_image`, `sha256_mismatch` | Not a usable firmware image (the running firmware still boots), or a file that didn't arrive intact |
+| 422 | `not_playable` | A file the screen can't show; the message says why |
 | 503 | `offline`, `unreachable` | The board can't reach the internet, or the release site |
+| 507 | `no_space` | The storage volume is too full |
 
 ## Every endpoint
 
@@ -250,6 +440,48 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | POST | `/api/v1/ota/activate` | Make an image the boot image, and restart |
 | POST | `/api/v1/ota/pull` | Download an image from a URL or release channel |
 | GET | `/api/v1/ota/check` | What a pull would fetch, and whether it is newer |
+| GET | `/api/v1/fs` | The storage volume's size and free space |
+| GET | `/api/v1/fs/list` | A directory |
+| GET | `/api/v1/fs/entry` | A file or directory, optionally hashed |
+| DELETE | `/api/v1/fs/entry` | Delete a file or directory |
+| GET | `/api/v1/fs/file` | Download a file |
+| PUT | `/api/v1/fs/file` | Upload a file |
+| POST | `/api/v1/fs/mkdir` | Make a directory |
+| POST | `/api/v1/fs/move` | Move or rename |
+| POST | `/api/v1/fs/copy` | Copy a file |
+| GET | `/api/v1/screen` | What the screen shows |
+| PATCH | `/api/v1/screen` | The backlight, now |
+| DELETE | `/api/v1/screen` | Show nothing |
+| POST | `/api/v1/screen/show` | Show a clip, image, colour, or the crosshair |
+| GET | `/api/v1/media` | The clips and images under a directory |
+| GET | `/api/v1/media/info` | Describe a clip or image |
+| GET | `/api/v1/leds` | The LED strip |
+| PATCH | `/api/v1/leds` | Change the LED strip, now |
+| GET | `/api/v1/holo` | Each holo's motion, position and light |
+| POST | `/api/v1/holo/motion` | Move a holo, or start or stop a behaviour |
+| POST | `/api/v1/holo/light` | Set a holo's light |
+| GET | `/api/v1/servos` | The servos: position, limits, policy |
+| POST | `/api/v1/servos/move` | Drive a servo to a position |
+| POST | `/api/v1/servos/release` | Stop driving servos |
+| PUT | `/api/v1/servos/calibration` | Save a servo's working range |
+| DELETE | `/api/v1/servos/calibration` | Forget it |
+| PUT | `/api/v1/servos/policy` | Save a servo's drive policy |
+| GET | `/api/v1/scenes` | The saved scenes |
+| PUT | `/api/v1/scenes/scene` | Save a scene |
+| DELETE | `/api/v1/scenes/scene` | Delete a scene |
+| POST | `/api/v1/scenes/apply` | Apply a scene |
+| GET | `/api/v1/settings` | What the board starts with |
+| PATCH | `/api/v1/settings` | Change it (saved) |
+| DELETE | `/api/v1/settings` | Back to the defaults |
+| GET | `/api/v1/network` | The network, the known ones, the access point |
+| PATCH | `/api/v1/network` | Turn joining networks on or off |
+| GET | `/api/v1/network/scan` | The networks in range |
+| PUT | `/api/v1/network/known` | Save a network |
+| DELETE | `/api/v1/network/known` | Forget a network |
+| POST | `/api/v1/network/join` | Join a network |
+| PATCH | `/api/v1/network/ap` | The access point: on or off, name, passphrase |
+| GET | `/api/v1/web` | The web server's settings |
+| PATCH | `/api/v1/web` | Change them (saved) |
 
 `v1` changes only when an existing client would break; new endpoints and new fields arrive without
 it changing.
