@@ -27,6 +27,9 @@ static const char *TAG = "leds";
 
 static led_strip_handle_t s_strip;
 static SemaphoreHandle_t s_lock;   /* the strip, and the state below */
+/* Held across a whole change -- stopping a pattern, then starting the next -- so two callers
+ * (the console and the API) cannot each start one. */
+static SemaphoreHandle_t s_ctl;
 static TaskHandle_t s_task;
 static volatile bool s_stop;
 static leds_mode_t s_mode = LEDS_OFF;
@@ -168,6 +171,7 @@ static void stop_pattern(void)
 esp_err_t leds_solid(uint8_t r, uint8_t g, uint8_t b)
 {
     ESP_RETURN_ON_FALSE(s_strip != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    xSemaphoreTake(s_ctl, portMAX_DELAY);
     stop_pattern();
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_rgb[0] = r;
@@ -176,17 +180,20 @@ esp_err_t leds_solid(uint8_t r, uint8_t g, uint8_t b)
     s_mode = LEDS_SOLID;
     const esp_err_t err = fill_locked(s_rgb);
     xSemaphoreGive(s_lock);
+    xSemaphoreGive(s_ctl);
     return err;
 }
 
 esp_err_t leds_off(void)
 {
     ESP_RETURN_ON_FALSE(s_strip != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
+    xSemaphoreTake(s_ctl, portMAX_DELAY);
     stop_pattern();
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_mode = LEDS_OFF;
     const esp_err_t err = led_strip_clear(s_strip);
     xSemaphoreGive(s_lock);
+    xSemaphoreGive(s_ctl);
     return err;
 }
 
@@ -195,6 +202,7 @@ esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool l
     ESP_RETURN_ON_FALSE(s_strip != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
     ESP_RETURN_ON_FALSE(pattern == LEDS_WIPE || pattern == LEDS_RAINBOW, ESP_ERR_INVALID_ARG,
                         TAG, "not a pattern");
+    xSemaphoreTake(s_ctl, portMAX_DELAY);
     stop_pattern();
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_mode = pattern;
@@ -204,12 +212,14 @@ esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool l
     s_loop = loop;
     s_stop = false;
     xSemaphoreGive(s_lock);
+    esp_err_t err = ESP_OK;
     if (xTaskCreate(pattern_task, "leds", TASK_STACK, NULL, TASK_PRIO, &s_task) != pdPASS) {
         s_task = NULL;
         s_mode = LEDS_OFF;
-        return ESP_ERR_NO_MEM;
+        err = ESP_ERR_NO_MEM;
     }
-    return ESP_OK;
+    xSemaphoreGive(s_ctl);
+    return err;
 }
 
 void leds_set_brightness(int percent)
@@ -225,6 +235,11 @@ void leds_set_brightness(int percent)
         fill_locked(s_rgb);
     }
     xSemaphoreGive(s_lock);
+}
+
+int leds_count(void)
+{
+    return N;
 }
 
 int leds_get_brightness(void)
@@ -253,7 +268,8 @@ esp_err_t leds_init(void)
         s_gamma[i] = (uint8_t)(powf(i / 255.0f, 2.6f) * 255.0f + 0.5f);
     }
     s_lock = xSemaphoreCreateMutex();
-    ESP_RETURN_ON_FALSE(s_lock != NULL, ESP_ERR_NO_MEM, TAG, "lock");
+    s_ctl = xSemaphoreCreateMutex();
+    ESP_RETURN_ON_FALSE(s_lock != NULL && s_ctl != NULL, ESP_ERR_NO_MEM, TAG, "lock");
 
     const led_strip_config_t strip_cfg = {
         .strip_gpio_num = CONFIG_LEDS_GPIO,

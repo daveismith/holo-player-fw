@@ -20,3 +20,15 @@ cJSON *api_screen_json(void);
  * message starts with `part`: ("screen").
  */
 bool api_screen_show(httpd_req_t *req, const cJSON *show, const char *part);
+
+/* /api/v1/leds */
+esp_err_t api_leds_register(void);
+cJSON *api_leds_json(void);
+/* Apply an LED patch ({mode?, colour?, loop?, brightness?}); false after sending the error. */
+bool api_leds_apply(httpd_req_t *req, const cJSON *patch, const char *part);
+
+/* /api/v1/holo, and /api/v1/servos behind it */
+esp_err_t api_holo_register(void);
+cJSON *api_holo_json(void);
+/* Start a motion ({motion, ...}); false after sending the error. */
+bool api_holo_apply(httpd_req_t *req, const cJSON *motion, const char *part);

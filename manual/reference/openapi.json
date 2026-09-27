@@ -1996,8 +1996,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "patch": {
         "tags": [
@@ -2091,8 +2090,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/holo": {
@@ -2121,8 +2119,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/holo/motion": {
@@ -2249,8 +2246,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/servos": {
@@ -2317,8 +2313,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/servos/move": {
@@ -2431,8 +2426,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/servos/release": {
@@ -2524,8 +2518,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/servos/calibration": {
@@ -2630,8 +2623,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -2705,8 +2697,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/servos/policy": {
@@ -2802,8 +2793,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/scenes": {

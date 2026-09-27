@@ -21,7 +21,7 @@
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
 
-#define CONSOLE_MAX_CMDLINE_ARGS 8
+#define CONSOLE_MAX_CMDLINE_ARGS 16
 #define CONSOLE_MAX_CMDLINE_LENGTH 256
 #define CONSOLE_PROMPT_MAX_LEN (32)
 

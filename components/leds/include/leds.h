@@ -43,6 +43,8 @@ esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool l
 /* Percent, 1-100; applied at once to a solid colour and from the next frame to a pattern. */
 void leds_set_brightness(int percent);
 int leds_get_brightness(void);
+/* LEDs on the strip. */
+int leds_count(void);
 /* What is showing; the colour for LEDS_SOLID and LEDS_WIPE, and whether a pattern loops. */
 leds_mode_t leds_mode(uint8_t rgb[3], bool *loop);
 

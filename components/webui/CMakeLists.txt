@@ -1,6 +1,6 @@
-idf_component_register(SRCS "webui.c" "webui_release.c" "api_screen.c"
+idf_component_register(SRCS "webui.c" "webui_release.c" "api_screen.c" "api_leds.c" "api_holo.c"
                        INCLUDE_DIRS "include"
-                       PRIV_REQUIRES web_server web_api video board_ws128)
+                       PRIV_REQUIRES web_server web_api video board_ws128 leds holo)
 
 # The web app (web/ at the top of the repository), plus two files it shares with the
 # documentation site: the image inspector the installer uses, and the API's OpenAPI description

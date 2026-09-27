@@ -21,6 +21,8 @@ esp_err_t webui_start(void)
     esp_err_t err = web_ota_register();
     err |= web_fs_register();
     err |= api_screen_register();
+    err |= api_leds_register();
+    err |= api_holo_register();
     const web_server_config_t cfg = {
         .name_prefix = "holo",
         .product = "Holo Player",
