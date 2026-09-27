@@ -12,6 +12,39 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Added
 
+- **Updates over Wi-Fi, and a web app to do them from.** The board serves a small web app, for
+  phones and computers, at `http://holo-xxxx.local/` or its address on your network (`web` on the
+  console prints both). It has two pages to start with, built to take settings and clips later:
+  - **Status**: the firmware, the network, and whether a newer release is out;
+  - **Update**: both firmware slots, with a switch back to the other one; the latest release, which
+    the board downloads itself from this documentation site, checked against the release's
+    SHA-256; and uploading a `.bin`. The page reads the file first, and warns about a downgrade or
+    a file for another project. Then it restarts into the new image and reports it running.
+
+  An upload streams straight into the slot that isn't running, and takes about 15 s for 1.6 MB.
+  As over serial, a wrong or broken image never becomes the boot image. Documented in
+  [The board over Wi-Fi](manual/use/web.md) and [Updating the firmware](manual/use/ota.md).
+- **An HTTP API**, which the web app uses and scripts can too, under `/api/v1`:
+  - upload an image;
+  - follow its state;
+  - see which slot runs and boots;
+  - switch slots;
+  - have the board pull an image from a URL, a release manifest, or a release channel (`latest`);
+  - check for an update without downloading it.
+
+  It is described in OpenAPI 3.1, rendered on the documentation site
+  ([HTTP API explorer](manual/reference/http-api-explorer.md)) and served by each board at
+  `/api/v1/openapi.json`. A guide with `curl` recipes is at [HTTP API](manual/reference/http-api.md).
+  `make docs-check` fails if the firmware's routes and the description drift apart.
+- **The board's own access point**, for when there is no network: `wifi ap on` starts `holo-xxxx`
+  (WPA2, with a random passphrase it keeps) at `192.168.4.1`, and a phone that joins is offered the
+  board's page. The access point is off again after every restart.
+- **An optional password** for changes over the web: `web password <password>`. Even without
+  one, pages on other sites can't drive the board from your browser. Also `web on|off` and
+  `web hostname`.
+- **`ota pull <url|channel>` and `ota activate [slot]`** on the console: the same pull and switch,
+  without a browser.
+
 - **The board in the browser.** A new documentation page talks to a board running Holo Player
   over Web Serial (desktop Chrome, Edge or Opera), with no tools to install:
   - a file manager for `/data`: upload by dropping files, download, rename, delete, move by

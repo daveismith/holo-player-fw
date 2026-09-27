@@ -91,9 +91,11 @@ Full detail in [The holoprojector](../use/holo.md).
 | `fs get [-b baud] [-s 128\|1024] <path>` | Send a file over XMODEM-1K |
 | `ota [status]` | Both application slots: what is in each, its version, and which runs and boots |
 | `ota put [-b baud] [-n] [-d] <size>` | Receive a new image into the slot that is not running |
+| `ota pull [-n] [-s] [-f] [--sha256 <hex>] <url\|channel>` | Download a new image over Wi-Fi: a release channel such as `latest`, a release's manifest, or an image's URL |
+| `ota activate [-n] [slot]` | Make the staged image, or the image in a slot, the boot image, and restart into it |
 
-The host side of all of these is `tools/fs_xfer.py` in esp-console-kit — see
-[Files on the board](../use/files.md) and [Updating over serial](../use/ota.md).
+The host side of `fs put`, `fs get` and `ota put` is `tools/fs_xfer.py` in esp-console-kit — see
+[Files on the board](../use/files.md) and [Updating the firmware](../use/ota.md).
 
 ## System
 
@@ -117,11 +119,16 @@ flash counters; all are enabled in `sdkconfig.defaults`.
 
 ## Networking
 
-Wi-Fi is not needed for anything on this page, but it is available.
+Wi-Fi is what the [web app](../use/web.md) and [updates over Wi-Fi](../use/ota.md#updating-over-wi-fi)
+use; nothing else needs it.
 
 | Command | Does |
 |---|---|
 | `wifi [on\|off]` | Turn the radio on or off |
+| `wifi ap [on\|off] [--ssid <ssid>] [--pass <passphrase>]` | The board's own access point, `holo-xxxx` at 192.168.4.1: on or off (off again at every boot), and its name and passphrase. Alone, shows them |
+| `web [on\|off]` | The web app and its API: where to reach it. `off` stops the server, and stays off across restarts |
+| `web password <password>\|--clear` | Changes over the web (updates, restarts) need this password |
+| `web hostname <name>\|--clear` | The board's name on the network: `<name>.local` |
 | `wifi_save <ssid> [pass]` | Remember a network. The board rejoins the last one at boot |
 | `wifi_forget` | Forget a saved network |
 | `wifi_known` | List saved networks |

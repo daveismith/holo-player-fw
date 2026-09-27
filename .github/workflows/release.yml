@@ -93,6 +93,9 @@ jobs:
       - name: Documentation toolchain
         run: make docs-setup
 
+      - name: The HTTP API's OpenAPI description is valid
+        run: make api-validate
+
       - name: Every registered command is documented; the installer's code is intact and tested
         run: make docs-check
 

@@ -3,3 +3,5 @@
 zensical==0.0.63
 # Zensical's maintained fork of mike (2.2.0 + compatibility fixes), pinned to tag 2.2.0+zensical-0.1.0
 mike @ git+https://github.com/squidfunk/mike.git@0f62791256ebeba60d20d2f1d8fe6ec3b7d1e2b3
+# `make api-validate`: the HTTP API's OpenAPI description (manual/reference/openapi.json)
+openapi-spec-validator==0.9.0

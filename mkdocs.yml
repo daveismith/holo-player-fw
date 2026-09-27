@@ -44,10 +44,13 @@ extra_javascript:
     type: module
   - path: javascripts/board/ui.js
     type: module
+  - path: javascripts/api/ui.js
+    type: module
 
 extra_css:
   - stylesheets/installer.css
   - stylesheets/board.css
+  - stylesheets/api.css
 
 extra:
   version:
@@ -86,10 +89,13 @@ nav:
       - The holoprojector: use/holo.md
       - Files on the board: use/files.md
       - The board in the browser: use/board.md
-      - Updating over serial: use/ota.md
+      - The board over Wi-Fi: use/web.md
+      - Updating the firmware: use/ota.md
       - Troubleshooting: troubleshooting.md
   - Reference:
       - Console commands: reference/console.md
+      - HTTP API: reference/http-api.md
+      - HTTP API explorer: reference/http-api-explorer.md
       - Configuration: reference/config.md
       - Video internals: reference/video-internals.md
       - Changelog: changelog.md
