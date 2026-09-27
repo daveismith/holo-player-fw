@@ -42,6 +42,10 @@ so the release tag is the version baked into the image and reported by `version`
 - **An optional password** for changes over the web: `web password <password>`. Even without
   one, pages on other sites can't drive the board from your browser. Also `web on|off` and
   `web hostname`.
+- **Trusted sites may call the API from a browser (CORS)**: Swagger Editor, and `astromech.co` and
+  `davidiansmith.ca` with their subdomains, so the documentation's API explorer and Swagger Editor
+  can try requests on a real board (in Chrome and Edge). Every other site is refused.
+  `web cors` changes the list.
 - **`ota pull <url|channel>` and `ota activate [slot]`** on the console: the same pull and switch,
   without a browser.
 

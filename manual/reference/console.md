@@ -129,6 +129,7 @@ use; nothing else needs it.
 | `web [on\|off]` | The web app and its API: where to reach it. `off` stops the server, and stays off across restarts |
 | `web password <password>\|--clear` | Changes over the web (updates, restarts) need this password |
 | `web hostname <name>\|--clear` | The board's name on the network: `<name>.local` |
+| `web cors [add <origin>\|remove <origin>\|reset\|none]` | Which other sites' pages may call the API from a browser (CORS). Alone, lists them |
 | `wifi_save <ssid> [pass]` | Remember a network. The board rejoins the last one at boot |
 | `wifi_forget` | Forget a saved network |
 | `wifi_known` | List saved networks |

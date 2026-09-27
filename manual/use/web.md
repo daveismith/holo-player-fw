@@ -95,8 +95,24 @@ web password --clear
 ```
 
 Even with no password set, a web page elsewhere can't drive the board from your browser. The board
-answers only requests that name it, and only in forms a browser won't send across sites. The
+answers only requests that name it, and only in forms a browser won't send across sites, except
+for a few [trusted sites](#other-sites-and-api-tools). The
 [HTTP API reference](../reference/http-api.md#protection) has the details.
+
+## Other sites and API tools
+
+Pages on a few trusted sites may call the board's API from your browser:
+[Swagger Editor](https://editor.swagger.io), and this project's `astromech.co` and
+`davidiansmith.ca`, with their subdomains. That is what lets the
+[HTTP API explorer](../reference/http-api-explorer.md) try requests on a real board. Every other
+site is refused. To see or change the list, run:
+
+```
+web cors
+```
+
+The [HTTP API reference](../reference/http-api.md#protection) covers adding and removing sites.
+Set a password before you add a site you don't control.
 
 ## Turning it off
 

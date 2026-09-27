@@ -70,6 +70,9 @@ CONFIG_LWIP_MAX_SOCKETS=16
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 # The access point (`wifi ap on`) is holo-xxxx, as is the board's name, holo-xxxx.local
 CONFIG_CMD_WIFI_AP_SSID_PREFIX="holo"
+# Sites whose pages may call the board's API from a browser (CORS): Swagger Editor, and this
+# project's own sites with their subdomains. `web cors` changes it on a board.
+CONFIG_WEB_SERVER_CORS_ORIGINS="https://editor.swagger.io https://astromech.co https://*.astromech.co https://davidiansmith.ca https://*.davidiansmith.ca"
 
 # LittleFS, tuned for sequential reads of large files (the MJPEG clips). The component's
 # defaults (128-byte reads, 512-byte caches) measure about 2 MB/s in IDF's perf_benchmark.

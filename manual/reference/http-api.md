@@ -33,8 +33,8 @@ means something and a stable `error` code to branch on:
   in its `Host` header: an IP address, `holo-xxxx` or `holo-xxxx.local`. A `POST` must also say
   `Content-Type: application/json`, or `application/octet-stream` for an image. `curl` and scripts
   do this naturally. A web page on another site can't, because a browser won't send those requests
-  across sites without the board's consent, and the board never gives it. So a page you happen to
-  visit can't update or restart the board, even with no password set.
+  across sites without the board's consent, and the board gives it only to the trusted sites below.
+  So a page you happen to visit can't update or restart the board, even with no password set.
 - **The password.** Once one is set with `web password <password>` on the console, changes also
   need it, sent either way:
 
@@ -45,6 +45,20 @@ means something and a stable `error` code to branch on:
 
   Without it, the reply is `401` with `WWW-Authenticate: Bearer`. `GET /api/v1/info` reports
   `"auth": true` when a password is set.
+- **Trusted sites (CORS).** Pages from a short list of sites may call the API from a browser: the
+  board answers their CORS preflights and lets them read its replies. The list starts as
+  [Swagger Editor](https://editor.swagger.io), `astromech.co` and `davidiansmith.ca`, each with its
+  subdomains. `web cors` on the console shows it and changes it:
+
+  ```
+  web cors add http://localhost:8080
+  ```
+
+  `web cors remove <origin>` takes one away, `web cors none` empties the list, and `web cors reset`
+  goes back to the default. An origin is `scheme://host[:port]`; `https://*.example.com` covers
+  every subdomain of `example.com` but not `example.com` itself. The other checks still apply to
+  these sites. **With no password set, a listed site can update and restart the board**, so set a
+  password if you add one you don't control.
 
 The API is plain HTTP. On a network you don't trust, set a password and prefer the board's own
 access point, which is WPA2.

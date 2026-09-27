@@ -9,9 +9,16 @@ The [HTTP API](http-api.md) page explains the ideas behind it (the update sessio
 password) with `curl` recipes.
 
 !!! note "Trying it out"
-    This page describes the API, but can't call a board. A page on this site can't reach a board
-    on your network: over https the browser blocks plain-http requests, and the board doesn't
-    answer other sites' pages anyway (that is part of its [protection](http-api.md#protection)).
-    Use `curl`, a script, or the board's own web app.
+    **Try it out** calls a real board. Set `host` under **Servers** to its name or address, and
+    use **Authorize** for its password if one is set. This site is on the board's list of
+    [trusted sites](http-api.md#protection), so the board answers it.
+
+    It works in Chrome and Edge, which may first ask to let this site reach devices on your local
+    network. Safari and Firefox refuse to call a plain-http address from an https page, so use
+    `curl` there, or the offline documentation served by its `serve.py`, and
+    `web cors add http://localhost:8000` on the board.
+
+    [Swagger Editor](https://editor.swagger.io) works the same way. Paste in `openapi.json`, or
+    import it from the board's `/api/v1/openapi.json`.
 
 <div id="swagger-ui"></div>

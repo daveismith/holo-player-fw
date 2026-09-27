@@ -4,9 +4,9 @@
 // #swagger-ui element. Swagger UI is vendored (tools/vendor_js.py), never from a CDN, so the
 // explorer works in the offline documentation too.
 //
-// "Try it out" is off: a page from this site can't call a board. Over https the browser blocks
-// plain-http requests to it, and the board never allows another site's pages to read its
-// replies anyway (see the HTTP API page's "Protection"). The curl recipes are the way to try it.
+// "Try it out" calls a real board: this site's origins are on the board's CORS allowlist
+// (`web cors`; CONFIG_WEB_SERVER_CORS_ORIGINS). Chrome and Edge allow an https page to reach a
+// plain-http device on the local network; Safari and Firefox don't (the page says so).
 
 import { siteRoot } from "../common/dom.js";
 
@@ -37,9 +37,8 @@ async function mount(el) {
     deepLinking: true,
     docExpansion: "list",
     defaultModelsExpandDepth: 0,
-    supportedSubmitMethods: [],
     validatorUrl: null,
-    tryItOutEnabled: false,
+    persistAuthorization: true,
   });
 }
 

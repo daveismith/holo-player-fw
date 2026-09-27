@@ -107,6 +107,7 @@ export function danger(line) {
       if (sub === "off") return "This stops the web app and its API until `web on`.";
       if (sub === "password") return "This changes the password that updates over the web need.";
       if (sub === "hostname") return "This changes the board's name on the network.";
+      if (sub === "cors" && rest.length) return "This changes which other sites may call the board's API from a browser.";
       return null;
     case "deep_sleep":
     case "light_sleep":
