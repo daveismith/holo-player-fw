@@ -26,6 +26,7 @@
 #include "esp_memory_utils.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "board.h"
 #include "gif_image.h"
@@ -60,6 +61,7 @@ struct Request {
 
 struct Stats {
     char path[PATH_LEN];
+    bool loop;
     uint32_t width, height, frames;
     double fps;              /* the file's */
     const char *mode;        /* how frames reach the panel, for the report */
@@ -85,6 +87,25 @@ volatile bool s_stop;
 volatile bool s_replacing;
 esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
+
+/*
+ * Everything that draws, or says what is drawn, holds this: the console and the API run on
+ * tasks of their own and would otherwise draw over each other. Recursive, since one entry point
+ * calls another (`screen colour` stops a clip). The player's task never takes it.
+ */
+SemaphoreHandle_t s_lock;
+
+}  // namespace
+extern "C" void screen_lock(void);
+extern "C" void screen_unlock(void);
+namespace {
+
+struct Lock {
+    Lock() { screen_lock(); }
+    ~Lock() { screen_unlock(); }
+    Lock(const Lock &) = delete;
+    Lock &operator=(const Lock &) = delete;
+};
 
 void timer_cb(void *)
 {
@@ -246,6 +267,7 @@ void play_clip(const Request &req)
     Stats &s = s_stats;
     s = {};
     strlcpy(s.path, req.path, sizeof(s.path));
+    s.loop = req.loop;
     s.width = w;
     s.height = h;
     s.frames = (uint32_t)qt.FrameCount();
@@ -329,6 +351,7 @@ void play_clip(const Request &req)
  * It loops as the file asks: NETSCAPE's count is of repeats, so n plays it n + 1 times, 0 plays
  * it forever, and a file without the extension plays once. When the passes run out the last
  * frame stays up, as a still does -- a GIF is shown with `image show`, and an image stays.
+ * `loop` (from the API) plays it forever instead.
  */
 void play_gif(const Request &req)
 {
@@ -337,6 +360,7 @@ void play_gif(const Request &req)
     Stats &s = s_stats;
     s = {};
     strlcpy(s.path, req.path, sizeof(s.path));
+    s.loop = req.loop;
     s.width = hdr.width;
     s.height = hdr.height;
     s.frames = (uint32_t)hdr.frames;
@@ -347,7 +371,8 @@ void play_gif(const Request &req)
     board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
-    const int passes = hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+    /* `loop` plays it forever, whatever the file says */
+    const int passes = req.loop ? 0 : hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
 
     s.started_us = now_us();
     bool held = false, broken = false;
@@ -601,6 +626,7 @@ esp_err_t draw_calibration()
 
 int cmd_screen(int argc, char **argv)
 {
+    Lock lock;
     const char *sub = argc > 1 ? argv[1] : "";
     if (argc == 1 || strcmp(sub, "status") == 0) {
         if (video_playing()) {
@@ -646,6 +672,7 @@ int cmd_screen(int argc, char **argv)
 
 int cmd_video(int argc, char **argv)
 {
+    Lock lock;
     const char *sub = argc > 1 ? argv[1] : "";
     char path[PATH_LEN];
     if (strcmp(sub, "play") == 0 && argc >= 3) {
@@ -700,6 +727,72 @@ int cmd_video(int argc, char **argv)
 
 }  // namespace
 
+/* What is about to play, from its header, for anyone who asks before the player's task has
+ * started (which fills in the rest). */
+static void prime_stats(const char *path, bool loop, uint32_t w, uint32_t h, uint32_t frames, double fps)
+{
+    s_stats = {};
+    strlcpy(s_stats.path, path, sizeof(s_stats.path));
+    s_stats.loop = loop;
+    s_stats.width = w;
+    s_stats.height = h;
+    s_stats.frames = frames;
+    s_stats.fps = fps;
+}
+
+extern "C" void screen_lock(void)
+{
+    if (s_lock == nullptr) {
+        s_lock = xSemaphoreCreateRecursiveMutex();
+    }
+    xSemaphoreTakeRecursive(s_lock, portMAX_DELAY);
+}
+
+extern "C" void screen_unlock(void)
+{
+    xSemaphoreGiveRecursive(s_lock);
+}
+
+extern "C" esp_err_t screen_probe_clip(const char *path, media_info_t *out)
+{
+    *out = {};
+    out->kind = MEDIA_CLIP;
+    out->format = MEDIA_MOV;
+    FILE *f = fopen(path, "rb");
+    if (f == nullptr) {
+        const int err = errno;
+        snprintf(out->why, sizeof(out->why), "%s", strerror(err));
+        return err == ENOENT ? ESP_ERR_NOT_FOUND : ESP_FAIL;
+    }
+    quicktime::QuickTimeFile qt(f);
+    fclose(f);      /* everything below comes from the parsed header */
+    if (!qt.IsValid()) {
+        snprintf(out->why, sizeof(out->why), "not a QuickTime clip: %s", qt.Error());
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    const uint32_t c = qt.Codec();
+    for (int i = 0; i < 4; i++) {
+        const char ch = (char)(c >> (24 - 8 * i));
+        out->codec[i] = ch >= 0x20 && ch < 0x7f ? ch : '?';
+    }
+    out->width = qt.Width();
+    out->height = qt.Height();
+    out->frames = (uint32_t)qt.FrameCount();
+    out->duration_s = qt.DurationUs() / 1e6;
+    out->fps = qt.DurationUs() ? out->frames * 1e6 / qt.DurationUs() : 0;
+    if (!is_jpeg(c)) {
+        snprintf(out->why, sizeof(out->why), "codec '%s', not Motion-JPEG ('jpeg' or 'mjpa')", out->codec);
+    } else if (out->width == 0 || out->height == 0) {
+        snprintf(out->why, sizeof(out->why), "it has no pixels");
+    } else if (out->width > BOARD_LCD_H_RES || out->height > BOARD_LCD_V_RES) {
+        snprintf(out->why, sizeof(out->why), "%" PRIu32 "x%" PRIu32 " is larger than the %dx%d screen",
+                 out->width, out->height, BOARD_LCD_H_RES, BOARD_LCD_V_RES);
+    } else {
+        out->playable = true;
+    }
+    return ESP_OK;
+}
+
 extern "C" void screen_take_panel(void)
 {
     /* Over a clip the panel stays on, so what replaces it appears in its place rather than
@@ -725,6 +818,7 @@ extern "C" void screen_resolve_path(const char *in, char *out, size_t len)
 
 extern "C" esp_err_t screen_show_colour(uint16_t rgb)
 {
+    Lock lock;
     /* Over a clip, the panel stays on; from sleep, it wakes with the colour already in place. */
     screen_take_panel();
     const esp_err_t err = board_lcd_power_on(rgb);
@@ -737,8 +831,19 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
     return err;
 }
 
+extern "C" esp_err_t screen_show_rgb(const uint8_t rgb[3])
+{
+    Lock lock;
+    const esp_err_t err = screen_show_colour(rgb565(rgb[0], rgb[1], rgb[2]));
+    if (err == ESP_OK) {
+        memcpy(s_colour_rgb, rgb, sizeof(s_colour_rgb));    /* as given, not as RGB565 rounds it */
+    }
+    return err;
+}
+
 extern "C" esp_err_t screen_show_calibration(void)
 {
+    Lock lock;
     /* As for a colour: over a clip the panel stays on, and from sleep it wakes already black. */
     screen_take_panel();
     const esp_err_t err = draw_calibration();
@@ -748,6 +853,7 @@ extern "C" esp_err_t screen_show_calibration(void)
 
 extern "C" esp_err_t screen_clear(void)
 {
+    Lock lock;
     video_stop();
     s_showing = Showing::Nothing;
     return board_lcd_power_off();
@@ -755,6 +861,7 @@ extern "C" esp_err_t screen_clear(void)
 
 extern "C" bool screen_release(const char *path)
 {
+    Lock lock;
     const size_t n = strlen(path);
     const char *playing = s_stats.path;
     if (!video_playing() || strncmp(playing, path, n) != 0 || (playing[n] != '\0' && playing[n] != '/')) {
@@ -764,13 +871,99 @@ extern "C" bool screen_release(const char *path)
     return true;
 }
 
+extern "C" esp_err_t screen_set_backlight(int percent)
+{
+    Lock lock;
+    return board_lcd_set_backlight(percent);
+}
+
+extern "C" void screen_get_state(screen_state_t *out)
+{
+    Lock lock;
+    *out = {};
+    out->powered = board_lcd_powered();
+    out->backlight = board_lcd_get_backlight();
+    if (video_playing()) {
+        const Stats &s = s_stats;
+        out->showing = SCREEN_CLIP;
+        strlcpy(out->path, s.path, sizeof(out->path));
+        out->loop = s.loop;
+        out->width = s.width;
+        out->height = s.height;
+        out->frames = s.frames;
+        out->fps = s.fps;
+        out->shown = s.shown;
+        out->loops = s.loops;
+        out->late = s.late;
+        out->elapsed_ms = s.started_us ? (now_us() - s.started_us) / 1000 : 0;
+        return;
+    }
+    if (!out->powered) {
+        return;             /* SCREEN_NOTHING: the panel sleeps whenever nothing shows */
+    }
+    switch (s_showing) {
+    case Showing::Colour:
+        out->showing = SCREEN_COLOUR;
+        memcpy(out->rgb, s_colour_rgb, sizeof(out->rgb));
+        break;
+    case Showing::Calibration:
+        out->showing = SCREEN_CALIBRATION;
+        break;
+    case Showing::Image:
+        out->showing = SCREEN_IMAGE;
+        strlcpy(out->path, s_image_path, sizeof(out->path));
+        out->width = s_image_w;
+        out->height = s_image_h;
+        break;
+    default:
+        break;
+    }
+}
+
+extern "C" esp_err_t screen_show_file(const char *path, bool loop, bool whole_frame, char *why, size_t why_len)
+{
+    Lock lock;
+    media_info_t info;
+    const esp_err_t err = media_probe(path, &info);
+    if (err == ESP_ERR_NOT_FOUND) {
+        snprintf(why, why_len, "no such file");
+        return err;
+    }
+    if (err != ESP_OK || !info.playable) {
+        snprintf(why, why_len, "%s", info.why[0] ? info.why : "it cannot be shown");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (info.kind == MEDIA_CLIP) {
+        const esp_err_t played = video_play(path, loop, whole_frame);
+        if (played != ESP_OK) {
+            snprintf(why, why_len, "%s", esp_err_to_name(played));
+        }
+        return played;
+    }
+    if (image_show_file(path, loop) != 0) {
+        snprintf(why, why_len, "it could not be drawn");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
 extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
 {
+    Lock lock;
+    /* Checked here, before anything that is showing stops, so a file that cannot play is
+     * refused at once -- and the screen left alone -- rather than failing on the player's task. */
+    media_info_t info;
+    const esp_err_t probed = screen_probe_clip(path, &info);
+    if (probed != ESP_OK || !info.playable) {
+        printf("video: %s: %s\n", path, info.why);
+        return probed == ESP_ERR_NOT_FOUND ? probed : ESP_ERR_INVALID_ARG;
+    }
     screen_take_panel();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
     req->loop = loop;
     req->whole_frame = whole_frame;
+    prime_stats(path, loop, info.width, info.height, info.frames, info.fps);
     s_stop = false;
     if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
                                 TASK_CORE) != pdPASS) {
@@ -782,11 +975,15 @@ extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
     return ESP_OK;
 }
 
-esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path)
+esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, bool loop)
 {
+    Lock lock;
     screen_take_panel();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
+    req->loop = loop;
+    prime_stats(path, loop, hdr.width, hdr.height, (uint32_t)hdr.frames,
+                hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
     req->gif = g;
     req->gif_hdr = hdr;
     s_stop = false;
@@ -803,6 +1000,7 @@ esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path)
 
 extern "C" void video_stop(void)
 {
+    Lock lock;
     if (s_task == nullptr) {
         return;
     }

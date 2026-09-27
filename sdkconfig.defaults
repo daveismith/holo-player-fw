@@ -73,6 +73,8 @@ CONFIG_CMD_WIFI_AP_SSID_PREFIX="holo"
 # The HTTP API has about 50 routes: files, screen, LEDs, holo, servos, scenes, settings,
 # network and updates
 CONFIG_WEB_SERVER_MAX_ROUTES=64
+# The server's task decodes the stills it is asked to show (PNG, JPEG), as the console's does
+CONFIG_WEB_SERVER_STACK_SIZE=10240
 # Sites whose pages may call the board's API from a browser (CORS): Swagger Editor, and this
 # project's own sites with their subdomains. `web cors` changes it on a board.
 CONFIG_WEB_SERVER_CORS_ORIGINS="https://editor.swagger.io https://astromech.co https://*.astromech.co https://davidiansmith.ca https://*.davidiansmith.ca"

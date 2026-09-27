@@ -1592,8 +1592,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "patch": {
         "tags": [
@@ -1664,8 +1663,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -1705,8 +1703,7 @@
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/screen/show": {
@@ -1859,8 +1856,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/media": {
@@ -1912,8 +1908,7 @@
           "404": {
             "$ref": "#/components/responses/PathNotFound"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/media/info": {
@@ -1972,8 +1967,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/leds": {

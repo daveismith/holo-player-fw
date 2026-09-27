@@ -7,6 +7,7 @@
 #include "web_ota.h"
 #include "web_server.h"
 #include "webui.h"
+#include "api.h"
 
 extern const web_asset_t webui_assets[];
 extern const size_t webui_asset_count;
@@ -19,6 +20,7 @@ esp_err_t webui_start(void)
     ota_pull_set_resolver(webui_release_resolve);
     esp_err_t err = web_ota_register();
     err |= web_fs_register();
+    err |= api_screen_register();
     const web_server_config_t cfg = {
         .name_prefix = "holo",
         .product = "Holo Player",
