@@ -267,6 +267,32 @@ curl -X PATCH -H "$J" -d '{"password":"hunter22"}' "$B/web"
 curl -u any:hunter22 -X PATCH -H "$J" -d '{"hostname":"holo-dome"}' "$B/web"
 ```
 
+## A show, scripted
+
+Upload a clip, check it can play, save it as a scene with warm LEDs and a restless holo, and have the
+board start with it:
+
+```sh
+#!/bin/sh
+set -e
+B=http://${1:-holo-2db0.local}/api/v1
+J='Content-Type: application/json'
+
+curl -fsS -T cantina.mov "$B/fs/file?path=/clips/cantina.mov&parents=true&overwrite=true" >/dev/null
+curl -fsS "$B/media/info?path=/clips/cantina.mov"; echo
+curl -fsS -X PUT -H "$J" "$B/scenes/scene?name=cantina" -d '{
+  "screen": {"path": "/clips/cantina.mov", "loop": true},
+  "leds":   {"mode": "solid", "colour": "#ff8000", "brightness": 25},
+  "holo":   {"motion": "twitch", "range": 50}
+}' >/dev/null
+curl -fsS -X POST -H "$J" -d '{"name":"cantina"}' "$B/scenes/apply" >/dev/null
+curl -fsS -X PATCH -H "$J" -d '{"boot_scene":"cantina"}' "$B/settings"; echo
+```
+
+`tools/api_smoke.py` in the repository exercises every endpoint this way, and checks each reply
+against the OpenAPI description: `make api-smoke HOST=holo-2db0.local` (add `WRITE=1` to also
+change things, under `/test-api` on the board, putting back what it touches).
+
 ## Updates
 
 An update is a **session**, whether it comes from an upload, a pull, or the console's `ota put`.
