@@ -56,7 +56,8 @@ over Wi-Fi or the console instead of USB — see [Updating the firmware](manual/
 
 ## Over Wi-Fi
 
-On your network (`wifi_save <ssid> <pass>`), or on its own access point (`wifi ap on`), the board
+On your network (`wifi_save <ssid> <pass>`), or on its own access point (`wifi ap on`; it also comes
+on for 5 minutes when the board can't join a network at start, or when you press BOOT), the board
 serves a web app for phones and computers at `http://holo-xxxx.local/`; `web` on the console prints
 the addresses. It plays clips and shows images, sets the LEDs, points and animates the holo,
 calibrates its servos, saves scenes and chooses the one the board starts with, manages the files on

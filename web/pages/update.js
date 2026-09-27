@@ -36,8 +36,8 @@ function overlay(...content) {
 async function waitForRestart(ctx, expect) {
   const viaAp = ctx.info?.via === "ap";
   const text = h("p", {}, expect ? `Restarting into ${expect}. This page reconnects by itself.` : "Restarting. This page reconnects by itself.");
-  const extra = viaAp ? h("p", { class: "muted" }, "The board's access point is off after a restart: turn it on again on the console with ",
-    code("wifi ap on"), ", then rejoin it.") : null;
+  const extra = viaAp ? h("p", { class: "muted" }, "The board's access point is off after a restart, unless the board can't join a network: "
+    + "then it comes back for 5 minutes. Otherwise press BOOT on the board, or run ", code("wifi ap on"), " on the console, then rejoin it.") : null;
   const box = overlay(h("div", { class: "spinner" }), h("h2", {}, "Restarting"), text, extra);
   const started = Date.now();
   await new Promise((r) => setTimeout(r, 3000));

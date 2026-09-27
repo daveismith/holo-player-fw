@@ -293,7 +293,10 @@ Several of these can cut you off, so each replies first:
 - **`PATCH /api/v1/network`** with `{"sta_enabled": false}` stops it joining any;
 - **changing the access point's name or passphrase** restarts it, dropping its clients.
 
-The access point is the way back in: `wifi ap on` on the console. It is off at every start.
+The access point is the way back in. It is off at every start, unless the board can't join a
+network then: it comes on for 5 minutes, and `ap.off_in_s` counts them down. Pressing BOOT on the
+board brings it back the same way, as does `wifi ap on` on the console, to stay. `{"on": true}`
+keeps one that is on for a while on.
 
 `GET /api/v1/web` and `PATCH /api/v1/web` are the web server's own settings: the `.local`
 hostname, the password, and the [trusted sites](#protection). `null` goes back to the default, or

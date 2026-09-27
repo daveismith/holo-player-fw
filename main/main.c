@@ -35,6 +35,7 @@
 #include "web_server.h"
 #include "webui.h"
 #include "wifi_known.h"
+#include "wifi_fallback.h"
 
 /*
  * We warn if a secondary serial console is enabled. A secondary serial console is always output-only and
@@ -88,7 +89,7 @@ static void on_screen_off(void *ctx)
  * the strapping pins, and the flash/PSRAM bus. Free pins are on the P2 header: 15, 16, 17,
  * 18, 21 and 33. */
 static const gpio_reserved_t s_gpio_reserved[] = {
-    { 0, "BOOT strap" },
+    { 0, "BOOT strap and button" },
     { BOARD_BAT_ADC_GPIO, "battery ADC" },
     { BOARD_LCD_BL, "LCD backlight" },
     { BOARD_IMU_INT2, "IMU INT2" },
@@ -264,6 +265,12 @@ void app_main(void)
     esp_err_t err = wifi_known_start();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "wifi: %s", esp_err_to_name(err));
+    }
+
+    /* No network to join, or none joined soon: the access point for a while. And the button. */
+    err = wifi_fallback_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "wifi fallback: %s", esp_err_to_name(err));
     }
 
     /* The web app and its API, on every interface: `web` says where */

@@ -163,8 +163,14 @@
   ([details](use/web.md#reaching-it)).
 
 **The web app lost the board after an update, on its access point.**
-: The access point is off after every restart, including the one that finishes an update. Run
-  `wifi ap on` on the console, and join `holo-xxxx` again.
+: The access point is off after every restart, including the one that finishes an update, unless the
+  board can't join a network then. Press **BOOT** (the access point comes on for 5 minutes if the
+  board still can't join its network), or run `wifi ap on` on the console, and join `holo-xxxx`
+  again.
+
+**The access point went away after a few minutes.**
+: One that came on by itself at start, or from the BOOT button, turns off after 5 minutes. Press
+  BOOT for another 5, or keep it on: the **Network** page's switch, or `wifi ap on`.
 
 **An update over Wi-Fi says "another update is in progress".**
 : One update at a time, whoever started it: another tab, a script, or `ota put` on the console.

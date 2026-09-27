@@ -94,7 +94,17 @@ Either address works:
 
 ### With no network: the board's own access point
 
-Out in the field, the board can be the network. On its console, run:
+Out in the field, the board can be the network. It turns its own access point on by itself:
+
+- **at start, when it can't join a network**: none is saved, or the one it rejoins hasn't answered
+  within 20 seconds;
+- **when you press BOOT** (the board's BOOT button, GPIO0, also on P2 pin 4) while it isn't on a network. It
+  first tries the saved network again; if that hasn't worked 20 seconds later, the access point
+  comes on. A press while it is already on starts its time over.
+
+Either way, it turns off again after **5 minutes**, whether or not anyone is on it. Meanwhile the
+board keeps trying its network. To keep the access point on, turn it on yourself: on the
+**Network** page, or on the console:
 
 ```
 wifi ap on
@@ -117,9 +127,11 @@ Then:
 
 Keep these in mind:
 
-- **The access point is off after every restart**, including the restart that finishes an update.
-  Run `wifi ap on` again to rejoin. While the board is on your network, the **Network** page turns it
-  on and off too.
+- **The access point is off after every restart**, including the restart that finishes an update,
+  unless the board can't join its network then. Press BOOT, or run `wifi ap on`, to bring it back.
+  While the board is on your network, the **Network** page turns it on and off too.
+- **`wifi ap` says how long it has left** (`off in 4:25`) when it came on by itself or from the
+  button. `wifi ap on` keeps it on; `wifi ap off` turns it off now.
 - **The passphrase is random.** The board makes it the first time and keeps it. `wifi ap` shows it,
   and `wifi ap --pass <passphrase>` changes it. To change the network's name, use
   `wifi ap --ssid <name>`.

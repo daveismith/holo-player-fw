@@ -84,3 +84,39 @@ menu "Holoprojector servos"
         range 500 2500
 
 endmenu
+
+menu "Wi-Fi fallback"
+
+    config HOLO_WIFI_FALLBACK_AP
+        bool "Start the access point when the board can't join a network at start"
+        default y
+        help
+            With no saved network, or none joined within HOLO_WIFI_JOIN_WAIT_S of starting,
+            the board turns its own access point on for HOLO_WIFI_FALLBACK_AP_MIN minutes, so
+            a phone can reach it to set one up.
+
+    config HOLO_WIFI_FALLBACK_AP_MIN
+        int "Minutes the access point stays on, at start or from the button"
+        default 5
+        range 1 120
+
+    config HOLO_WIFI_JOIN_WAIT_S
+        int "Seconds to wait for a network before the access point"
+        default 20
+        range 5 120
+        help
+            How long a join (the rejoin at start, or one the button starts) has before the
+            board gives up on it and turns the access point on. The station keeps trying in
+            the background.
+
+    config HOLO_WIFI_BUTTON_GPIO
+        int "Wi-Fi button GPIO (-1: none)"
+        default 0
+        range -1 48
+        help
+            A button to ground. Pressed while the board is not on a network, it rejoins the
+            saved network and, if that doesn't work, turns the access point on for
+            HOLO_WIFI_FALLBACK_AP_MIN minutes. GPIO0 is the BOOT button on the Waveshare
+            ESP32-S3-Touch-LCD-1.28 (also P2 pin 4).
+
+endmenu

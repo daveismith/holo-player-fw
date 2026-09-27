@@ -61,6 +61,17 @@ a guess, which is why motion works before anything is calibrated; see
 | `CONSOLE_STORE_HISTORY` | on | Keep command history in `/data/history.txt` across restarts |
 | `CONSOLE_IGNORE_EMPTY_LINES` | on | Ignore blank input rather than treating it as end-of-input |
 
+### Wi-Fi fallback
+
+| Option | Default | Does |
+|---|---|---|
+| `HOLO_WIFI_FALLBACK_AP` | on | Turn the access point on when the board can't join a network at start |
+| `HOLO_WIFI_FALLBACK_AP_MIN` | 5 | Minutes it stays on, at start or from the button, before it turns itself off |
+| `HOLO_WIFI_JOIN_WAIT_S` | 20 | Seconds a join has before the access point comes on instead |
+| `HOLO_WIFI_BUTTON_GPIO` | 0 | The button (to ground) that rejoins, or turns the access point on, when the board is off the network; 0 is BOOT. -1 for none |
+
+See [With no network](../use/web.md#with-no-network-the-boards-own-access-point).
+
 ### Console WiFi commands
 
 The `cmd_wifi` component adds its own menu, for the NVS namespace saved networks are kept in and

@@ -39,10 +39,11 @@ function networkCard(info) {
     rows.push(["Wi-Fi", info.sta.enabled ? "not connected" : "off"]);
   }
   rows.push(["Name", h("span", { class: "mono" }, `${info.hostname}.local`)]);
-  rows.push(["Access point", info.ap.on ? `${info.ap.ssid}, ${info.ap.ip}, ${info.ap.clients} connected` : "off"]);
+  rows.push(["Access point", info.ap.on ? `${info.ap.ssid}, ${info.ap.ip}, ${info.ap.clients} connected`
+    + (info.ap.off_in_s ? `, off in ${Math.ceil(info.ap.off_in_s / 60)} min` : "") : "off"]);
   return h("section", { class: "card" }, h("h2", {}, "Network"), facts(rows),
     info.ap.on ? null : h("p", { class: "muted", style: "margin-top:12px" },
-      "No network nearby? ", code("wifi ap on"), " on the console starts the board's own access point."));
+      "No network nearby? Press BOOT on the board, or run ", code("wifi ap on"), " on the console, to start its own access point."));
 }
 
 function nowCard(screen, leds, holo) {
