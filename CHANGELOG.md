@@ -35,6 +35,11 @@ so the release tag is the version baked into the image and reported by `version`
   and then (`then`) put the screen, LEDs and holo back to what they were doing before it — a twitch
   twitches again — or turn everything off, servos limp. `POST /api/v1/scenes/end` (and
   `scene end`) ends one early. Clips and animations also take `loops` on `POST /api/v1/screen/show`.
+- **The access point when there is no network**: at start, if the board can't join a network
+  within 20 seconds, its access point comes on for 5 minutes, then goes off. Pressing **BOOT**
+  (GPIO0) with the board off the network rejoins it, and if that fails, turns the access point on
+  for 5 minutes. `wifi ap`, the Network page and `ap.off_in_s` in the API say how long it has
+  left; turning it on yourself keeps it on. Under "Wi-Fi fallback" in menuconfig.
 - **An LED flicker**: the colour flickering like a failing hologram (`leds flicker [<c>]`, mode
   `flicker`).
 - **Console commands** to go with them: `scene` (list, show, apply, delete, and the one the board

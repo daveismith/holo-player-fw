@@ -78,9 +78,15 @@ export default {
           ["Name", ap.ssid],
           ap.on ? ["Address", h("span", { class: "mono" }, ap.ip)] : null,
           ap.on ? ["Connected", String(ap.clients)] : null,
+          ap.off_in_s ? ["Turns off", `in ${Math.ceil(ap.off_in_s / 60)} min`] : null,
         ]),
-        h("p", { class: "muted hint" }, "For when there is no network to join: phones and laptops join the board itself. It is off at every start."),
+        h("p", { class: "muted hint" }, "For when there is no network to join: phones and laptops join the board itself. "
+          + "It is off at every start, unless the board can't join a network then: it comes on for 5 minutes, as it does when BOOT is pressed. "
+          + "Turned on here, it stays on."),
         h("div", { class: "actions" },
+          ap.off_in_s ? h("button", { class: "button primary", onclick: () => {
+            ctx.api.patch("/network/ap", { on: true }).then(load).catch(fail);
+          } }, "Keep it on") : null,
           h("button", { class: `button${ap.on ? "" : " primary"}`, onclick: async () => {
             if (ap.on && viaAp() && !await confirmAsk("Turn the access point off? This page reaches the board through it, and will lose it.", { ok: "Turn it off", danger: true })) return;
             ctx.api.patch("/network/ap", { on: !ap.on }).then(() => setTimeout(() => load().catch(() => {}), 1500)).catch(fail);

@@ -3858,7 +3858,7 @@
         ],
         "operationId": "patchAccessPoint",
         "summary": "The board's own access point",
-        "description": "`ssid` and `passphrase` are saved (a running access point restarts with them, dropping its clients). `on` is for now only: the access point is off at every start.",
+        "description": "`ssid` and `passphrase` are saved (a running access point restarts with them, dropping its clients). `on` is for now only: the access point is off at every start, unless the board can't join a network then, when it comes on for 5 minutes (`off_in_s`), as it does when BOOT is pressed off the network. `on: true` keeps it on.",
         "security": [
           {},
           {
@@ -4682,6 +4682,11 @@
               },
               "clients": {
                 "type": "integer"
+              },
+              "off_in_s": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "On for a while (it came on because the board couldn't join a network at start, or from the BOOT button): seconds until it turns itself off. Absent when it stays on"
               }
             }
           }
@@ -6223,6 +6228,11 @@
               },
               "clients": {
                 "type": "integer"
+              },
+              "off_in_s": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "On for a while (it came on because the board couldn't join a network at start, or from the BOOT button): seconds until it turns itself off. Absent when it stays on"
               }
             }
           }
@@ -6326,7 +6336,7 @@
         "properties": {
           "on": {
             "type": "boolean",
-            "description": "Now only: the access point is off at every start"
+            "description": "Now only: the access point is off at every start, unless the board can't join a network then. `true` also keeps one that is on for a while on"
           },
           "ssid": {
             "type": "string",
