@@ -155,3 +155,22 @@
   because browsers slow down background tabs. Cancel an upload that stops moving: the board keeps
   nothing from an upload that doesn't finish, so send it again
   ([details](use/board.md#files)).
+
+**`holo-xxxx.local` doesn't open.**
+: Some Android phones and some networks don't resolve `.local` names. Use the board's address
+  instead: `web` on the console prints it, and your router's device list shows it too, under the
+  same name. The board must be on the same network as you: `wifi` says which network it joined
+  ([details](use/web.md#reaching-it)).
+
+**The web app lost the board after an update, on its access point.**
+: The access point is off after every restart, including the one that finishes an update. Run
+  `wifi ap on` on the console, and join `holo-xxxx` again.
+
+**An update over Wi-Fi says "another update is in progress".**
+: One update at a time, whoever started it: another tab, a script, or `ota put` on the console.
+  The Update page shows it and can cancel it. `curl -X DELETE http://holo-xxxx.local/api/v1/ota/image`
+  does the same.
+
+**Changes over the web ask for a password.**
+: Someone set one with `web password`. Ask them, or clear it on the console with
+  `web password --clear`.

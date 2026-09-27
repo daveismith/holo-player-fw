@@ -63,6 +63,17 @@ CONFIG_ESP_LCD_TOUCH_CST816S_DISABLE_READ_ID=y
 # IPv6 addresses by SLAAC as well as the link-local one
 CONFIG_LWIP_IPV6_AUTOCONFIG=y
 
+# The web server (web_server, webui): 7 connections plus the 3 it keeps for itself, the
+# captive DNS on the access point, a download, and room for ping/iperf.
+CONFIG_LWIP_MAX_SOCKETS=16
+# Browsers send more header than the 512-byte default holds (cookies, Authorization, ...)
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+# The access point (`wifi ap on`) is holo-xxxx, as is the board's name, holo-xxxx.local
+CONFIG_CMD_WIFI_AP_SSID_PREFIX="holo"
+# Sites whose pages may call the board's API from a browser (CORS): Swagger Editor, and this
+# project's own sites with their subdomains. `web cors` changes it on a board.
+CONFIG_WEB_SERVER_CORS_ORIGINS="https://editor.swagger.io https://astromech.co https://*.astromech.co https://davidiansmith.ca https://*.davidiansmith.ca"
+
 # LittleFS, tuned for sequential reads of large files (the MJPEG clips). The component's
 # defaults (128-byte reads, 512-byte caches) measure about 2 MB/s in IDF's perf_benchmark.
 # Memory-mapping the partition serves reads through the flash cache rather than

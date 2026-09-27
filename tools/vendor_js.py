@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Vendor the documentation site's third-party JavaScript, and check what is vendored.
 
-The installer page flashes the board from the browser with esptool-js. It has to work from the
-published site and from the offline documentation bundle in a building with no internet, so
-nothing is loaded from a CDN: the library is committed under manual/javascripts/vendor/, and
-this script is the only way it gets there.
+The installer page flashes the board from the browser with esptool-js, and the HTTP API explorer
+renders the board's OpenAPI description with Swagger UI. Both have to work from the published
+site and from the offline documentation bundle in a building with no internet, so nothing is
+loaded from a CDN: the libraries are committed under manual/javascripts/vendor/, and this script
+is the only way they get there.
 
   * `update` downloads each pinned package from the npm registry, refuses it unless it matches
     the sha512 integrity recorded below (the same value npm puts in a lockfile), extracts the
@@ -44,6 +45,17 @@ VENDORED = [
         {
             "package/bundle.js": "esptool-js/bundle.js",
             "package/LICENSE": "esptool-js/LICENSE",
+        },
+    ),
+    # The HTTP API explorer (reference/http-api-explorer.md), rendered from openapi.json.
+    (
+        "swagger-ui-dist",
+        "5.33.0",
+        "sha512-wpdK+m6BU5yj6pmUdMskZVTSWYG4DLglAx3sIhylloY37i8O37IrH+YEpqdXNfpaTGxILRBFzUqLF2jKqbfI7A==",
+        {
+            "package/swagger-ui-bundle.js": "swagger-ui/swagger-ui-bundle.js",
+            "package/swagger-ui.css": "swagger-ui/swagger-ui.css",
+            "package/LICENSE": "swagger-ui/LICENSE",
         },
     ),
 ]

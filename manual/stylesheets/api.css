@@ -1,0 +1,18 @@
+/* The HTTP API explorer (reference/http-api-explorer.md). Swagger UI draws in light colours
+   whatever the theme, so it gets a light card of its own on the dark one. */
+#swagger-ui {
+  margin-top: 1rem;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #3b4151;
+}
+[data-md-color-scheme="slate"] #swagger-ui { padding: 0.5rem 1rem; }
+#swagger-ui .swagger-ui .info { margin: 1.5rem 0; }
+#swagger-ui .swagger-ui .scheme-container { box-shadow: none; padding: 1rem 0; }
+/* The theme's table and code styles, undone inside the explorer */
+#swagger-ui table, #swagger-ui tr, #swagger-ui td, #swagger-ui th { background: transparent !important; color: inherit; }
+#swagger-ui .swagger-ui .servers table td { border: 0; }
+#swagger-ui .swagger-ui .renderedMarkdown code, #swagger-ui .swagger-ui .markdown code {
+  background: #f0f0f3; color: #3b4151; box-shadow: none; padding: 0.1em 0.3em; border-radius: 3px;
+}
+#swagger-ui .swagger-ui input[type="text"] { color: #3b4151; background: #fff; }

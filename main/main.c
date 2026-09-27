@@ -19,6 +19,7 @@
 #include "board.h"
 #include "cmd_fs.h"
 #include "cmd_ota.h"
+#include "ota_core.h"
 #include "console_history.h"
 #include "holo_servos.h"
 #include "leds.h"
@@ -29,6 +30,8 @@
 #include "cmd_wifi.h"
 #include "console_settings.h"
 #include "video_player.h"
+#include "web_server.h"
+#include "webui.h"
 #include "wifi_known.h"
 
 /*
@@ -109,6 +112,16 @@ static const gpio_reserved_t s_gpio_reserved[] = {
     { 45, "VDD_SPI strap" },
     { 46, "boot mode strap" },
 };
+
+/* An update is about to write flash, which stalls both cores for each write: a clip would
+ * stutter through it, so it stops, and the screen with it. */
+static void before_update(void *ctx)
+{
+    (void)ctx;
+    if (video_playing()) {
+        screen_clear();
+    }
+}
 
 static void initialize_filesystem(void)
 {
@@ -226,15 +239,23 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(register_fs(&fs_config));
     ESP_ERROR_CHECK(register_ota(-1));
+    ota_core_set_begin_hook(before_update, NULL);
     board_register_commands();
     register_video_commands(MOUNT_PATH);
     register_leds_commands();
     holo_servos_register_commands();
+    web_server_register_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "wifi: %s", esp_err_to_name(err));
+    }
+
+    /* The web app and its API, on every interface: `web` says where */
+    err = webui_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "web: %s", esp_err_to_name(err));
     }
 
     printf("\n"
@@ -250,7 +271,8 @@ void app_main(void)
                "On Windows, try using Windows Terminal or Putty instead.\n");
     }
 
-    /* Up, with a console: an image an update installed has proved itself, and stays. */
+    /* Up, with a console and the web server: an image an update installed has proved itself,
+     * and stays. */
     ota_confirm_running();
 
     /* Main loop */
