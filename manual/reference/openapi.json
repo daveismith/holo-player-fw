@@ -48,7 +48,7 @@
     },
     {
       "name": "holo",
-      "description": "The holoprojector's motion and light, now"
+      "description": "The holoprojector's motion, now"
     },
     {
       "name": "servos",
@@ -2108,28 +2108,22 @@
           "holo"
         ],
         "operationId": "getHolo",
-        "summary": "Each holo's motion, position and light",
+        "summary": "The holo's motion and position",
         "responses": {
           "200": {
-            "description": "The holos",
+            "description": "The holo",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HoloList"
+                  "$ref": "#/components/schemas/HoloState"
                 },
                 "example": {
-                  "holos": [
-                    {
-                      "name": "holo",
-                      "ready": true,
-                      "has_light": false,
-                      "motion": "twitch",
-                      "position": {
-                        "x": 0.21,
-                        "y": -0.08
-                      }
-                    }
-                  ]
+                  "ready": true,
+                  "motion": "twitch",
+                  "position": {
+                    "x": 0.21,
+                    "y": -0.08
+                  }
                 }
               }
             }
@@ -2144,7 +2138,7 @@
           "holo"
         ],
         "operationId": "moveHolo",
-        "summary": "Move a holo, or start or stop a behaviour",
+        "summary": "Move the holo, or start or stop a behaviour",
         "description": "Replaces the motion running now. `GET /api/v1/holo` follows it.",
         "security": [
           {},
@@ -2202,21 +2196,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HoloList"
+                  "$ref": "#/components/schemas/HoloState"
                 },
                 "example": {
-                  "holos": [
-                    {
-                      "name": "holo",
-                      "ready": true,
-                      "has_light": false,
-                      "motion": "twitch",
-                      "position": {
-                        "x": 0.21,
-                        "y": -0.08
-                      }
-                    }
-                  ]
+                  "ready": true,
+                  "motion": "twitch",
+                  "position": {
+                    "x": 0.21,
+                    "y": -0.08
+                  }
                 }
               }
             }
@@ -2241,20 +2229,6 @@
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
           },
-          "404": {
-            "description": "No holo by that name",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "not_found",
-                  "message": "no holo 'front' (there is: holo)"
-                }
-              }
-            }
-          },
           "409": {
             "description": "The holo cannot move now",
             "content": {
@@ -2275,111 +2249,6 @@
                       "message": "holo: refused, not fitted (pan)"
                     }
                   }
-                }
-              }
-            }
-          },
-          "415": {
-            "$ref": "#/components/responses/ContentType"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/api/v1/holo/light": {
-      "post": {
-        "tags": [
-          "holo"
-        ],
-        "operationId": "setHoloLight",
-        "summary": "Set a holo's light",
-        "description": "For boards whose holo has a light: this board's has none, and says `409 no_light`.",
-        "security": [
-          {},
-          {
-            "bearer": []
-          },
-          {
-            "basic": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LightRequest"
-              },
-              "example": {
-                "mode": "flicker",
-                "level": 80,
-                "time_s": 5
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Set: the holo as it is now",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HoloList"
-                },
-                "example": {
-                  "holos": [
-                    {
-                      "name": "holo",
-                      "ready": true,
-                      "has_light": true,
-                      "motion": "twitch",
-                      "position": {
-                        "x": 0.21,
-                        "y": -0.08
-                      },
-                      "light": {
-                        "mode": "flicker",
-                        "level": 80
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/AuthRequired"
-          },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenHost"
-          },
-          "404": {
-            "description": "No holo by that name",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "not_found",
-                  "message": "no holo 'front' (there is: holo)"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The holo has no light",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "no_light",
-                  "message": "holo has no light"
                 }
               }
             }
@@ -3263,18 +3132,12 @@
                     "gpio": 16
                   },
                   "holo": {
-                    "holos": [
-                      {
-                        "name": "holo",
-                        "ready": true,
-                        "has_light": false,
-                        "motion": "twitch",
-                        "position": {
-                          "x": 0.21,
-                          "y": -0.08
-                        }
-                      }
-                    ]
+                    "ready": true,
+                    "motion": "twitch",
+                    "position": {
+                      "x": 0.21,
+                      "y": -0.08
+                    }
                   }
                 }
               }
@@ -5549,16 +5412,11 @@
       "HoloState": {
         "type": "object",
         "required": [
-          "name",
           "ready",
-          "has_light",
           "motion",
           "position"
         ],
         "properties": {
-          "name": {
-            "type": "string"
-          },
           "ready": {
             "type": "boolean",
             "description": "Whether it can move now"
@@ -5572,9 +5430,6 @@
               "unknown axis"
             ],
             "description": "Why it cannot move, when it cannot"
-          },
-          "has_light": {
-            "type": "boolean"
           },
           "motion": {
             "type": "string",
@@ -5612,43 +5467,6 @@
                 "description": "+ is up"
               }
             }
-          },
-          "light": {
-            "type": "object",
-            "properties": {
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "off",
-                  "on",
-                  "pulse",
-                  "flicker",
-                  "blink"
-                ]
-              },
-              "level": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "period_ms": {
-                "type": "integer"
-              }
-            }
-          }
-        }
-      },
-      "HoloList": {
-        "type": "object",
-        "required": [
-          "holos"
-        ],
-        "properties": {
-          "holos": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HoloState"
-            }
           }
         }
       },
@@ -5659,11 +5477,6 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "holo": {
-            "type": "string",
-            "default": "all",
-            "description": "Which holo, or `all`; with one holo it may be left out"
-          },
           "motion": {
             "type": "string",
             "enum": [
@@ -5678,7 +5491,7 @@
               "stop",
               "off"
             ],
-            "description": "`center`, `move` and `nudge` go to a place; `twitch` (random glances) and `scan` (a slow sweep) run until stopped or for `time_s`; `wag`, `nod` and `circle` run `count` times and return. `stop` holds where it is; `off` also lets the axes go limp and turns the light off."
+            "description": "`center`, `move` and `nudge` go to a place; `twitch` (random glances) and `scan` (a slow sweep) run until stopped or for `time_s`; `wag`, `nod` and `circle` run `count` times and return. `stop` holds where it is; `off` also lets the axes go limp."
           },
           "x": {
             "type": "integer",
@@ -5732,47 +5545,6 @@
             "minimum": 0.1,
             "maximum": 3600,
             "description": "`twitch`, `scan`: stop after this long"
-          }
-        }
-      },
-      "LightRequest": {
-        "type": "object",
-        "required": [
-          "mode"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "holo": {
-            "type": "string",
-            "default": "all"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "off",
-              "on",
-              "pulse",
-              "flicker",
-              "blink"
-            ]
-          },
-          "level": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Percent"
-          },
-          "period_ms": {
-            "type": "integer",
-            "minimum": 200,
-            "maximum": 60000,
-            "description": "`pulse`, `blink`"
-          },
-          "time_s": {
-            "type": "number",
-            "minimum": 0.1,
-            "maximum": 3600,
-            "description": "Then back to what it was"
           }
         }
       },
@@ -6085,7 +5857,7 @@
             "$ref": "#/components/schemas/LedState"
           },
           "holo": {
-            "$ref": "#/components/schemas/HoloList"
+            "$ref": "#/components/schemas/HoloState"
           }
         }
       },

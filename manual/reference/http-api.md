@@ -169,7 +169,7 @@ powered from the board.
 
 ## The holoprojector and its servos
 
-`GET /api/v1/holo` is each holo's motion and position (`x` and `y`, -1 to 1, + right and up), and
+`GET /api/v1/holo` is the holo's motion and position (`x` and `y`, -1 to 1, + right and up), and
 whether it can move (`ready`, or `why` not). `POST /api/v1/holo/motion` moves it, or starts or
 stops a behaviour, with the console's `holo` parameters:
 
@@ -180,8 +180,8 @@ curl -X POST -H "$J" -d '{"motion":"wag","count":3}' "$B/holo/motion"
 curl -X POST -H "$J" -d '{"motion":"stop"}' "$B/holo/motion"
 ```
 
-A holo that can't move -- its servos not calibrated, say -- is `409` `not_ready`, saying why.
-`POST /api/v1/holo/light` sets a holo's light, on boards whose holo has one.
+A holo that can't move -- its servos not calibrated, say -- is `409` `not_ready`, saying why. Its
+light is the LED strip: [`/api/v1/leds`](#the-leds), or a [scene](#scenes) to set both at once.
 
 The servos underneath are at `GET /api/v1/servos`: the pulse each was last sent, whether it is being
 driven, its limits and its drive policy. Calibrating one is a matter of moving it to each end of the
@@ -414,10 +414,10 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 400 | `bad_request`, `bad_json`, `bad_sha256`, `bad_path`, `not_a_directory`, `is_a_directory` | The request is malformed, or names the wrong kind of thing |
 | 401 | `auth_required` | A password is set, and this request lacks it |
 | 403 | `forbidden_host` | The `Host` header doesn't name the board |
-| 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, holo, network, slot, scene, or firmware on that channel |
+| 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, network, slot, scene, or firmware on that channel |
 | 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another long operation is running, or the update session isn't in the state asked of it |
 | 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
-| 409 | `not_ready`, `no_light` | The holo can't move now (the message says why), or has no light |
+| 409 | `not_ready` | The holo can't move now; the message says why |
 | 411 | `length_required` | An upload without a `Content-Length` |
 | 413 | `too_large` | The image won't fit the slot |
 | 415 | `content_type` | A `POST` or `PATCH` that isn't `application/json` |
@@ -457,9 +457,8 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | GET | `/api/v1/media/info` | Describe a clip or image |
 | GET | `/api/v1/leds` | The LED strip |
 | PATCH | `/api/v1/leds` | Change the LED strip, now |
-| GET | `/api/v1/holo` | Each holo's motion, position and light |
-| POST | `/api/v1/holo/motion` | Move a holo, or start or stop a behaviour |
-| POST | `/api/v1/holo/light` | Set a holo's light |
+| GET | `/api/v1/holo` | The holo's motion and position |
+| POST | `/api/v1/holo/motion` | Move the holo, or start or stop a behaviour |
 | GET | `/api/v1/servos` | The servos: position, limits, policy |
 | POST | `/api/v1/servos/move` | Drive a servo to a position |
 | POST | `/api/v1/servos/release` | Stop driving servos |
