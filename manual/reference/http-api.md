@@ -31,8 +31,7 @@ means something and a stable `error` code to branch on:
 - **Reading is always open**: `GET` needs nothing.
 - **Changes are guarded against other web pages.** A `PUT`, `POST` or `DELETE` must name the board
   in its `Host` header: an IP address, `holo-xxxx` or `holo-xxxx.local`. A `POST` must also say
-  `Content-Type: application/json`, or `application/octet-stream` for an image. `curl` and scripts
-  do this naturally. A web page on another site can't, because a browser won't send those requests
+  `Content-Type: application/json`. `curl` and scripts do this naturally. A web page on another site can't, because a browser won't send those requests
   across sites without the board's consent, and the board gives it only to the trusted sites below.
   So a page you happen to visit can't update or restart the board, even with no password set.
 - **The password.** Once one is set with `web password <password>` on the console, changes also
@@ -113,8 +112,8 @@ reset before then boots the previous image again.
 
 ### Upload
 
-`PUT /api/v1/ota/image` with the image as the body. `POST` is accepted too, as
-`application/octet-stream`. The reply comes once the image is staged, or has failed:
+`PUT /api/v1/ota/image` with the image as the body. The reply comes once the image is staged, or
+has failed:
 
 ```sh
 curl -T build/holo-player-fw.bin http://holo-2db0.local/api/v1/ota/image
@@ -233,7 +232,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another update is running, or the session isn't in the state asked of it |
 | 411 | `length_required` | An upload without a `Content-Length` |
 | 413 | `too_large` | The image won't fit the slot |
-| 415 | `content_type` | A `POST` that isn't `application/json` (or `application/octet-stream`) |
+| 415 | `content_type` | A `POST` that isn't `application/json` |
 | 422 | `invalid_image`, `sha256_mismatch` | Not a usable image. The running firmware still boots |
 | 503 | `offline`, `unreachable` | The board can't reach the internet, or the release site |
 
@@ -246,7 +245,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | GET | `/api/v1/openapi.json` | The OpenAPI description of this firmware's API |
 | GET | `/api/v1/ota` | The slots, the session, and whether the board can pull |
 | GET | `/api/v1/ota/image` | The session |
-| PUT, POST | `/api/v1/ota/image` | Upload an image |
+| PUT | `/api/v1/ota/image` | Upload an image |
 | DELETE | `/api/v1/ota/image` | Cancel, discard, or clear |
 | POST | `/api/v1/ota/activate` | Make an image the boot image, and restart |
 | POST | `/api/v1/ota/pull` | Download an image from a URL or release channel |

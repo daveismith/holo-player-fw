@@ -4,7 +4,7 @@
     "title": "Holo Player HTTP API",
     "version": "1.0.0",
     "summary": "Status and firmware updates for a Holo Player board, over Wi-Fi.",
-    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` must be `Content-Type: application/json` (or `application/octet-stream` for an image); together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.",
+    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.",
     "license": {
       "name": "See the repository",
       "url": "https://github.com/daveismith/holo-player-fw"
@@ -343,7 +343,7 @@
         ],
         "operationId": "uploadImage",
         "summary": "Upload an application image",
-        "description": "The body is the application image as built (`build/holo-player-fw.bin`, or a release's `holo-player-fw-vX.Y.Z.bin` -- not the bootloader, partition table or OTA data files), with a `Content-Length`. It is written into the slot that is not running as it arrives; the first 288 bytes are checked at once (an application, for this chip and this project), and the whole image once it is in. The reply comes when the image is staged -- or activated, or the board restarting, as the query asks -- or has failed. `POST` does the same, for clients that cannot `PUT`.",
+        "description": "The body is the application image as built (`build/holo-player-fw.bin`, or a release's `holo-player-fw-vX.Y.Z.bin` -- not the bootloader, partition table or OTA data files), with a `Content-Length`. It is written into the slot that is not running as it arrives; the first 288 bytes are checked at once (an application, for this chip and this project), and the whole image once it is in. The reply comes when the image is staged -- or activated, or the board restarting, as the query asks -- or has failed.",
         "security": [
           {},
           {
@@ -420,122 +420,6 @@
                 }
               }
             }
-          },
-          "415": {
-            "$ref": "#/components/responses/ContentType"
-          },
-          "422": {
-            "description": "Not a usable image: not an application, for another chip or project, a SHA-256 that does not match, or one that failed verification. The running image still boots.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid": {
-                    "value": {
-                      "error": "invalid_image",
-                      "message": "not an application image (first byte 0x00, not 0xe9)"
-                    }
-                  },
-                  "sha": {
-                    "value": {
-                      "error": "sha256_mismatch",
-                      "message": "SHA-256 mismatch: received 0b1c9e3f5a7d..., expected 9f86d081884c..."
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "ota"
-        ],
-        "operationId": "uploadImagePost",
-        "summary": "Upload an application image (as PUT)",
-        "description": "The same as `PUT`. The body must be sent as `Content-Type: application/octet-stream`.",
-        "security": [
-          {},
-          {
-            "bearer": []
-          },
-          {
-            "basic": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Sha256"
-          },
-          {
-            "$ref": "#/components/parameters/Activate"
-          },
-          {
-            "$ref": "#/components/parameters/Reboot"
-          },
-          {
-            "$ref": "#/components/parameters/Force"
-          }
-        ],
-        "requestBody": {
-          "$ref": "#/components/requestBodies/Image"
-        },
-        "responses": {
-          "200": {
-            "description": "Staged (or activated, or restarting, as asked)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Session"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/AuthRequired"
-          },
-          "403": {
-            "$ref": "#/components/responses/ForbiddenHost"
-          },
-          "409": {
-            "$ref": "#/components/responses/Busy"
-          },
-          "411": {
-            "description": "No Content-Length",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "length_required",
-                  "message": "send the image as the body, with a Content-Length"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Too large for the slot",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "too_large",
-                  "message": "2500000 bytes will not fit the 2304 KB slot"
-                }
-              }
-            }
-          },
-          "415": {
-            "$ref": "#/components/responses/ContentType"
           },
           "422": {
             "description": "Not a usable image: not an application, for another chip or project, a SHA-256 that does not match, or one that failed verification. The running image still boots.",
@@ -1010,7 +894,7 @@
             },
             "example": {
               "error": "content_type",
-              "message": "a POST must be Content-Type: application/json (or application/octet-stream for an image)"
+              "message": "a POST must be Content-Type: application/json"
             }
           }
         }
