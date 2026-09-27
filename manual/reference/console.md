@@ -82,6 +82,27 @@ Full detail in [LED patterns](../use/leds.md).
 `holo led` and `holo leia`'s light half do nothing on this board — there is no light attached.
 Full detail in [The holoprojector](../use/holo.md).
 
+## Scenes and settings
+
+| Command | Does |
+|---|---|
+| `scene [list]` | The saved scenes, and which the board starts with |
+| `scene show <name>` | One scene, as JSON |
+| `scene apply <name>` | Apply it: the screen, then the LEDs, then the holo |
+| `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
+| `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
+| `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |
+| `settings backlight <1-100>` | The backlight at start, and now |
+| `settings brightness <1-100>` | The LEDs' brightness at start, and now |
+| `settings leds <count>` | LEDs on the strip, from the next start |
+| `settings reset` | Back to the firmware's defaults; scenes are kept |
+
+A scene is what the screen shows, what the LEDs do and how the holo moves, saved together by
+name; a scene may have any of the three. Scenes are made with the
+[HTTP API](http-api.md#scenes) or the [web app](../use/web.md) — a scene's JSON is too long to
+type here — and the console applies and chooses them. A name may contain spaces:
+`scene apply amber glow`.
+
 ## Files and firmware
 
 | Command | Does |

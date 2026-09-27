@@ -14,21 +14,16 @@ esp_err_t api_screen_register(void);
 /* The screen as the API describes it (ScreenState). */
 cJSON *api_screen_json(void);
 
-/*
- * Show what `show` asks -- {path, loop?, whole_frame?}, {colour}, {calibration: true}, or, for a
- * scene (`part` not NULL), {clear: true} -- checked first. False after sending the error, whose
- * message starts with `part`: ("screen").
- */
-bool api_screen_show(httpd_req_t *req, const cJSON *show, const char *part);
+/* A scene_err_t as the API's error: 400 bad_request or bad_path, 404, 422, 409, 500. */
+esp_err_t api_send_scene_error(httpd_req_t *req, int err, const char *why);
 
 /* /api/v1/leds */
 esp_err_t api_leds_register(void);
 cJSON *api_leds_json(void);
-/* Apply an LED patch ({mode?, colour?, loop?, brightness?}); false after sending the error. */
-bool api_leds_apply(httpd_req_t *req, const cJSON *patch, const char *part);
 
 /* /api/v1/holo, and /api/v1/servos behind it */
 esp_err_t api_holo_register(void);
 cJSON *api_holo_json(void);
-/* Start a motion ({motion, ...}); false after sending the error. */
-bool api_holo_apply(httpd_req_t *req, const cJSON *motion, const char *part);
+
+/* /api/v1/scenes and /api/v1/settings */
+esp_err_t api_scenes_register(void);

@@ -33,6 +33,9 @@ typedef enum {
     LEDS_RAINBOW,   /* the colour wheel five times round the strip (12.8 s); a second; off */
 } leds_mode_t;
 
+/* LEDs on the strip, before leds_init(): a saved setting, over CONFIG_LEDS_COUNT. Ignored once
+ * the strip is made, and outside 1..1024. */
+void leds_set_count(int count);
 /* Create the strip and turn it off, whatever it latched at power-up. */
 esp_err_t leds_init(void);
 /* Each stops any pattern first. */

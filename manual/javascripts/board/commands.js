@@ -12,6 +12,7 @@ export const GROUPS = [
   ["Video", ["video"]],
   ["LEDs", ["leds"]],
   ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
+  ["Scenes and settings", ["scene", "settings"]],
   ["Touch and motion", ["touch", "imu"]],
   ["Files", ["fs"]],
   ["Firmware", ["version", "ota", "restart"]],
@@ -90,6 +91,14 @@ export function danger(line) {
     case "fs":
       if (sub === "rm" || sub === "rmdir") return `This deletes ${rest[0] ?? "it"} from the board.`;
       if (sub === "mv") return `This renames ${rest[0] ?? "it"} on the board.`;
+      return null;
+    case "scene":
+      if (sub === "delete") return `This deletes the scene ${rest.join(" ") || "named"} from the board.`;
+      if (sub === "boot") return rest.length ? "This changes what the board shows when it starts." : null;
+      return null;
+    case "settings":
+      if (sub === "reset") return "This puts the board's start-up settings back to the firmware's defaults.";
+      if (sub === "leds") return "This changes how many LEDs the board drives, from its next start.";
       return null;
     case "restart":
       return "The board restarts: a clip or pattern stops, and the page reconnects when it is back.";

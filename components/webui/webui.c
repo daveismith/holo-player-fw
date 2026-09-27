@@ -23,6 +23,7 @@ esp_err_t webui_start(void)
     err |= api_screen_register();
     err |= api_leds_register();
     err |= api_holo_register();
+    err |= api_scenes_register();
     const web_server_config_t cfg = {
         .name_prefix = "holo",
         .product = "Holo Player",

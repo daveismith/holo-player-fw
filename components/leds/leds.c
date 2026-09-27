@@ -13,7 +13,9 @@
 
 static const char *TAG = "leds";
 
-#define N CONFIG_LEDS_COUNT
+/* LEDs on the strip: CONFIG_LEDS_COUNT, unless leds_set_count() said otherwise before leds_init() */
+static int s_count = CONFIG_LEDS_COUNT;
+#define N s_count
 
 /* The RMT's DMA buffer holds the whole frame twice over, so a frame never waits on a refill:
  * a refill is an interrupt, and while flash is being written (a console history save, say)
@@ -240,6 +242,13 @@ void leds_set_brightness(int percent)
 int leds_count(void)
 {
     return N;
+}
+
+void leds_set_count(int count)
+{
+    if (s_strip == NULL && count >= 1 && count <= 1024) {
+        s_count = count;
+    }
 }
 
 int leds_get_brightness(void)

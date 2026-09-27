@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "board.h"
+#include "scenes.h"
 #include "video_player.h"
 #include "web_fs.h"
 #include "web_server.h"
@@ -63,73 +63,6 @@ cJSON *api_screen_json(void)
     return o;
 }
 
-/* ------------------------------------------------------------------ showing */
-
-/* Send an error; false, for returning from api_screen_show(). */
-#define FAIL(...) (web_send_error(__VA_ARGS__), false)
-
-bool api_screen_show(httpd_req_t *req, const cJSON *show, const char *part)
-{
-    const char *prefix = part != NULL ? part : "";
-    const char *sep = part != NULL ? ": " : "";
-    int keys = 0;
-    for (const cJSON *k = show->child; k != NULL; k = k->next) {
-        if (strcmp(k->string, "path") && strcmp(k->string, "loop") && strcmp(k->string, "whole_frame") &&
-            strcmp(k->string, "colour") && strcmp(k->string, "calibration") && strcmp(k->string, "clear")) {
-            return FAIL(req, 400, "bad_request", "%s%sunknown field `%s`", prefix, sep, k->string);
-        }
-        keys += !strcmp(k->string, "path") + !strcmp(k->string, "colour") + !strcmp(k->string, "calibration") +
-                !strcmp(k->string, "clear");
-    }
-    if (keys != 1) {
-        return FAIL(req, 400, "bad_request", "%s%sgive one of `path`, `colour` or `calibration`%s", prefix,
-                    sep, part != NULL ? " (or `clear`)" : "");
-    }
-    const cJSON *path = cJSON_GetObjectItem(show, "path");
-    const cJSON *colour = cJSON_GetObjectItem(show, "colour");
-    esp_err_t err;
-    if (cJSON_IsTrue(cJSON_GetObjectItem(show, "calibration"))) {
-        err = screen_show_calibration();
-    } else if (cJSON_IsTrue(cJSON_GetObjectItem(show, "clear")) && part != NULL) {
-        err = screen_clear();
-    } else if (cJSON_IsString(colour)) {
-        uint8_t rgb[3];
-        if (!board_parse_rgb(colour->valuestring, rgb)) {
-            return FAIL(req, 400, "bad_request", "%s%snot a colour: '%s' (#rrggbb, R,G,B, or a name: red, "
-                        "orange, ...)", prefix, sep, colour->valuestring);
-        }
-        err = screen_show_rgb(rgb);
-    } else if (cJSON_IsString(path)) {
-        char abs[FS_ABS_MAX];
-        if (!web_fs_resolve(req, path->valuestring, abs, sizeof(abs))) {
-            return false;
-        }
-        char why[96] = "";
-        err = screen_show_file(abs, cJSON_IsTrue(cJSON_GetObjectItem(show, "loop")),
-                               cJSON_IsTrue(cJSON_GetObjectItem(show, "whole_frame")), why, sizeof(why));
-        char rel[REL_MAX];
-        fs_rel(abs, rel, sizeof(rel));
-        if (err == ESP_ERR_NOT_FOUND) {
-            return FAIL(req, part != NULL ? 422 : 404, part != NULL ? "not_playable" : "not_found",
-                        "%s%sno such file: %s", prefix, sep, rel);
-        }
-        if (err == ESP_ERR_INVALID_ARG) {
-            return FAIL(req, 422, "not_playable", "%s%s%s: %s", prefix, sep, rel, why);
-        }
-        if (err != ESP_OK) {
-            return FAIL(req, 500, "failed", "%s%s%s: %s", prefix, sep, rel, why);
-        }
-        return true;
-    } else {
-        return FAIL(req, 400, "bad_request", "%s%s`path` and `colour` are strings; `calibration` is true",
-                    prefix, sep);
-    }
-    if (err != ESP_OK) {
-        return FAIL(req, 500, "failed", "%s%sthe screen: %s", prefix, sep, esp_err_to_name(err));
-    }
-    return true;
-}
-
 /* ------------------------------------------------------------------ /screen */
 
 static esp_err_t screen_get(httpd_req_t *req)
@@ -167,14 +100,12 @@ static esp_err_t show_post(httpd_req_t *req)
     if (body == NULL) {
         return ESP_OK;
     }
-    bool shown = false;
-    if (cJSON_GetObjectItem(body, "clear") != NULL) {
-        web_send_error(req, 400, "bad_request", "DELETE /api/v1/screen shows nothing");
-    } else {
-        shown = api_screen_show(req, body, NULL);
-    }
+    char why[128];
+    const scene_err_t err = cJSON_GetObjectItem(body, "clear") != NULL
+                                ? (snprintf(why, sizeof(why), "DELETE /api/v1/screen shows nothing"), SCENE_BAD)
+                                : scene_do_screen(body, false, false, why, sizeof(why));
     cJSON_Delete(body);
-    return shown ? web_send_json(req, 200, api_screen_json()) : ESP_OK;     /* else the error is sent */
+    return err == SCENE_OK ? web_send_json(req, 200, api_screen_json()) : api_send_scene_error(req, err, why);
 }
 
 /* ------------------------------------------------------------------ /media */

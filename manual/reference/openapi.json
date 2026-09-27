@@ -2842,8 +2842,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/scenes/scene": {
@@ -2984,8 +2983,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -3031,8 +3029,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/scenes/apply": {
@@ -3180,8 +3177,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/settings": {
@@ -3212,8 +3208,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "patch": {
         "tags": [
@@ -3305,8 +3300,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -3354,8 +3348,7 @@
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/network": {
