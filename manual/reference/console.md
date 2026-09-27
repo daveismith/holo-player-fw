@@ -146,9 +146,10 @@ use; nothing else needs it.
 | Command | Does |
 |---|---|
 | `wifi [on\|off]` | Turn the radio on or off |
+| `wifi scan` | The networks in range, strongest first, and which are saved |
 | `wifi ap [on\|off] [--ssid <ssid>] [--pass <passphrase>]` | The board's own access point, `holo-xxxx` at 192.168.4.1: on or off (off again at every boot), and its name and passphrase. Alone, shows them |
 | `web [on\|off]` | The web app and its API: where to reach it. `off` stops the server, and stays off across restarts |
-| `web password <password>\|--clear` | Changes over the web (updates, restarts) need this password |
+| `web password <password>\|--clear` | Changes over the web need this password, as do downloading files and reading the web settings |
 | `web hostname <name>\|--clear` | The board's name on the network: `<name>.local` |
 | `web cors [add <origin>\|remove <origin>\|reset\|none]` | Which other sites' pages may call the API from a browser (CORS). Alone, lists them |
 | `wifi_save <ssid> [pass]` | Remember a network. The board rejoins the last one at boot |

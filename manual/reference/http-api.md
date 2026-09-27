@@ -238,7 +238,8 @@ defaults, keeping scenes, calibration and networks.
 ## Network and the web server
 
 `GET /api/v1/network` is the network the board is on, the networks it knows, and its access point.
-Passphrases are never read back.
+Passphrases are never read back. The board keeps 16 networks; saving another forgets the one saved
+longest ago. Joining without a passphrase uses the saved one, or takes the network to be open.
 
 ```sh
 curl -X PUT -H "$J" -d '{"passphrase":"correct horse battery"}' "$B/network/known?ssid=workshop"
@@ -251,6 +252,7 @@ curl -X PATCH -H "$J" -d '{"on":true}' "$B/network/ap"
 Several of these can cut you off, so each replies first:
 
 - **joining** another network leaves the one the board is on;
+- **forgetting** the network the board is on leaves it too;
 - **`PATCH /api/v1/network`** with `{"sta_enabled": false}` stops it joining any;
 - **changing the access point's name or passphrase** restarts it, dropping its clients.
 

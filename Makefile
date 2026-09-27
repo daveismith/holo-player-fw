@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 PY    := .venv/bin/python
 
-.PHONY: help venv docs-setup docs-check api-validate docs-image docs-vendor docs-stage-firmware docs-build docs-offline docs-serve docs-preview-versions
+.PHONY: help venv docs-setup docs-check api-validate api-smoke docs-image docs-vendor docs-stage-firmware docs-build docs-offline docs-serve docs-preview-versions
 
 help:                  ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-22s %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ docs-check:            ## every registered console command is documented, the HT
 api-validate:          ## validate manual/reference/openapi.json against the OpenAPI 3.1 schema, and its examples against theirs (docs venv)
 	@$(PY) -m openapi_spec_validator manual/reference/openapi.json
 	@$(PY) tools/check_api_examples.py
+
+api-smoke:             ## call a board's API and check each reply against the description: HOST=holo-xxxx.local [WRITE=1]
+	@$(PY) tools/api_smoke.py --host $(or $(HOST),holo-2db0.local) $(if $(WRITE),--write)
 
 docs-image:            ## re-render manual/images/calibration.png from the firmware's own geometry
 	@python3 tools/render_calibration.py

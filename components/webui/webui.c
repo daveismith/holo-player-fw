@@ -4,6 +4,7 @@
  */
 #include "ota_pull.h"
 #include "web_fs.h"
+#include "web_net.h"
 #include "web_ota.h"
 #include "web_server.h"
 #include "webui.h"
@@ -20,6 +21,7 @@ esp_err_t webui_start(void)
     ota_pull_set_resolver(webui_release_resolve);
     esp_err_t err = web_ota_register();
     err |= web_fs_register();
+    err |= web_net_register();
     err |= api_screen_register();
     err |= api_leds_register();
     err |= api_holo_register();

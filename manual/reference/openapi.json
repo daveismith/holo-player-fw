@@ -3398,8 +3398,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       },
       "patch": {
         "tags": [
@@ -3481,8 +3480,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/network/scan": {
@@ -3523,10 +3521,30 @@
             }
           },
           "409": {
-            "$ref": "#/components/responses/JobBusy"
+            "description": "Another long operation is running, or the board is joining a network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "busy": {
+                    "value": {
+                      "error": "busy",
+                      "message": "a file upload is in progress; try again when it is done"
+                    }
+                  },
+                  "joining": {
+                    "value": {
+                      "error": "busy",
+                      "message": "the board is joining a network; try again in a moment"
+                    }
+                  }
+                }
+              }
+            }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/network/known": {
@@ -3536,7 +3554,7 @@
         ],
         "operationId": "saveNetwork",
         "summary": "Save a network, without joining it",
-        "description": "It is joined when it is in range at a start, or by `POST /api/v1/network/join`.",
+        "description": "It is joined when it is in range at a start, or by `POST /api/v1/network/join`. The board keeps 16: saving another forgets the one saved longest ago. Saving one already known replaces its passphrase.",
         "security": [
           {},
           {
@@ -3622,23 +3640,8 @@
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
-          },
-          "409": {
-            "description": "The list is full",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "full",
-                  "message": "16 networks are known; forget one first"
-                }
-              }
-            }
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -3662,7 +3665,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Forgotten. If it is the one the board is on, the board stays until it next loses it."
+            "description": "Forgotten. If it is the one the board is on, the board leaves it -- the reply comes first."
           },
           "401": {
             "$ref": "#/components/responses/AuthRequired"
@@ -3684,8 +3687,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/network/join": {
@@ -3695,7 +3697,7 @@
         ],
         "operationId": "joinNetwork",
         "summary": "Join a network",
-        "description": "The reply comes first. The board leaves the network it is on, so a client on that network may lose it; the access point, if on, stays. A network joined is saved.",
+        "description": "The reply comes first. The board leaves the network it is on, so a client on that network may lose it; the access point, if on, stays. Without a passphrase, the saved one is used, or the network is taken to be open. A network joined is saved.",
         "security": [
           {},
           {
@@ -3766,25 +3768,10 @@
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
           },
-          "404": {
-            "description": "Not known, and no passphrase given",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "not_found",
-                  "message": "'cafe' is not a known network: give its passphrase"
-                }
-              }
-            }
-          },
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/network/ap": {
@@ -3892,8 +3879,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/web": {
