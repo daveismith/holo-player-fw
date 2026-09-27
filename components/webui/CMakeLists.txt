@@ -1,6 +1,6 @@
 idf_component_register(SRCS "webui.c" "webui_release.c"
                        INCLUDE_DIRS "include"
-                       PRIV_REQUIRES web_server)
+                       PRIV_REQUIRES web_server web_api)
 
 # The web app (web/ at the top of the repository), plus two files it shares with the
 # documentation site: the image inspector the installer uses, and the API's OpenAPI description

@@ -18,6 +18,7 @@
 #include "soc/soc_caps.h"
 #include "board.h"
 #include "cmd_fs.h"
+#include "fs_ops.h"
 #include "cmd_ota.h"
 #include "ota_core.h"
 #include "console_history.h"
@@ -121,6 +122,14 @@ static void before_update(void *ctx)
     if (video_playing()) {
         screen_clear();
     }
+}
+
+/* A file is about to be replaced, moved or deleted (the console's `fs`, or the API): a clip
+ * playing from it stops first. */
+static void before_file_change(const char *path, void *ctx)
+{
+    (void)ctx;
+    screen_release(path);
 }
 
 static void initialize_filesystem(void)
@@ -240,6 +249,7 @@ void app_main(void)
     ESP_ERROR_CHECK(register_fs(&fs_config));
     ESP_ERROR_CHECK(register_ota(-1));
     ota_core_set_begin_hook(before_update, NULL);
+    fs_ops_set_change_hook(before_file_change, NULL);
     board_register_commands();
     register_video_commands(MOUNT_PATH);
     register_leds_commands();

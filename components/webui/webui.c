@@ -3,6 +3,7 @@
  * esp-console-kit's web_server and web_ota; this ties them together and adds release channels.
  */
 #include "ota_pull.h"
+#include "web_fs.h"
 #include "web_ota.h"
 #include "web_server.h"
 #include "webui.h"
@@ -17,6 +18,7 @@ esp_err_t webui_start(void)
 {
     ota_pull_set_resolver(webui_release_resolve);
     esp_err_t err = web_ota_register();
+    err |= web_fs_register();
     const web_server_config_t cfg = {
         .name_prefix = "holo",
         .product = "Holo Player",

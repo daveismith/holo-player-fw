@@ -753,6 +753,17 @@ extern "C" esp_err_t screen_clear(void)
     return board_lcd_power_off();
 }
 
+extern "C" bool screen_release(const char *path)
+{
+    const size_t n = strlen(path);
+    const char *playing = s_stats.path;
+    if (!video_playing() || strncmp(playing, path, n) != 0 || (playing[n] != '\0' && playing[n] != '/')) {
+        return false;
+    }
+    screen_clear();
+    return true;
+}
+
 extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
 {
     screen_take_panel();

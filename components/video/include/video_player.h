@@ -35,6 +35,10 @@ esp_err_t screen_show_colour(uint16_t rgb565);
 esp_err_t screen_show_calibration(void);
 esp_err_t screen_clear(void);
 
+/* A clip or animation playing from `path` -- the file, or anything under a directory -- stops,
+ * and the screen clears: the file is about to be replaced, moved or deleted. True if it did. */
+bool screen_release(const char *path);
+
 #ifdef __cplusplus
 }
 #endif

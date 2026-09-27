@@ -824,8 +824,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/list": {
@@ -897,8 +896,7 @@
           "404": {
             "$ref": "#/components/responses/PathNotFound"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/entry": {
@@ -945,8 +943,7 @@
           "409": {
             "$ref": "#/components/responses/JobBusy"
           }
-        },
-        "x-planned": true
+        }
       },
       "delete": {
         "tags": [
@@ -1023,8 +1020,7 @@
               }
             }
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/file": {
@@ -1094,8 +1090,7 @@
           "409": {
             "$ref": "#/components/responses/JobBusy"
           }
-        },
-        "x-planned": true
+        }
       },
       "put": {
         "tags": [
@@ -1192,12 +1187,6 @@
                       "error": "is_a_directory",
                       "message": "/clips is a directory"
                     }
-                  },
-                  "parent": {
-                    "value": {
-                      "error": "not_found",
-                      "message": "no directory /clips/new (parents=true makes it)"
-                    }
                   }
                 }
               }
@@ -1208,6 +1197,20 @@
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "A directory on the way is missing, and no `parents`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no directory /clips/new (parents=true makes it)"
+                }
+              }
+            }
           },
           "409": {
             "description": "Something is there, or another long operation is running",
@@ -1264,8 +1267,7 @@
           "507": {
             "$ref": "#/components/responses/NoSpace"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/mkdir": {
@@ -1356,8 +1358,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/move": {
@@ -1438,8 +1439,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/fs/copy": {
@@ -1554,8 +1554,7 @@
           "507": {
             "$ref": "#/components/responses/NoSpace"
           }
-        },
-        "x-planned": true
+        }
       }
     },
     "/api/v1/screen": {
