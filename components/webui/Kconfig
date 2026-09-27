@@ -1,0 +1,12 @@
+menu "Web app (webui)"
+
+    config WEBUI_RELEASES_URL
+        string "Where release channels are published"
+        default "https://davidiansmith.ca/holo-player-fw/"
+        help
+            The documentation site, which carries each release's firmware. A channel such as
+            `latest` is looked up in <this>versions.json, and its image described by
+            <this><version>/firmware/manifest.json. The site's own domain, not
+            daveismith.github.io: that redirects through plain http, which a pull refuses.
+
+endmenu

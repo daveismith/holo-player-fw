@@ -1,0 +1,1624 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Holo Player HTTP API",
+    "version": "1.0.0",
+    "summary": "Status and firmware updates for a Holo Player board, over Wi-Fi.",
+    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` must be `Content-Type: application/json` (or `application/octet-stream` for an image); together these stop a web page elsewhere from driving the board. When a password is set on the board (`web password <password>` on its console), those requests also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.",
+    "license": {
+      "name": "See the repository",
+      "url": "https://github.com/daveismith/holo-player-fw"
+    }
+  },
+  "externalDocs": {
+    "description": "The HTTP API guide, with curl recipes",
+    "url": "https://davidiansmith.ca/holo-player-fw/latest/reference/http-api/"
+  },
+  "servers": [
+    {
+      "url": "http://{host}",
+      "description": "A board. `holo-xxxx.local`, its address on your network, or 192.168.4.1 on its access point.",
+      "variables": {
+        "host": {
+          "default": "holo-2db0.local"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "device",
+      "description": "What the board is, and restarting it"
+    },
+    {
+      "name": "ota",
+      "description": "Firmware updates: slots, uploads, pulls, switching"
+    }
+  ],
+  "paths": {
+    "/api/v1/info": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "operationId": "getInfo",
+        "summary": "The board: firmware, network, and the features its web app has",
+        "responses": {
+          "200": {
+            "description": "The board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Info"
+                },
+                "example": {
+                  "api": 1,
+                  "firmware": {
+                    "project": "holo-player-fw",
+                    "version": "v1.1.0",
+                    "date": "Sep 26 2026",
+                    "time": "21:04:11",
+                    "idf": "v6.1",
+                    "elf_sha256": "77e7c39c8d1f0b6a1e2d3c4b5a69788766554433221100ffeeddccbbaa998877"
+                  },
+                  "chip": "esp32s3",
+                  "hostname": "holo-2db0",
+                  "uptime_s": 3712,
+                  "heap_free": 2197504,
+                  "features": [
+                    "ota"
+                  ],
+                  "auth": false,
+                  "via": "sta",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "ap": {
+                    "on": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/restart": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "operationId": "restart",
+        "summary": "Restart the board",
+        "description": "Restarts after `delay_ms` (default 500, at least 200, at most 60000), so the reply can leave first.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestartRequest"
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The board will restart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "restart_in_ms"
+                  ],
+                  "properties": {
+                    "restart_in_ms": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "example": {
+                  "restart_in_ms": 500
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "operationId": "getOpenApi",
+        "summary": "This document",
+        "responses": {
+          "200": {
+            "description": "The OpenAPI description of the firmware serving it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/ota": {
+      "get": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "getOta",
+        "summary": "Everything about updates: the slots, the session, whether the board can pull",
+        "description": "What the web app polls. `slots` lists each application slot and the image in it; `session` is the update in progress or last finished, whoever started it (upload, pull, or the console).",
+        "responses": {
+          "200": {
+            "description": "Update state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ota"
+                },
+                "example": {
+                  "rollback": true,
+                  "slots": [
+                    {
+                      "label": "ota_0",
+                      "address": 65536,
+                      "size": 2359296,
+                      "running": true,
+                      "boots": true,
+                      "next": false,
+                      "state": "confirmed",
+                      "app": {
+                        "project": "holo-player-fw",
+                        "version": "v1.0.0",
+                        "date": "Sep 24 2026",
+                        "time": "03:51:02",
+                        "idf": "v6.1",
+                        "elf_sha256": "045f8a7a737ab97ee6ed4bacd8e29502682b87bd06879997f8b0c7175f8bf157"
+                      }
+                    },
+                    {
+                      "label": "ota_1",
+                      "address": 2424832,
+                      "size": 2359296,
+                      "running": false,
+                      "boots": false,
+                      "next": true,
+                      "state": null,
+                      "app": null
+                    }
+                  ],
+                  "session": {
+                    "state": "idle",
+                    "source": "none",
+                    "slot": null,
+                    "url": null,
+                    "bytes": 0,
+                    "total": 0,
+                    "sha256": null,
+                    "app": null,
+                    "boots_next": false,
+                    "dry_run": false,
+                    "error": null,
+                    "elapsed_ms": 0
+                  },
+                  "pull": {
+                    "available": true,
+                    "channels": true,
+                    "online": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ota/image": {
+      "get": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "getImage",
+        "summary": "The state of the uploaded (or pulled) image: the session",
+        "responses": {
+          "200": {
+            "description": "The session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                },
+                "examples": {
+                  "receiving": {
+                    "value": {
+                      "state": "receiving",
+                      "source": "upload",
+                      "slot": "ota_1",
+                      "url": null,
+                      "bytes": 524288,
+                      "total": 1355328,
+                      "sha256": null,
+                      "app": {
+                        "project": "holo-player-fw",
+                        "version": "v1.1.0",
+                        "date": "Sep 26 2026",
+                        "time": "21:04:11",
+                        "idf": "v6.1",
+                        "elf_sha256": "77e7c39c8d1f0b6a1e2d3c4b5a69788766554433221100ffeeddccbbaa998877"
+                      },
+                      "boots_next": false,
+                      "dry_run": false,
+                      "error": null,
+                      "elapsed_ms": 4100
+                    }
+                  },
+                  "staged": {
+                    "value": {
+                      "state": "staged",
+                      "source": "upload",
+                      "slot": "ota_1",
+                      "url": null,
+                      "bytes": 1355328,
+                      "total": 1355328,
+                      "sha256": "0b1c9e3f5a7d2e4c6b8a0f1e3d5c7b9a2e4f6a8c0d2e4f6a8b0c2d4e6f8a0b2c",
+                      "app": {
+                        "project": "holo-player-fw",
+                        "version": "v1.1.0",
+                        "date": "Sep 26 2026",
+                        "time": "21:04:11",
+                        "idf": "v6.1",
+                        "elf_sha256": "77e7c39c8d1f0b6a1e2d3c4b5a69788766554433221100ffeeddccbbaa998877"
+                      },
+                      "boots_next": false,
+                      "dry_run": false,
+                      "error": null,
+                      "elapsed_ms": 14230
+                    }
+                  },
+                  "failed": {
+                    "value": {
+                      "state": "failed",
+                      "source": "upload",
+                      "slot": "ota_1",
+                      "url": null,
+                      "bytes": 4096,
+                      "total": 20288,
+                      "sha256": null,
+                      "app": null,
+                      "boots_next": false,
+                      "dry_run": false,
+                      "error": "no application description in the image",
+                      "elapsed_ms": 120
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "uploadImage",
+        "summary": "Upload an application image",
+        "description": "The body is the application image as built (`build/holo-player-fw.bin`, or a release's `holo-player-fw-vX.Y.Z.bin` -- not the bootloader, partition table or OTA data files), with a `Content-Length`. It is written into the slot that is not running as it arrives; the first 288 bytes are checked at once (an application, for this chip and this project), and the whole image once it is in. The reply comes when the image is staged -- or activated, or the board restarting, as the query asks -- or has failed. `POST` does the same, for clients that cannot `PUT`.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Sha256"
+          },
+          {
+            "$ref": "#/components/parameters/Activate"
+          },
+          {
+            "$ref": "#/components/parameters/Reboot"
+          },
+          {
+            "$ref": "#/components/parameters/Force"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Image"
+        },
+        "responses": {
+          "200": {
+            "description": "Staged (or activated, or restarting, as asked)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "$ref": "#/components/responses/Busy"
+          },
+          "411": {
+            "description": "No Content-Length",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "length_required",
+                  "message": "send the image as the body, with a Content-Length"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Too large for the slot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_large",
+                  "message": "2500000 bytes will not fit the 2304 KB slot"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "422": {
+            "description": "Not a usable image: not an application, for another chip or project, a SHA-256 that does not match, or one that failed verification. The running image still boots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "error": "invalid_image",
+                      "message": "not an application image (first byte 0x00, not 0xe9)"
+                    }
+                  },
+                  "sha": {
+                    "value": {
+                      "error": "sha256_mismatch",
+                      "message": "SHA-256 mismatch: received 0b1c9e3f5a7d..., expected 9f86d081884c..."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "uploadImagePost",
+        "summary": "Upload an application image (as PUT)",
+        "description": "The same as `PUT`. The body must be sent as `Content-Type: application/octet-stream`.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Sha256"
+          },
+          {
+            "$ref": "#/components/parameters/Activate"
+          },
+          {
+            "$ref": "#/components/parameters/Reboot"
+          },
+          {
+            "$ref": "#/components/parameters/Force"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Image"
+        },
+        "responses": {
+          "200": {
+            "description": "Staged (or activated, or restarting, as asked)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "$ref": "#/components/responses/Busy"
+          },
+          "411": {
+            "description": "No Content-Length",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "length_required",
+                  "message": "send the image as the body, with a Content-Length"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Too large for the slot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "too_large",
+                  "message": "2500000 bytes will not fit the 2304 KB slot"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "422": {
+            "description": "Not a usable image: not an application, for another chip or project, a SHA-256 that does not match, or one that failed verification. The running image still boots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "error": "invalid_image",
+                      "message": "not an application image (first byte 0x00, not 0xe9)"
+                    }
+                  },
+                  "sha": {
+                    "value": {
+                      "error": "sha256_mismatch",
+                      "message": "SHA-256 mismatch: received 0b1c9e3f5a7d..., expected 9f86d081884c..."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "discardImage",
+        "summary": "Cancel an update in progress, or forget a staged or failed one",
+        "description": "An upload or pull in progress stops at its next block, and fails as `cancelled`. A staged image is forgotten: it stays in its slot, harmless, until the next update overwrites it. An image already activated cannot be discarded -- activate the running slot instead.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The session now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "Already the boot image, or being verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "cannot_discard",
+                  "message": "it is already the boot image; activate the running slot to go back"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ota/activate": {
+      "post": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "activate",
+        "summary": "Make an image the boot image, and restart into it",
+        "description": "With no `slot`, the staged image. With a `slot`, the image already in it: naming the other slot goes back to the previous firmware, and naming the running slot undoes an activation that has not restarted yet. The board checks the image before selecting it. `reboot` defaults to true: the board restarts a second after replying.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateRequest"
+              },
+              "examples": {
+                "staged": {
+                  "summary": "The staged image, and restart",
+                  "value": {}
+                },
+                "back": {
+                  "summary": "Go back to the other slot's image",
+                  "value": {
+                    "slot": "ota_0",
+                    "reboot": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "It boots next; the board restarts if asked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No such slot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "no_such_slot",
+                  "message": "no application slot called ota_7"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Nothing staged, or the slot is being written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "nothing_staged",
+                  "message": "nothing is staged; name a slot"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "422": {
+            "description": "The slot holds no good image",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "invalid_image",
+                  "message": "ota_1 holds no good image (ESP_ERR_OTA_VALIDATE_FAILED)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ota/pull": {
+      "post": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "pull",
+        "summary": "Have the board download an image itself",
+        "description": "From `url` -- an application image, or a release manifest (`.../firmware/manifest.json` on the documentation site), whose SHA-256 is then enforced -- or from a release `channel` such as `latest`, looked up on the documentation site. The download runs in the background: the reply comes once it has started, and `GET /api/v1/ota/image` follows it. Redirects from https to plain http are refused. Needs the board's station link to the internet.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PullRequest"
+              },
+              "examples": {
+                "latest": {
+                  "summary": "The latest release",
+                  "value": {
+                    "channel": "latest"
+                  }
+                },
+                "manifest": {
+                  "summary": "A release, by its manifest",
+                  "value": {
+                    "url": "https://davidiansmith.ca/holo-player-fw/1.0/firmware/manifest.json"
+                  }
+                },
+                "image": {
+                  "summary": "An image on a local server, installed and restarted into",
+                  "value": {
+                    "url": "http://10.0.19.20:8000/holo-player-fw.bin",
+                    "activate": true,
+                    "reboot": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The download has started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "$ref": "#/components/responses/Busy"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "503": {
+            "$ref": "#/components/responses/Offline"
+          }
+        }
+      }
+    },
+    "/api/v1/ota/check": {
+      "get": {
+        "tags": [
+          "ota"
+        ],
+        "operationId": "checkUpdate",
+        "summary": "Look for an update without downloading it",
+        "description": "Resolves a channel (default `latest`) or a `url` as a pull would, and compares its version with the running one. Answers are kept for five minutes; `refresh` looks again. `newer` is null when either version is not a release tag (a development build).",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "latest"
+            },
+            "description": "A release channel"
+          },
+          {
+            "name": "url",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "A manifest or image URL, instead of a channel"
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Look again rather than use a recent answer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What is available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResult"
+                },
+                "example": {
+                  "channel": "latest",
+                  "current": "v1.0.0",
+                  "version": "v1.1.0",
+                  "newer": true,
+                  "image_url": "https://davidiansmith.ca/holo-player-fw/1.1/firmware/holo-player-fw-v1.1.0.bin",
+                  "release_url": "https://github.com/daveismith/holo-player-fw/releases/tag/v1.1.0",
+                  "size": 1402112,
+                  "sha256": "0b1c9e3f5a7d2e4c6b8a0f1e3d5c7b9a2e4f6a8c0d2e4f6a8b0c2d4e6f8a0b2c",
+                  "checked_s_ago": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "description": "The channel or URL publishes no firmware (the `dev` documentation, say: only releases carry firmware)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "no_firmware",
+                  "message": "the `dev` channel publishes no firmware: only releases do"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Offline"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The board's web password as the token. Only needed once a password is set (`web password` on the console)."
+      },
+      "basic": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Any user name, and the board's web password. Only needed once a password is set."
+      }
+    },
+    "parameters": {
+      "Sha256": {
+        "name": "sha256",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "description": "The image's SHA-256. The board refuses the image if what arrived differs."
+      },
+      "Activate": {
+        "name": "activate",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Make it the boot image once staged"
+      },
+      "Reboot": {
+        "name": "reboot",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "With `activate`: restart into it, a moment after replying"
+      },
+      "Force": {
+        "name": "force",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Accept an image built for another project"
+      }
+    },
+    "requestBodies": {
+      "Image": {
+        "required": true,
+        "description": "The application image",
+        "content": {
+          "application/octet-stream": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request is malformed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "bad_request",
+              "message": "give either `url` or `channel`"
+            }
+          }
+        }
+      },
+      "AuthRequired": {
+        "description": "A password is set, and this request did not carry it",
+        "headers": {
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            },
+            "example": "Bearer realm=\"holo-2db0\""
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "auth_required",
+              "message": "this needs the board's web password"
+            }
+          }
+        }
+      },
+      "ForbiddenHost": {
+        "description": "The Host header does not name the board",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "forbidden_host",
+              "message": "the Host header must be the board's address or holo-2db0.local"
+            }
+          }
+        }
+      },
+      "ContentType": {
+        "description": "A POST without Content-Type: application/json",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "content_type",
+              "message": "a POST must be Content-Type: application/json (or application/octet-stream for an image)"
+            }
+          }
+        }
+      },
+      "Busy": {
+        "description": "Another update is in progress",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "busy",
+              "message": "another update is in progress"
+            }
+          }
+        }
+      },
+      "Offline": {
+        "description": "The board has no network connection to download from, or the release site did not answer",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "offline",
+              "message": "the board has no network connection to download from"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not here",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "not_found",
+              "message": "no such endpoint: /api/v1/nope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A stable code to branch on",
+            "examples": [
+              "busy",
+              "invalid_image",
+              "auth_required"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "What went wrong, in words"
+          }
+        }
+      },
+      "AppDesc": {
+        "type": "object",
+        "description": "An image's description, as built into it",
+        "required": [
+          "project",
+          "version",
+          "date",
+          "time",
+          "idf",
+          "elf_sha256"
+        ],
+        "properties": {
+          "project": {
+            "type": "string",
+            "examples": [
+              "holo-player-fw"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "description": "The release tag, or `git describe` for a development build",
+            "examples": [
+              "v1.0.0",
+              "v1.0.0-6-g4b8387d"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "examples": [
+              "Sep 24 2026"
+            ]
+          },
+          "time": {
+            "type": "string",
+            "examples": [
+              "03:51:02"
+            ]
+          },
+          "idf": {
+            "type": "string",
+            "examples": [
+              "v6.1"
+            ]
+          },
+          "elf_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "Info": {
+        "type": "object",
+        "required": [
+          "api",
+          "firmware",
+          "chip",
+          "hostname",
+          "uptime_s",
+          "heap_free",
+          "features",
+          "auth",
+          "via",
+          "sta",
+          "ap"
+        ],
+        "properties": {
+          "api": {
+            "type": "integer",
+            "const": 1
+          },
+          "firmware": {
+            "$ref": "#/components/schemas/AppDesc"
+          },
+          "chip": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string",
+            "description": "The board answers to `<hostname>.local`"
+          },
+          "uptime_s": {
+            "type": "integer"
+          },
+          "heap_free": {
+            "type": "integer",
+            "description": "Bytes"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ota",
+                "settings",
+                "clips"
+              ]
+            },
+            "description": "What the web app offers on this firmware"
+          },
+          "auth": {
+            "type": "boolean",
+            "description": "Whether a password is set: changes need it"
+          },
+          "via": {
+            "type": "string",
+            "enum": [
+              "sta",
+              "ap"
+            ],
+            "description": "Whether this request came over the board's own access point"
+          },
+          "sta": {
+            "type": "object",
+            "required": [
+              "enabled",
+              "connected"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "connected": {
+                "type": "boolean"
+              },
+              "ssid": {
+                "type": "string"
+              },
+              "ip": {
+                "type": "string",
+                "format": "ipv4"
+              },
+              "rssi": {
+                "type": "integer",
+                "description": "dBm"
+              },
+              "channel": {
+                "type": "integer"
+              },
+              "ipv6": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "ap": {
+            "type": "object",
+            "required": [
+              "on"
+            ],
+            "properties": {
+              "on": {
+                "type": "boolean"
+              },
+              "ssid": {
+                "type": "string"
+              },
+              "ip": {
+                "type": "string",
+                "format": "ipv4"
+              },
+              "clients": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Slot": {
+        "type": "object",
+        "required": [
+          "label",
+          "address",
+          "size",
+          "running",
+          "boots",
+          "next",
+          "state",
+          "app"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "examples": [
+              "ota_0"
+            ]
+          },
+          "address": {
+            "type": "integer",
+            "description": "Flash offset"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Bytes"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "boots": {
+            "type": "boolean",
+            "description": "The boot image: runs after a restart"
+          },
+          "next": {
+            "type": "boolean",
+            "description": "The slot an update writes"
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "new",
+              "trial",
+              "confirmed",
+              "invalid",
+              "rolled_back",
+              "none",
+              null
+            ],
+            "description": "The bootloader's record: `trial` runs until it confirms itself; null when there is no record (an image installed over USB)"
+          },
+          "app": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AppDesc"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "description": "The update in progress, or the last one this boot",
+        "required": [
+          "state",
+          "source",
+          "slot",
+          "url",
+          "bytes",
+          "total",
+          "sha256",
+          "app",
+          "boots_next",
+          "dry_run",
+          "error",
+          "elapsed_ms"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "receiving",
+              "downloading",
+              "verifying",
+              "staged",
+              "active",
+              "failed"
+            ],
+            "description": "`receiving` (an upload or the console) or `downloading` (a pull); `verifying` while the board checks the whole image; `staged` checked and waiting; `active` the boot image, running from the next restart; `failed` with `error`. The running image boots in every state but `active`."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "none",
+              "upload",
+              "pull",
+              "console"
+            ]
+          },
+          "slot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For a pull: the image's URL, once resolved"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer",
+            "description": "0 while not known"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Of the image as received, once complete"
+          },
+          "app": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AppDesc"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Known from the image's first 288 bytes"
+          },
+          "boots_next": {
+            "type": "boolean"
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "elapsed_ms": {
+            "type": "integer"
+          }
+        }
+      },
+      "Ota": {
+        "type": "object",
+        "required": [
+          "rollback",
+          "slots",
+          "session",
+          "pull"
+        ],
+        "properties": {
+          "rollback": {
+            "type": "boolean",
+            "description": "Updated images run on trial, and a reset before they confirm goes back"
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Slot"
+            }
+          },
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "pull": {
+            "type": "object",
+            "required": [
+              "available",
+              "channels",
+              "online"
+            ],
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "description": "The firmware can pull images"
+              },
+              "channels": {
+                "type": "boolean",
+                "description": "It knows release channels (`latest`)"
+              },
+              "online": {
+                "type": "boolean",
+                "description": "Its station is connected"
+              }
+            }
+          }
+        }
+      },
+      "RestartRequest": {
+        "type": "object",
+        "properties": {
+          "delay_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000,
+            "default": 500
+          }
+        }
+      },
+      "ActivateRequest": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "description": "A slot's label; the staged image when absent"
+          },
+          "reboot": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "ActivateResult": {
+        "type": "object",
+        "required": [
+          "session",
+          "restart_in_ms"
+        ],
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "restart_in_ms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "PullRequest": {
+        "type": "object",
+        "oneOf": [
+          {
+            "required": [
+              "url"
+            ],
+            "not": {
+              "required": [
+                "channel"
+              ]
+            }
+          },
+          {
+            "required": [
+              "channel"
+            ],
+            "not": {
+              "required": [
+                "url"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 255,
+            "description": "An image, or a release manifest (ending .json)"
+          },
+          "channel": {
+            "type": "string",
+            "examples": [
+              "latest"
+            ],
+            "description": "A release channel: a documentation version or alias"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "description": "Refuse the image unless it has this SHA-256 (a manifest's own is used otherwise)"
+          },
+          "activate": {
+            "type": "boolean",
+            "default": false
+          },
+          "reboot": {
+            "type": "boolean",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "default": false,
+            "description": "Accept an image built for another project"
+          }
+        }
+      },
+      "CheckResult": {
+        "type": "object",
+        "required": [
+          "channel",
+          "current",
+          "version",
+          "newer",
+          "image_url",
+          "release_url",
+          "size",
+          "sha256",
+          "checked_s_ago"
+        ],
+        "properties": {
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current": {
+            "type": "string",
+            "description": "The running firmware's version"
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The release's version; null for a bare image URL"
+          },
+          "newer": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether `version` is a later release than `current`; null when either is not a release tag"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "release_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "description": "0 if unknown"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checked_s_ago": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
