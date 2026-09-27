@@ -73,7 +73,7 @@ access point, which is WPA2.
 - `sta` and `ap`: the station link (SSID, address, signal) and the access point;
 - `via`: `ap` when the request came in on the board's access point;
 - `features`: what the web app offers on this firmware: `ota`, `files`, `screen`, `leds`, `holo`,
-  `scenes`, `settings`, `network`, `events`.
+  `scenes`, `settings`, `network`, `events`, and (planned) `link`.
 
 ```sh
 curl http://holo-2db0.local/api/v1/info
@@ -363,6 +363,35 @@ events.addEventListener("scene_ended", (m) => console.log("ended", JSON.parse(m.
 events.addEventListener("leds", (m) => console.log("LEDs now", JSON.parse(m.data).state));
 ```
 
+## The host link
+
+!!! note "Not in the firmware yet"
+    The host link, and the endpoints in this section, are described ahead of the firmware.
+
+The [host link](../use/host-link.md) runs the board from a controller on a wire rather than over
+Wi-Fi. Over its UART and RS485, it speaks this API one request a line, and the
+[host link protocol](host-protocol.md) has the details. Its settings are here too:
+
+```sh
+curl "$B/link"
+curl -X PATCH -H "$J" -d '{"mode":"rs485","address":3,"groups":[2]}' "$B/link"
+```
+
+`GET /api/v1/link` is the saved settings, what is running (which differs from them until a
+restart), and the counters. A new transport or pins wait for a restart, and the reply says so with
+`"restart_required": true`. A pin the board uses for something else is `409` `pin_in_use`.
+
+`GET /api/v1/link/events` is the link's recent events, and `PATCH /api/v1/link/events` says which it
+reports, until the next restart:
+
+```sh
+curl -X PATCH -H "$J" -d '{"kinds":["scene_ended"],"push":true}' "$B/link/events"
+curl "$B/link/events?after=40"
+```
+
+A scene can have a `slot`, a number from 1 to 255 that small controllers apply it by:
+`"slot": 3` in the scene.
+
 ## A show, scripted
 
 Upload a clip, check it can play, save it as a scene with warm LEDs and a restless holo, and have the
@@ -543,6 +572,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 409 | `not_running` | No scene is running to its end |
 | 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
 | 409 | `not_ready` | The holo can't move now; the message says why |
+| 409 | `pin_in_use` | The host link can't have that pin: the board uses it for something else |
 | 411 | `length_required` | An upload without a `Content-Length` |
 | 413 | `too_large` | The image won't fit the slot |
 | 415 | `content_type` | A `POST` or `PATCH` that isn't `application/json` |
@@ -609,6 +639,10 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | PATCH | `/api/v1/network/ap` | The access point: on or off, name, passphrase |
 | GET | `/api/v1/web` | The web server's settings |
 | PATCH | `/api/v1/web` | Change them (saved) |
+| GET | `/api/v1/link` | The host link: settings, what's running, counters (planned) |
+| PATCH | `/api/v1/link` | Change its settings (saved; planned) |
+| GET | `/api/v1/link/events` | Its recent events (planned) |
+| PATCH | `/api/v1/link/events` | Which events it reports (planned) |
 
 `v1` changes only when an existing client would break; new endpoints and new fields arrive without
 it changing.

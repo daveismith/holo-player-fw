@@ -4,7 +4,7 @@
     "title": "Holo Player HTTP API",
     "version": "1.0.0",
     "summary": "Everything a Holo Player board does, over Wi-Fi: its files, screen, lights, holoprojector, scenes, settings, network and firmware.",
-    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `PATCH`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` or `PATCH` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests -- and downloading a file, and reading the web settings -- also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.\n\n**Now, and from now on.** Some resources are what the board is doing *now* -- `/screen`, `/leds`, `/holo`, the servos' positions -- and change nothing that survives a restart. Others are *saved*: `/settings`, `/scenes`, a servo's calibration and drive policy, `/network`'s known networks and access point, and `/web`. What the board does when it starts is `settings.boot_scene`: a scene, applied after the saved backlight and LED brightness.\n\n**Shapes.** What the board is doing now is read with `GET` and changed with `PATCH`: send only the fields that change; the reply is the whole new state. Actions are `POST` with a JSON body. Saved, named things -- a scene, a servo's calibration, a known network -- are `PUT` and `DELETE`, named in the query (`?name=`, `?id=`, `?ssid=`).\n\n**Files** are named by a `path` query parameter, from the root of the board's storage: `/clips/intro.mov`. `/` is the root; `..`, `.` and empty segments are refused, as are names over 63 bytes and paths over 159. Moving, replacing or deleting the file on the screen stops it first.\n\n**Long operations** -- an upload or pull of firmware, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run one at a time; another gets `409 busy`. The server answers other requests meanwhile.\n\n**Events.** Rather than polling, a client can follow `GET /api/v1/events`, a stream of Server-Sent Events: each resource (`screen`, `leds`, `holo`, the running `scene`, ...) as it changes, and what happens (`clip_ended`, `scene_ended`, `touch`). A browser's `EventSource` reconnects by itself and replays what it missed.",
+    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `PATCH`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` or `PATCH` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests -- and downloading a file, and reading the web settings -- also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.\n\n**Now, and from now on.** Some resources are what the board is doing *now* -- `/screen`, `/leds`, `/holo`, the servos' positions -- and change nothing that survives a restart. Others are *saved*: `/settings`, `/scenes`, a servo's calibration and drive policy, `/network`'s known networks and access point, and `/web`. What the board does when it starts is `settings.boot_scene`: a scene, applied after the saved backlight and LED brightness.\n\n**Shapes.** What the board is doing now is read with `GET` and changed with `PATCH`: send only the fields that change; the reply is the whole new state. Actions are `POST` with a JSON body. Saved, named things -- a scene, a servo's calibration, a known network -- are `PUT` and `DELETE`, named in the query (`?name=`, `?id=`, `?ssid=`).\n\n**Files** are named by a `path` query parameter, from the root of the board's storage: `/clips/intro.mov`. `/` is the root; `..`, `.` and empty segments are refused, as are names over 63 bytes and paths over 159. Moving, replacing or deleting the file on the screen stops it first.\n\n**Long operations** -- an upload or pull of firmware, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run one at a time; another gets `409 busy`. The server answers other requests meanwhile.\n\n**Events.** Rather than polling, a client can follow `GET /api/v1/events`, a stream of Server-Sent Events: each resource (`screen`, `leds`, `holo`, the running `scene`, ...) as it changes, and what happens (`clip_ended`, `scene_ended`, `touch`). A browser's `EventSource` reconnects by itself and replays what it missed.\n\n**The host link.** Most of this API is also served over a wire, to a controller on the board's spare pins: one request a line, with the same paths, bodies, replies and errors (`/link` has its settings; the manual's *Host link protocol* page has the line format). There, no password or `Host` rule applies. *Planned: not in the firmware yet.*",
     "license": {
       "name": "See the repository",
       "url": "https://github.com/daveismith/holo-player-fw"
@@ -69,6 +69,10 @@
     {
       "name": "network",
       "description": "Wi-Fi: the network the board joins, the ones it knows, and its own access point"
+    },
+    {
+      "name": "link",
+      "description": "The host link: a wired controller on the spare pins of P2 (UART, RS485 or I2C), its settings and its events. See the manual's Host link pages. *Planned: not in the firmware yet.*"
     }
   ],
   "paths": {
@@ -4275,6 +4279,364 @@
           }
         }
       }
+    },
+    "/api/v1/link": {
+      "get": {
+        "tags": [
+          "link"
+        ],
+        "operationId": "getLink",
+        "summary": "The host link: its settings, what is running, its counters",
+        "x-planned": true,
+        "responses": {
+          "200": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Link"
+                },
+                "example": {
+                  "protocol_version": 1,
+                  "settings": {
+                    "mode": "uart",
+                    "protocol": "auto",
+                    "pins": {
+                      "a": 21,
+                      "b": 33,
+                      "c": 15
+                    },
+                    "baud": 115200,
+                    "address": 1,
+                    "groups": [],
+                    "reply_delay_ms": 1,
+                    "attn": false,
+                    "i2c_address": 66,
+                    "general_call": false,
+                    "events": {
+                      "kinds": [],
+                      "push": true
+                    }
+                  },
+                  "running": {
+                    "mode": "uart",
+                    "protocol": "auto",
+                    "pins": {
+                      "a": 21,
+                      "b": 33,
+                      "c": 15
+                    }
+                  },
+                  "restart_required": false,
+                  "counters": {
+                    "requests": 112,
+                    "events": 9,
+                    "bad_lines": 0,
+                    "crc_errors": 0,
+                    "framing_errors": 0,
+                    "overruns": 0,
+                    "ignored": 0
+                  },
+                  "last_request_s": 1.8,
+                  "events": {
+                    "kinds": [
+                      "scene_ended"
+                    ],
+                    "push": true,
+                    "seq": 9,
+                    "pending": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "link"
+        ],
+        "operationId": "patchLink",
+        "summary": "Change the host link's settings (saved)",
+        "x-planned": true,
+        "description": "Saved. A new `mode`, `pins`, `attn`, `i2c_address` or `general_call` waits for a restart, and the reply says so with `restart_required`; the rest applies at once. Over the link itself, a new `baud` takes effect after the reply, which is sent at the old one.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkPatch"
+              },
+              "examples": {
+                "uart": {
+                  "value": {
+                    "mode": "uart",
+                    "baud": 115200
+                  }
+                },
+                "rs485": {
+                  "value": {
+                    "mode": "rs485",
+                    "address": 3,
+                    "groups": [
+                      2
+                    ]
+                  }
+                },
+                "i2c": {
+                  "value": {
+                    "mode": "i2c",
+                    "i2c_address": 66
+                  }
+                },
+                "events": {
+                  "value": {
+                    "events": {
+                      "kinds": [
+                        "scene_ended",
+                        "clip_ended"
+                      ],
+                      "push": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved: the link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Link"
+                },
+                "example": {
+                  "protocol_version": 1,
+                  "settings": {
+                    "mode": "rs485",
+                    "protocol": "auto",
+                    "pins": {
+                      "a": 21,
+                      "b": 33,
+                      "c": 15
+                    },
+                    "baud": 115200,
+                    "address": 3,
+                    "groups": [],
+                    "reply_delay_ms": 1,
+                    "attn": false,
+                    "i2c_address": 66,
+                    "general_call": false,
+                    "events": {
+                      "kinds": [],
+                      "push": true
+                    }
+                  },
+                  "running": {
+                    "mode": "uart",
+                    "protocol": "auto",
+                    "pins": {
+                      "a": 21,
+                      "b": 33,
+                      "c": 15
+                    }
+                  },
+                  "restart_required": true,
+                  "counters": {
+                    "requests": 112,
+                    "events": 9,
+                    "bad_lines": 0,
+                    "crc_errors": 0,
+                    "framing_errors": 0,
+                    "overruns": 0,
+                    "ignored": 0
+                  },
+                  "last_request_s": 1.8,
+                  "events": {
+                    "kinds": [
+                      "scene_ended"
+                    ],
+                    "push": true,
+                    "seq": 9,
+                    "pending": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "A pin is one the board uses for something else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "pin_in_use",
+                  "message": "GPIO16 is the LED strip's"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/link/events": {
+      "get": {
+        "tags": [
+          "link"
+        ],
+        "operationId": "getLinkEvents",
+        "summary": "The link's events",
+        "x-planned": true,
+        "description": "Without `after`: the events not yet given to the host, which over the link then count as given. With `after`: every kept event after that number, given or not, to catch up after a gap. Over HTTP, this only looks: nothing counts as given.",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "example": 40
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events, oldest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkEvents"
+                },
+                "example": {
+                  "seq": 43,
+                  "lost": 0,
+                  "events": [
+                    {
+                      "event": "clip_ended",
+                      "seq": 41,
+                      "t_ms": 811900,
+                      "path": "/clips/leia.mov",
+                      "finished": true
+                    },
+                    {
+                      "event": "scene_ended",
+                      "seq": 42,
+                      "t_ms": 812345,
+                      "name": "message",
+                      "slot": 3,
+                      "then": "restore",
+                      "by": "clip"
+                    },
+                    {
+                      "event": "touch",
+                      "seq": 43,
+                      "t_ms": 815002,
+                      "action": "down",
+                      "x": 120,
+                      "y": 96
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "link"
+        ],
+        "operationId": "patchLinkEvents",
+        "summary": "The events the link reports, until the next restart",
+        "x-planned": true,
+        "description": "Not saved: `PATCH /link` with `events` sets what it reports from the start.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkEventsPatch"
+              },
+              "example": {
+                "kinds": [
+                  "scene_ended",
+                  "clip_ended"
+                ],
+                "push": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What it reports now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkEventState"
+                },
+                "example": {
+                  "kinds": [
+                    "clip_ended",
+                    "scene_ended"
+                  ],
+                  "push": true,
+                  "seq": 0,
+                  "pending": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4728,7 +5090,8 @@
                 "scenes",
                 "settings",
                 "network",
-                "events"
+                "events",
+                "link"
               ]
             },
             "description": "What the web app offers on this firmware"
@@ -6057,6 +6420,12 @@
             "minimum": 0.1,
             "maximum": 86400,
             "description": "The scene ends after this long, or when its clip has played if that is sooner"
+          },
+          "slot": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 255,
+            "description": "A number for the scene, for the host link's native frames and small controllers, which apply it by number instead of by name. Unique: two scenes can't share one. *Planned: not in the firmware yet.*"
           }
         },
         "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played (once, or its `loops`), or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
@@ -6574,6 +6943,12 @@
               "null"
             ],
             "description": "Until its `duration_s` is up; null without one"
+          },
+          "slot": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 255,
+            "description": "Its slot, when it has one. *Planned: not in the firmware yet.*"
           }
         }
       },
@@ -6777,6 +7152,487 @@
             }
           }
         }
+      },
+      "LinkEventsSetting": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "clip_ended",
+                "scene_ended",
+                "touch"
+              ]
+            },
+            "uniqueItems": true,
+            "description": "The events the link reports. `[]` for none"
+          },
+          "push": {
+            "type": "boolean",
+            "description": "Send them as they happen (UART only), or keep them for the host to fetch"
+          }
+        }
+      },
+      "LinkSettings": {
+        "type": "object",
+        "required": [
+          "mode",
+          "protocol",
+          "pins",
+          "baud",
+          "address",
+          "groups",
+          "reply_delay_ms",
+          "attn",
+          "i2c_address",
+          "general_call",
+          "events"
+        ],
+        "description": "The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "uart",
+              "rs485",
+              "i2c"
+            ],
+            "description": "The transport"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "json",
+              "native"
+            ],
+            "description": "What UART and RS485 accept: JSON lines, native frames, or either (`auto`, told apart by the first byte). I2C is always `native`"
+          },
+          "pins": {
+            "type": "object",
+            "required": [
+              "a",
+              "b",
+              "c"
+            ],
+            "additionalProperties": false,
+            "description": "The GPIOs for the three roles: A is TX or SDA, B is RX or SCL, C is ATTN, DE or IRQ",
+            "properties": {
+              "a": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 48
+              },
+              "b": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 48
+              },
+              "c": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 48,
+                "description": "null leaves role C unused"
+              }
+            }
+          },
+          "baud": {
+            "type": "integer",
+            "minimum": 1200,
+            "maximum": 921600,
+            "description": "UART and RS485; 8N1, no flow control"
+          },
+          "address": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 223,
+            "description": "The board's address on UART and RS485"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31
+            },
+            "maxItems": 8,
+            "uniqueItems": true,
+            "description": "The groups it acts for, on UART and RS485"
+          },
+          "reply_delay_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50,
+            "description": "RS485: how long it waits before answering, for the host's transceiver to stop sending"
+          },
+          "attn": {
+            "type": "boolean",
+            "description": "UART: role C is an ATTN output, low while events are waiting"
+          },
+          "i2c_address": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 119,
+            "description": "I2C: the board's 7-bit address"
+          },
+          "general_call": {
+            "type": "boolean",
+            "description": "I2C: act on commands written to address 0"
+          },
+          "events": {
+            "$ref": "#/components/schemas/LinkEventsSetting",
+            "description": "What the link reports from the start, until the host asks for something else"
+          }
+        }
+      },
+      "LinkPatch": {
+        "type": "object",
+        "description": "Only what changes. The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "uart",
+              "rs485",
+              "i2c"
+            ],
+            "description": "The transport"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "json",
+              "native"
+            ],
+            "description": "What UART and RS485 accept: JSON lines, native frames, or either (`auto`, told apart by the first byte). I2C is always `native`"
+          },
+          "pins": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The GPIOs for the three roles: A is TX or SDA, B is RX or SCL, C is ATTN, DE or IRQ",
+            "properties": {
+              "a": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 48
+              },
+              "b": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 48
+              },
+              "c": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 48,
+                "description": "null leaves role C unused"
+              }
+            }
+          },
+          "baud": {
+            "type": "integer",
+            "minimum": 1200,
+            "maximum": 921600,
+            "description": "UART and RS485; 8N1, no flow control"
+          },
+          "address": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 223,
+            "description": "The board's address on UART and RS485"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31
+            },
+            "maxItems": 8,
+            "uniqueItems": true,
+            "description": "The groups it acts for, on UART and RS485"
+          },
+          "reply_delay_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50,
+            "description": "RS485: how long it waits before answering, for the host's transceiver to stop sending"
+          },
+          "attn": {
+            "type": "boolean",
+            "description": "UART: role C is an ATTN output, low while events are waiting"
+          },
+          "i2c_address": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 119,
+            "description": "I2C: the board's 7-bit address"
+          },
+          "general_call": {
+            "type": "boolean",
+            "description": "I2C: act on commands written to address 0"
+          },
+          "events": {
+            "$ref": "#/components/schemas/LinkEventsSetting",
+            "description": "What the link reports from the start, until the host asks for something else"
+          }
+        },
+        "minProperties": 1,
+        "additionalProperties": false
+      },
+      "LinkCounters": {
+        "type": "object",
+        "required": [
+          "requests",
+          "events",
+          "bad_lines",
+          "crc_errors",
+          "framing_errors",
+          "overruns",
+          "ignored"
+        ],
+        "properties": {
+          "requests": {
+            "type": "integer",
+            "description": "Requests answered"
+          },
+          "events": {
+            "type": "integer",
+            "description": "Events given to the host"
+          },
+          "bad_lines": {
+            "type": "integer",
+            "description": "JSON lines that didn't parse, or were too long"
+          },
+          "crc_errors": {
+            "type": "integer",
+            "description": "Native frames dropped for a bad CRC"
+          },
+          "framing_errors": {
+            "type": "integer",
+            "description": "Bytes received damaged: a wrong baud rate, or noise"
+          },
+          "overruns": {
+            "type": "integer",
+            "description": "Bytes lost because the host sent faster than the board read"
+          },
+          "ignored": {
+            "type": "integer",
+            "description": "RS485 lines with no address"
+          }
+        }
+      },
+      "LinkEventState": {
+        "type": "object",
+        "required": [
+          "kinds",
+          "push",
+          "seq",
+          "pending"
+        ],
+        "properties": {
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "clip_ended",
+                "scene_ended",
+                "touch"
+              ]
+            }
+          },
+          "push": {
+            "type": "boolean"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "The latest event's number; 0 for none yet"
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Events not yet given to the host"
+          }
+        }
+      },
+      "Link": {
+        "type": "object",
+        "required": [
+          "protocol_version",
+          "settings",
+          "running",
+          "restart_required",
+          "counters",
+          "last_request_s",
+          "events"
+        ],
+        "properties": {
+          "protocol_version": {
+            "type": "integer",
+            "description": "The host link protocol's version"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/LinkSettings"
+          },
+          "running": {
+            "type": "object",
+            "required": [
+              "mode",
+              "protocol"
+            ],
+            "description": "What is running now, which differs from `settings` until a restart",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "uart",
+                  "rs485",
+                  "i2c"
+                ]
+              },
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "json",
+                  "native"
+                ]
+              },
+              "pins": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  },
+                  "c": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "restart_required": {
+            "type": "boolean",
+            "description": "A saved change waits for a restart"
+          },
+          "counters": {
+            "$ref": "#/components/schemas/LinkCounters"
+          },
+          "last_request_s": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Seconds since the last request over the link; null for none since the start"
+          },
+          "events": {
+            "$ref": "#/components/schemas/LinkEventState"
+          }
+        }
+      },
+      "LinkEvent": {
+        "type": "object",
+        "required": [
+          "event",
+          "seq",
+          "t_ms"
+        ],
+        "description": "Something that happened. Fields beyond these depend on `event`: `ready` has `firmware`, `protocol` and `address`; `clip_ended` has `path` and `finished`; `scene_ended` has `name`, `slot` (when it has one), `then` and `by` (`clip`, `time`, `end` or `replaced`); `touch` has `action` (`down` or `up`), `x` and `y`. A host ignores fields and events it doesn't know.",
+        "properties": {
+          "event": {
+            "type": "string",
+            "examples": [
+              "ready",
+              "clip_ended",
+              "scene_ended",
+              "touch"
+            ]
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "Numbers the reported events, going back to 1 after 65535; a gap is a missed event"
+          },
+          "t_ms": {
+            "type": "integer",
+            "description": "The board's uptime when it happened"
+          }
+        }
+      },
+      "LinkEvents": {
+        "type": "object",
+        "required": [
+          "seq",
+          "lost",
+          "events"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "The latest event's number"
+          },
+          "lost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Events after `after` no longer kept (the board keeps 32)"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkEvent"
+            },
+            "maxItems": 32
+          }
+        }
+      },
+      "LinkEventsPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "clip_ended",
+                "scene_ended",
+                "touch"
+              ]
+            },
+            "uniqueItems": true,
+            "description": "The events the link reports. `[]` for none"
+          },
+          "push": {
+            "type": "boolean",
+            "description": "Send them as they happen (UART only), or keep them for the host to fetch"
+          }
+        },
+        "minProperties": 1
       }
     }
   }

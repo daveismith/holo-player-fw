@@ -82,6 +82,9 @@ nav:
       - Mounting the screen: connect/screen.md
       - Wiring the LED ring: connect/leds.md
       - Wiring the servos: connect/servos.md
+      - "Host link: UART": connect/host-uart.md
+      - "Host link: RS485": connect/host-rs485.md
+      - "Host link: I2C": connect/host-i2c.md
   - Use:
       - Video clips: use/video.md
       - Images: use/images.md
@@ -91,11 +94,13 @@ nav:
       - The board in the browser: use/board.md
       - The board over Wi-Fi: use/web.md
       - Updating the firmware: use/ota.md
+      - The host link: use/host-link.md
       - Troubleshooting: troubleshooting.md
   - Reference:
       - Console commands: reference/console.md
       - HTTP API: reference/http-api.md
       - HTTP API explorer: reference/http-api-explorer.md
+      - Host link protocol: reference/host-protocol.md
       - Configuration: reference/config.md
       - Video internals: reference/video-internals.md
       - Changelog: changelog.md

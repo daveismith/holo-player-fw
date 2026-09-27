@@ -72,6 +72,20 @@ a guess, which is why motion works before anything is calibrated; see
 
 See [With no network](../use/web.md#with-no-network-the-boards-own-access-point).
 
+### Host link
+
+Planned: not in the firmware yet. The compiled-in defaults, which the saved
+[link settings](../use/host-link.md) override.
+
+| Option | Default | Does |
+|---|---|---|
+| `HOSTLINK_MODE` | off | `off`, `uart`, `rs485` or `i2c` |
+| `HOSTLINK_PROTOCOL` | auto | `auto`, `json` or `native`, for UART and RS485 |
+| `HOSTLINK_PIN_A` / `_B` / `_C` | 21 / 33 / 15 | P2 pins 11, 12 and 7 |
+| `HOSTLINK_BAUD` | 115200 | UART and RS485 |
+| `HOSTLINK_ADDRESS` | 1 | The board's address on UART and RS485, 1–223 |
+| `HOSTLINK_I2C_ADDRESS` | 0x42 | The board's I2C address |
+
 ### Console WiFi commands
 
 The `cmd_wifi` component adds its own menu, for the NVS namespace saved networks are kept in and
