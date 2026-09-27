@@ -3967,8 +3967,7 @@
           "401": {
             "$ref": "#/components/responses/AuthRequired"
           }
-        },
-        "x-planned": true
+        }
       },
       "patch": {
         "tags": [
@@ -4054,8 +4053,7 @@
           "415": {
             "$ref": "#/components/responses/ContentType"
           }
-        },
-        "x-planned": true
+        }
       }
     }
   },
@@ -6227,7 +6225,7 @@
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^[a-z0-9-]{1,32}$"
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,30}[A-Za-z0-9])?$"
               },
               {
                 "type": "null"
