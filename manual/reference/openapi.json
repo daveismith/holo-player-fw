@@ -3,8 +3,8 @@
   "info": {
     "title": "Holo Player HTTP API",
     "version": "1.0.0",
-    "summary": "Status and firmware updates for a Holo Player board, over Wi-Fi.",
-    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.",
+    "summary": "Everything a Holo Player board does, over Wi-Fi: its files, screen, lights, holoprojector, scenes, settings, network and firmware.",
+    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `PATCH`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` or `PATCH` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests -- and downloading a file, and reading the web settings -- also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.\n\n**Now, and from now on.** Some resources are what the board is doing *now* -- `/screen`, `/leds`, `/holo`, the servos' positions -- and change nothing that survives a restart. Others are *saved*: `/settings`, `/scenes`, a servo's calibration and drive policy, `/network`'s known networks and access point, and `/web`. What the board does when it starts is `settings.boot_scene`: a scene, applied after the saved backlight and LED brightness.\n\n**Shapes.** What the board is doing now is read with `GET` and changed with `PATCH`: send only the fields that change; the reply is the whole new state. Actions are `POST` with a JSON body. Saved, named things -- a scene, a servo's calibration, a known network -- are `PUT` and `DELETE`, named in the query (`?name=`, `?id=`, `?ssid=`).\n\n**Files** are named by a `path` query parameter, from the root of the board's storage: `/clips/intro.mov`. `/` is the root; `..`, `.` and empty segments are refused, as are names over 63 bytes and paths over 159. Moving, replacing or deleting the file on the screen stops it first.\n\n**Long operations** -- an upload or pull of firmware, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run one at a time; another gets `409 busy`. The server answers other requests meanwhile.",
     "license": {
       "name": "See the repository",
       "url": "https://github.com/daveismith/holo-player-fw"
@@ -33,6 +33,38 @@
     {
       "name": "ota",
       "description": "Firmware updates: slots, uploads, pulls, switching"
+    },
+    {
+      "name": "files",
+      "description": "The storage volume: browse, upload, download, move, copy, delete"
+    },
+    {
+      "name": "screen",
+      "description": "What the round screen shows now: a clip, an image, a colour, or nothing; its backlight"
+    },
+    {
+      "name": "leds",
+      "description": "The NeoPixel strip, now"
+    },
+    {
+      "name": "holo",
+      "description": "The holoprojector's motion, now"
+    },
+    {
+      "name": "servos",
+      "description": "The servos behind the holo: positions now; calibration and drive policy, saved"
+    },
+    {
+      "name": "scenes",
+      "description": "Saved combinations of screen, LEDs and holo motion, applied in one call"
+    },
+    {
+      "name": "settings",
+      "description": "What the board starts with: defaults, and the boot scene"
+    },
+    {
+      "name": "network",
+      "description": "Wi-Fi: the network the board joins, the ones it knows, and its own access point"
     }
   ],
   "paths": {
@@ -767,6 +799,3367 @@
           }
         }
       }
+    },
+    "/api/v1/fs": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "getVolume",
+        "summary": "The storage volume: its size and free space",
+        "responses": {
+          "200": {
+            "description": "The volume",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volume"
+                },
+                "example": {
+                  "root": "/data",
+                  "total": 11534336,
+                  "used": 4194304,
+                  "free": 7340032
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fs/list": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "listDirectory",
+        "summary": "What is in a directory",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DirPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The directory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Listing"
+                },
+                "example": {
+                  "path": "/clips",
+                  "entries": [
+                    {
+                      "name": "old",
+                      "path": "/clips/old",
+                      "type": "dir",
+                      "size": 0,
+                      "mtime": "2026-09-20T10:00:00Z"
+                    },
+                    {
+                      "name": "intro.mov",
+                      "path": "/clips/intro.mov",
+                      "type": "file",
+                      "size": 3145728,
+                      "mtime": "2026-09-27T14:02:11Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a directory, or a bad path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "file": {
+                    "value": {
+                      "error": "not_a_directory",
+                      "message": "/clips/intro.mov is a file"
+                    }
+                  },
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "'..' is not allowed in a path: /clips/.."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/fs/entry": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "getEntry",
+        "summary": "One file or directory",
+        "description": "With `sha256=true`, the file is hashed: a long operation, so another one running gives `409 busy`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Path"
+          },
+          {
+            "$ref": "#/components/parameters/WithSha256"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "It",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "intro.mov",
+                  "path": "/clips/intro.mov",
+                  "type": "file",
+                  "size": 3145728,
+                  "mtime": "2026-09-27T14:02:11Z",
+                  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadPath"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/JobBusy"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "deleteEntry",
+        "summary": "Delete a file or directory",
+        "description": "A file on the screen stops showing first.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Path"
+          },
+          {
+            "$ref": "#/components/parameters/Recursive"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Gone"
+          },
+          "400": {
+            "description": "A bad path, or the root",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "root": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "the root of the volume cannot be deleted"
+                    }
+                  },
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "'..' is not allowed in a path: /.."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "409": {
+            "description": "A directory with something in it, and no `recursive`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_empty",
+                  "message": "/clips is not empty: 12 entries (recursive=true deletes them too)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fs/file": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "downloadFile",
+        "summary": "Download a file",
+        "description": "Needs the password when one is set: the volume holds the console's history, which can hold what was typed. A long operation.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, as it is stored. `Content-Type` is by its extension (`application/octet-stream` when unknown), with `Content-Disposition: attachment`.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A directory, or a bad path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "dir": {
+                    "value": {
+                      "error": "is_a_directory",
+                      "message": "/clips is a directory"
+                    }
+                  },
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "'..' is not allowed in a path: /../x"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/JobBusy"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "uploadFile",
+        "summary": "Upload a file",
+        "description": "The body is the file. It is written beside the destination as `<name>.part`, and takes its place only once it has all arrived (and matched `sha256`, if given): an upload that fails or is cut off changes nothing. A long operation. A clip playing from the volume carries on, but may stutter while the flash is written; replacing the file on the screen stops it first.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Path"
+          },
+          {
+            "$ref": "#/components/parameters/Overwrite"
+          },
+          {
+            "$ref": "#/components/parameters/Parents"
+          },
+          {
+            "$ref": "#/components/parameters/FileSha256"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced a file that was there",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "intro.mov",
+                  "path": "/clips/intro.mov",
+                  "type": "file",
+                  "size": 3145728,
+                  "mtime": "2026-09-27T14:02:11Z"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "intro.mov",
+                  "path": "/clips/intro.mov",
+                  "type": "file",
+                  "size": 3145728,
+                  "mtime": "2026-09-27T14:02:11Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad path, or a directory's",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "a name may be at most 63 bytes"
+                    }
+                  },
+                  "dir": {
+                    "value": {
+                      "error": "is_a_directory",
+                      "message": "/clips is a directory"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "A directory on the way is missing, and no `parents`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no directory /clips/new (parents=true makes it)"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something is there, or another long operation is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "exists": {
+                    "value": {
+                      "error": "exists",
+                      "message": "/clips/intro.mov exists (overwrite=true replaces it)"
+                    }
+                  },
+                  "busy": {
+                    "value": {
+                      "error": "busy",
+                      "message": "a file upload is in progress; try again when it is done"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "411": {
+            "description": "No Content-Length",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "length_required",
+                  "message": "send the file as the body, with a Content-Length"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The SHA-256 did not match; nothing was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "sha256_mismatch",
+                  "message": "SHA-256 mismatch: received 0b1c9e3f5a7d..., expected 9f86d081884c..."
+                }
+              }
+            }
+          },
+          "507": {
+            "$ref": "#/components/responses/NoSpace"
+          }
+        }
+      }
+    },
+    "/api/v1/fs/mkdir": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "makeDirectory",
+        "summary": "Make a directory",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MkdirRequest"
+              },
+              "example": {
+                "path": "/clips/new",
+                "parents": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Made",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "new",
+                  "path": "/clips/new",
+                  "type": "dir",
+                  "size": 0,
+                  "mtime": "2026-09-27T14:05:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadPath"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "A directory on the way is missing, and no `parents`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no directory /clips (parents=true makes it)"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Something is there",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "exists",
+                  "message": "/clips/new exists"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/fs/move": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "moveEntry",
+        "summary": "Move or rename a file or directory",
+        "description": "Within the volume; a directory moves with everything in it. `overwrite` replaces a file, never a directory. Moving the file on the screen stops it first.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              },
+              "example": {
+                "from": "/clips/intro.mov",
+                "to": "/clips/opening.mov"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Moved: where it is now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "opening.mov",
+                  "path": "/clips/opening.mov",
+                  "type": "file",
+                  "size": 3145728,
+                  "mtime": "2026-09-27T14:02:11Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadPath"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "409": {
+            "description": "Something is at `to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "exists",
+                  "message": "/clips/opening.mov exists (overwrite=true replaces it)"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/fs/copy": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "operationId": "copyFile",
+        "summary": "Copy a file",
+        "description": "Files only. A long operation.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              },
+              "example": {
+                "from": "/clips/intro.mov",
+                "to": "/clips/intro-copy.mov"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The copy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "name": "intro-copy.mov",
+                  "path": "/clips/intro-copy.mov",
+                  "type": "file",
+                  "size": 3145728,
+                  "mtime": "2026-09-27T14:02:11Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad path, or a directory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "dir": {
+                    "value": {
+                      "error": "is_a_directory",
+                      "message": "/clips is a directory: only files are copied"
+                    }
+                  },
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "'..' is not allowed in a path: /../x"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "409": {
+            "description": "Something is at `to`, or another long operation is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "exists": {
+                    "value": {
+                      "error": "exists",
+                      "message": "/clips/intro-copy.mov exists (overwrite=true replaces it)"
+                    }
+                  },
+                  "busy": {
+                    "value": {
+                      "error": "busy",
+                      "message": "a file upload is in progress; try again when it is done"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "507": {
+            "$ref": "#/components/responses/NoSpace"
+          }
+        }
+      }
+    },
+    "/api/v1/screen": {
+      "get": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "getScreen",
+        "summary": "What the screen shows now",
+        "responses": {
+          "200": {
+            "description": "The screen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenState"
+                },
+                "example": {
+                  "powered": true,
+                  "backlight": 80,
+                  "showing": "clip",
+                  "path": "/clips/intro.mov",
+                  "loop": true,
+                  "clip": {
+                    "width": 240,
+                    "height": 240,
+                    "fps": 24.0,
+                    "frames": 288,
+                    "shown": 1043,
+                    "loops": 3,
+                    "late": 0,
+                    "elapsed_ms": 43458
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "patchScreen",
+        "summary": "Change the backlight now",
+        "description": "Until the next start; the level it starts at is `settings.screen.backlight`.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenPatch"
+              },
+              "example": {
+                "backlight": 40
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The screen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenState"
+                },
+                "example": {
+                  "powered": true,
+                  "backlight": 40,
+                  "showing": "clip",
+                  "path": "/clips/intro.mov",
+                  "loop": true,
+                  "clip": {
+                    "width": 240,
+                    "height": 240,
+                    "fps": 24.0,
+                    "frames": 288,
+                    "shown": 1043,
+                    "loops": 3,
+                    "late": 0,
+                    "elapsed_ms": 43458
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "clearScreen",
+        "summary": "Show nothing",
+        "description": "Stops a clip; the panel sleeps with its backlight off.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The screen, asleep",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenState"
+                },
+                "example": {
+                  "powered": false,
+                  "backlight": 80,
+                  "showing": "nothing"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          }
+        }
+      }
+    },
+    "/api/v1/screen/show": {
+      "post": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "show",
+        "summary": "Show a clip, an image, a colour, or the crosshair",
+        "description": "Replaces whatever is showing. The file is checked before the reply -- that it is there, and is a clip or an image the board can show -- so an error here means the screen did not change. A clip plays in the background: `GET /api/v1/screen` follows it.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShowRequest"
+              },
+              "examples": {
+                "clip": {
+                  "value": {
+                    "path": "/clips/intro.mov",
+                    "loop": true
+                  }
+                },
+                "image": {
+                  "value": {
+                    "path": "/stills/logo.png"
+                  }
+                },
+                "colour": {
+                  "value": {
+                    "colour": "#102030"
+                  }
+                },
+                "calibration": {
+                  "value": {
+                    "calibration": true
+                  }
+                },
+                "three times": {
+                  "value": {
+                    "path": "/clips/intro.mov",
+                    "loops": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Showing it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenState"
+                },
+                "example": {
+                  "powered": true,
+                  "backlight": 80,
+                  "showing": "clip",
+                  "path": "/clips/intro.mov",
+                  "loop": true,
+                  "clip": {
+                    "width": 240,
+                    "height": 240,
+                    "fps": 24.0,
+                    "frames": 288,
+                    "shown": 1043,
+                    "loops": 3,
+                    "late": 0,
+                    "elapsed_ms": 43458
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad path or colour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "colour": {
+                    "value": {
+                      "error": "bad_request",
+                      "message": "not a colour: 'mauve'"
+                    }
+                  },
+                  "path": {
+                    "value": {
+                      "error": "bad_path",
+                      "message": "'..' is not allowed in a path: /../x"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "422": {
+            "description": "The file cannot be shown; the screen is unchanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "codec": {
+                    "value": {
+                      "error": "not_playable",
+                      "message": "/clips/a.mov: codec 'avc1', not Motion-JPEG ('jpeg' or 'mjpa')"
+                    }
+                  },
+                  "size": {
+                    "value": {
+                      "error": "not_playable",
+                      "message": "/clips/b.mov: 320x240 is larger than the 240x240 screen"
+                    }
+                  },
+                  "format": {
+                    "value": {
+                      "error": "not_playable",
+                      "message": "/notes.txt: not a clip or an image (.mov, .png, .jpg, .gif)"
+                    }
+                  },
+                  "jpeg": {
+                    "value": {
+                      "error": "not_playable",
+                      "message": "/stills/c.jpg: progressive JPEG; only baseline is supported"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/media": {
+      "get": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "listMedia",
+        "summary": "Every clip and image under a directory",
+        "description": "Recursive, by extension only: quick, but a file listed here may still not be playable (`GET /api/v1/media/info` says).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DirPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What could be shown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "path": "/clips/cantina.mov",
+                      "kind": "clip",
+                      "size": 4718592
+                    },
+                    {
+                      "path": "/clips/intro.mov",
+                      "kind": "clip",
+                      "size": 3145728
+                    },
+                    {
+                      "path": "/stills/logo.png",
+                      "kind": "image",
+                      "size": 18234
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadPath"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/media/info": {
+      "get": {
+        "tags": [
+          "screen"
+        ],
+        "operationId": "getMediaInfo",
+        "summary": "Describe a clip or image without showing it",
+        "description": "Reads the file's header. A file of a known kind the board cannot play is described with `playable: false` and `why`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What it is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaInfo"
+                },
+                "example": {
+                  "path": "/clips/intro.mov",
+                  "kind": "clip",
+                  "format": "mov",
+                  "width": 240,
+                  "height": 240,
+                  "frames": 288,
+                  "fps": 24.0,
+                  "duration_s": 12.0,
+                  "codec": "jpeg",
+                  "playable": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadPath"
+          },
+          "404": {
+            "$ref": "#/components/responses/PathNotFound"
+          },
+          "422": {
+            "description": "Not a clip or image at all",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_playable",
+                  "message": "/notes.txt: not a clip or an image (.mov, .png, .jpg, .gif)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leds": {
+      "get": {
+        "tags": [
+          "leds"
+        ],
+        "operationId": "getLeds",
+        "summary": "What the LED strip is doing now",
+        "responses": {
+          "200": {
+            "description": "The strip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedState"
+                },
+                "example": {
+                  "mode": "solid",
+                  "colour": "#ff8000",
+                  "loop": false,
+                  "brightness": 30,
+                  "count": 16,
+                  "gpio": 16
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "leds"
+        ],
+        "operationId": "patchLeds",
+        "summary": "Change the LED strip now",
+        "description": "Send what changes. A new `mode` starts it (a pattern from the beginning); a new `colour` or `loop` alone restarts the current one with it. `brightness` applies at once, until the next start (`settings.leds.brightness` is what it starts at).",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedPatch"
+              },
+              "examples": {
+                "solid": {
+                  "value": {
+                    "mode": "solid",
+                    "colour": "orange"
+                  }
+                },
+                "rainbow": {
+                  "value": {
+                    "mode": "rainbow",
+                    "loop": true
+                  }
+                },
+                "dim": {
+                  "value": {
+                    "brightness": 10
+                  }
+                },
+                "off": {
+                  "value": {
+                    "mode": "off"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The strip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedState"
+                },
+                "example": {
+                  "mode": "solid",
+                  "colour": "#ff8000",
+                  "loop": false,
+                  "brightness": 30,
+                  "count": 16,
+                  "gpio": 16
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad colour or mode",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "not a colour: 'mauve'"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/holo": {
+      "get": {
+        "tags": [
+          "holo"
+        ],
+        "operationId": "getHolo",
+        "summary": "The holo's motion and position",
+        "responses": {
+          "200": {
+            "description": "The holo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoloState"
+                },
+                "example": {
+                  "ready": true,
+                  "motion": "twitch",
+                  "position": {
+                    "x": 0.21,
+                    "y": -0.08
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/holo/motion": {
+      "post": {
+        "tags": [
+          "holo"
+        ],
+        "operationId": "moveHolo",
+        "summary": "Move the holo, or start or stop a behaviour",
+        "description": "Replaces the motion running now. `GET /api/v1/holo` follows it.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotionRequest"
+              },
+              "examples": {
+                "twitch": {
+                  "value": {
+                    "motion": "twitch",
+                    "range": 50,
+                    "interval_s": [
+                      2,
+                      6
+                    ]
+                  }
+                },
+                "move": {
+                  "value": {
+                    "motion": "move",
+                    "x": 40,
+                    "y": -20,
+                    "duration_ms": 600
+                  }
+                },
+                "wag": {
+                  "value": {
+                    "motion": "wag",
+                    "count": 3
+                  }
+                },
+                "stop": {
+                  "value": {
+                    "motion": "stop"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Started: the holo as it is now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoloState"
+                },
+                "example": {
+                  "ready": true,
+                  "motion": "twitch",
+                  "position": {
+                    "x": 0.21,
+                    "y": -0.08
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad motion or parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "`x` for move is -100..100, not 150"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "The holo cannot move now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "uncalibrated": {
+                    "value": {
+                      "error": "not_ready",
+                      "message": "holo: refused, uncalibrated (tilt)"
+                    }
+                  },
+                  "fitted": {
+                    "value": {
+                      "error": "not_ready",
+                      "message": "holo: refused, not fitted (pan)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/servos": {
+      "get": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "listServos",
+        "summary": "Each servo: where it is, its limits and its policy",
+        "responses": {
+          "200": {
+            "description": "The servos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServoList"
+                },
+                "example": {
+                  "servos": [
+                    {
+                      "id": "pan",
+                      "gpio": 17,
+                      "us": 1525,
+                      "driven": true,
+                      "released": false,
+                      "limits": {
+                        "abs_min_us": 1000,
+                        "abs_max_us": 2000,
+                        "op_min_us": 1150,
+                        "op_max_us": 1900,
+                        "invert": false,
+                        "calibrated": true
+                      },
+                      "policy": {
+                        "closed": "hold",
+                        "open": "hold",
+                        "mid": "hold",
+                        "settle_ms": 0
+                      }
+                    },
+                    {
+                      "id": "tilt",
+                      "gpio": 18,
+                      "us": 1625,
+                      "driven": true,
+                      "released": false,
+                      "limits": {
+                        "abs_min_us": 1000,
+                        "abs_max_us": 2000,
+                        "op_min_us": 1300,
+                        "op_max_us": 1950,
+                        "invert": false,
+                        "calibrated": false
+                      },
+                      "policy": {
+                        "closed": "hold",
+                        "open": "hold",
+                        "mid": "hold",
+                        "settle_ms": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/servos/move": {
+      "post": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "moveServo",
+        "summary": "Drive a servo to a position",
+        "description": "For finding endpoints while calibrating: this bypasses the holo, whose motion (if any) is stopped first.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServoMove"
+              },
+              "examples": {
+                "us": {
+                  "value": {
+                    "id": "pan",
+                    "us": 1500
+                  }
+                },
+                "percent": {
+                  "value": {
+                    "id": "tilt",
+                    "percent": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The servo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Servo"
+                },
+                "example": {
+                  "id": "pan",
+                  "gpio": 17,
+                  "us": 1525,
+                  "driven": true,
+                  "released": false,
+                  "limits": {
+                    "abs_min_us": 1000,
+                    "abs_max_us": 2000,
+                    "op_min_us": 1150,
+                    "op_max_us": 1900,
+                    "invert": false,
+                    "calibrated": true
+                  },
+                  "policy": {
+                    "closed": "hold",
+                    "open": "hold",
+                    "mid": "hold",
+                    "settle_ms": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Out of range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "`us` must be within 1000..2000"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No servo by that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no servo 'yaw' (there is: pan, tilt)"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/servos/release": {
+      "post": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "releaseServo",
+        "summary": "Stop driving a servo, or all of them",
+        "description": "They go limp until their next move.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServoRelease"
+              },
+              "example": {
+                "id": "all"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The servos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServoList"
+                },
+                "example": {
+                  "servos": [
+                    {
+                      "id": "pan",
+                      "gpio": 17,
+                      "us": 1525,
+                      "driven": false,
+                      "released": false,
+                      "limits": {
+                        "abs_min_us": 1000,
+                        "abs_max_us": 2000,
+                        "op_min_us": 1150,
+                        "op_max_us": 1900,
+                        "invert": false,
+                        "calibrated": true
+                      },
+                      "policy": {
+                        "closed": "hold",
+                        "open": "hold",
+                        "mid": "hold",
+                        "settle_ms": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No servo by that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no servo 'yaw' (there is: pan, tilt)"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/servos/calibration": {
+      "put": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "calibrateServo",
+        "summary": "Save a servo's working range",
+        "description": "The holo's travel: `min_us` is its closed end (full left or down), `max_us` its open end; `invert` swaps which is which.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ServoId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Calibration"
+              },
+              "example": {
+                "min_us": 1150,
+                "max_us": 1900
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The servo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Servo"
+                },
+                "example": {
+                  "id": "pan",
+                  "gpio": 17,
+                  "us": 1525,
+                  "driven": true,
+                  "released": false,
+                  "limits": {
+                    "abs_min_us": 1000,
+                    "abs_max_us": 2000,
+                    "op_min_us": 1150,
+                    "op_max_us": 1900,
+                    "invert": false,
+                    "calibrated": true
+                  },
+                  "policy": {
+                    "closed": "hold",
+                    "open": "hold",
+                    "mid": "hold",
+                    "settle_ms": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Outside the absolute limits, or min not below max",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "the working range must be within 1000..2000, and min below max"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No servo by that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no servo 'yaw' (there is: pan, tilt)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "clearServoCalibration",
+        "summary": "Forget a servo's working range",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ServoId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The servo, with the firmware's default range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Servo"
+                },
+                "example": {
+                  "id": "pan",
+                  "gpio": 17,
+                  "us": 1525,
+                  "driven": true,
+                  "released": false,
+                  "limits": {
+                    "abs_min_us": 1000,
+                    "abs_max_us": 2000,
+                    "op_min_us": 1150,
+                    "op_max_us": 1900,
+                    "invert": false,
+                    "calibrated": false
+                  },
+                  "policy": {
+                    "closed": "hold",
+                    "open": "hold",
+                    "mid": "hold",
+                    "settle_ms": 0
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No servo by that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no servo 'yaw' (there is: pan, tilt)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/servos/policy": {
+      "put": {
+        "tags": [
+          "servos"
+        ],
+        "operationId": "setServoPolicy",
+        "summary": "Save a servo's drive policy",
+        "description": "Whether the servo keeps being driven once it has settled, by where it is: releasing at an end stops the buzz of a servo held against a stop.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ServoId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrivePolicy"
+              },
+              "example": {
+                "closed": "release",
+                "open": "hold",
+                "mid": "hold",
+                "settle_ms": 400
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The servo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Servo"
+                },
+                "example": {
+                  "id": "pan",
+                  "gpio": 17,
+                  "us": 1525,
+                  "driven": true,
+                  "released": false,
+                  "limits": {
+                    "abs_min_us": 1000,
+                    "abs_max_us": 2000,
+                    "op_min_us": 1150,
+                    "op_max_us": 1900,
+                    "invert": false,
+                    "calibrated": true
+                  },
+                  "policy": {
+                    "closed": "hold",
+                    "open": "hold",
+                    "mid": "hold",
+                    "settle_ms": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No servo by that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "no servo 'yaw' (there is: pan, tilt)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenes": {
+      "get": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "listScenes",
+        "summary": "The saved scenes",
+        "responses": {
+          "200": {
+            "description": "The scenes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneList"
+                },
+                "example": {
+                  "scenes": [
+                    {
+                      "name": "cantina",
+                      "description": "Band clip, warm LEDs, a look around",
+                      "screen": {
+                        "path": "/clips/cantina.mov",
+                        "loop": true
+                      },
+                      "leds": {
+                        "mode": "solid",
+                        "colour": "#ff8000",
+                        "brightness": 30
+                      },
+                      "holo": {
+                        "motion": "twitch",
+                        "range": 50
+                      }
+                    },
+                    {
+                      "name": "amber",
+                      "leds": {
+                        "mode": "solid",
+                        "colour": "#ffb000"
+                      }
+                    },
+                    {
+                      "name": "message",
+                      "description": "Leia's message, then back to what it was doing",
+                      "screen": {
+                        "path": "/clips/leia.mov",
+                        "loops": 1
+                      },
+                      "leds": {
+                        "mode": "flicker",
+                        "colour": "#4da6ff"
+                      },
+                      "holo": {
+                        "motion": "center"
+                      },
+                      "then": "restore"
+                    }
+                  ],
+                  "active": {
+                    "name": "message",
+                    "then": "restore",
+                    "until_clip_ends": true,
+                    "remaining_s": null
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenes/scene": {
+      "put": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "saveScene",
+        "summary": "Save a scene",
+        "description": "The body's `name`, if any, must be the query's. Files it names are not checked until it is applied.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SceneName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Scene"
+              },
+              "examples": {
+                "cantina": {
+                  "value": {
+                    "name": "cantina",
+                    "description": "Band clip, warm LEDs, a look around",
+                    "screen": {
+                      "path": "/clips/cantina.mov",
+                      "loop": true
+                    },
+                    "leds": {
+                      "mode": "solid",
+                      "colour": "#ff8000",
+                      "brightness": 30
+                    },
+                    "holo": {
+                      "motion": "twitch",
+                      "range": 50
+                    }
+                  }
+                },
+                "message": {
+                  "summary": "A clip, then back to what the board was doing",
+                  "value": {
+                    "name": "message",
+                    "description": "Leia's message, then back to what it was doing",
+                    "screen": {
+                      "path": "/clips/leia.mov",
+                      "loops": 1
+                    },
+                    "leds": {
+                      "mode": "flicker",
+                      "colour": "#4da6ff"
+                    },
+                    "holo": {
+                      "motion": "center"
+                    },
+                    "then": "restore"
+                  }
+                },
+                "bow": {
+                  "summary": "Thirty seconds of flicker, then everything off",
+                  "value": {
+                    "name": "bow",
+                    "leds": {
+                      "mode": "flicker",
+                      "colour": "#ffffff"
+                    },
+                    "holo": {
+                      "motion": "nod",
+                      "count": 2
+                    },
+                    "duration_s": 30,
+                    "then": "off"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scene"
+                },
+                "example": {
+                  "name": "cantina",
+                  "description": "Band clip, warm LEDs, a look around",
+                  "screen": {
+                    "path": "/clips/cantina.mov",
+                    "loop": true
+                  },
+                  "leds": {
+                    "mode": "solid",
+                    "colour": "#ff8000",
+                    "brightness": 30
+                  },
+                  "holo": {
+                    "motion": "twitch",
+                    "range": 50
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scene"
+                },
+                "example": {
+                  "name": "cantina",
+                  "description": "Band clip, warm LEDs, a look around",
+                  "screen": {
+                    "path": "/clips/cantina.mov",
+                    "loop": true
+                  },
+                  "leds": {
+                    "mode": "solid",
+                    "colour": "#ff8000",
+                    "brightness": 30
+                  },
+                  "holo": {
+                    "motion": "twitch",
+                    "range": 50
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a scene",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "led": {
+                    "value": {
+                      "error": "bad_request",
+                      "message": "leds: `mode` is off, solid, wipe, rainbow or flicker"
+                    }
+                  },
+                  "then": {
+                    "value": {
+                      "error": "bad_request",
+                      "message": "`then` needs the scene to end: give `duration_s`, or a clip on the screen that does not loop forever"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "Sixteen scenes are saved already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "full",
+                  "message": "16 scenes are saved; delete one first"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "deleteScene",
+        "summary": "Delete a scene",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SceneName"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Gone; if it was the boot scene, the board now starts with nothing"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No scene by that name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "unknown_scene",
+                  "message": "no scene 'party'"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scenes/apply": {
+      "post": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "applyScene",
+        "summary": "Apply a scene, saved or given",
+        "description": "The screen, then the LEDs, then the holo: a part that fails stops the rest, and the error names it.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequest"
+              },
+              "examples": {
+                "saved": {
+                  "value": {
+                    "name": "cantina"
+                  }
+                },
+                "given": {
+                  "value": {
+                    "scene": {
+                      "name": "now",
+                      "leds": {
+                        "mode": "rainbow",
+                        "loop": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Applied: the screen, LEDs and holo as they are now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyResult"
+                },
+                "example": {
+                  "screen": {
+                    "powered": true,
+                    "backlight": 80,
+                    "showing": "clip",
+                    "path": "/clips/intro.mov",
+                    "loop": true,
+                    "clip": {
+                      "width": 240,
+                      "height": 240,
+                      "fps": 24.0,
+                      "frames": 288,
+                      "shown": 1043,
+                      "loops": 3,
+                      "late": 0,
+                      "elapsed_ms": 43458
+                    }
+                  },
+                  "leds": {
+                    "mode": "solid",
+                    "colour": "#ff8000",
+                    "loop": false,
+                    "brightness": 30,
+                    "count": 16,
+                    "gpio": 16
+                  },
+                  "holo": {
+                    "ready": true,
+                    "motion": "twitch",
+                    "position": {
+                      "x": 0.21,
+                      "y": -0.08
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No scene by that name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "unknown_scene",
+                  "message": "no scene 'party'"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Its holo motion cannot run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_ready",
+                  "message": "holo: refused, uncalibrated (tilt)"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          },
+          "422": {
+            "description": "Its screen part cannot be shown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_playable",
+                  "message": "screen: /clips/cantina.mov: no such file"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "getSettings",
+        "summary": "What the board starts with",
+        "responses": {
+          "200": {
+            "description": "The settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                },
+                "example": {
+                  "boot_scene": "cantina",
+                  "screen": {
+                    "backlight": 80
+                  },
+                  "leds": {
+                    "brightness": 30,
+                    "count": 16
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "patchSettings",
+        "summary": "Change what the board starts with",
+        "description": "Saved. The backlight and LED brightness also change now; `leds.count` waits for a restart.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              },
+              "examples": {
+                "boot": {
+                  "value": {
+                    "boot_scene": "cantina"
+                  }
+                },
+                "count": {
+                  "value": {
+                    "leds": {
+                      "count": 24
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResult"
+                },
+                "example": {
+                  "settings": {
+                    "boot_scene": "cantina",
+                    "screen": {
+                      "backlight": 80
+                    },
+                    "leds": {
+                      "brightness": 30,
+                      "count": 24
+                    }
+                  },
+                  "restart_required": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "No scene by that name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "unknown_scene",
+                  "message": "no scene 'party'"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "resetSettings",
+        "summary": "Back to the firmware's defaults",
+        "description": "Scenes, servo calibration, networks and web settings are kept.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The defaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResult"
+                },
+                "example": {
+                  "settings": {
+                    "boot_scene": null,
+                    "screen": {
+                      "backlight": 100
+                    },
+                    "leds": {
+                      "brightness": 30,
+                      "count": 16
+                    }
+                  },
+                  "restart_required": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          }
+        }
+      }
+    },
+    "/api/v1/network": {
+      "get": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "getNetwork",
+        "summary": "The network, the known ones, and the access point",
+        "description": "Passphrases are never read back.",
+        "responses": {
+          "200": {
+            "description": "The network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "known": [
+                    {
+                      "ssid": "home",
+                      "last": true
+                    },
+                    {
+                      "ssid": "workshop",
+                      "last": false
+                    }
+                  ],
+                  "ap": {
+                    "on": false,
+                    "ssid": "holo-2db0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "patchNetwork",
+        "summary": "Turn joining networks on or off",
+        "description": "The reply comes first: turning it off drops a client reaching the board over the network.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkPatch"
+              },
+              "example": {
+                "sta_enabled": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "known": [
+                    {
+                      "ssid": "home",
+                      "last": true
+                    },
+                    {
+                      "ssid": "workshop",
+                      "last": false
+                    }
+                  ],
+                  "ap": {
+                    "on": false,
+                    "ssid": "holo-2db0"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/network/scan": {
+      "get": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "scanNetworks",
+        "summary": "The networks in range",
+        "description": "A long operation: about 3 s. The board stays on its channel for the access point's sake, so a client on the access point may pause.",
+        "responses": {
+          "200": {
+            "description": "What the board hears",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResult"
+                },
+                "example": {
+                  "networks": [
+                    {
+                      "ssid": "home",
+                      "rssi": -45,
+                      "channel": 11,
+                      "auth": "wpa2",
+                      "known": true
+                    },
+                    {
+                      "ssid": "neighbour",
+                      "rssi": -80,
+                      "channel": 6,
+                      "auth": "wpa3",
+                      "known": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another long operation is running, or the board is joining a network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "busy": {
+                    "value": {
+                      "error": "busy",
+                      "message": "a file upload is in progress; try again when it is done"
+                    }
+                  },
+                  "joining": {
+                    "value": {
+                      "error": "busy",
+                      "message": "the board is joining a network; try again in a moment"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/network/known": {
+      "put": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "saveNetwork",
+        "summary": "Save a network, without joining it",
+        "description": "It is joined when it is in range at a start, or by `POST /api/v1/network/join`. The board keeps 16: saving another forgets the one saved longest ago. Saving one already known replaces its passphrase.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Ssid"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnownNetwork"
+              },
+              "example": {
+                "passphrase": "correct horse battery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "known": [
+                    {
+                      "ssid": "home",
+                      "last": true
+                    },
+                    {
+                      "ssid": "workshop",
+                      "last": false
+                    }
+                  ],
+                  "ap": {
+                    "on": false,
+                    "ssid": "holo-2db0"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad passphrase",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "a passphrase is 8..63 characters"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "forgetNetwork",
+        "summary": "Forget a network",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Ssid"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Forgotten. If it is the one the board is on, the board leaves it -- the reply comes first."
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "404": {
+            "description": "Not a known network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_found",
+                  "message": "'cafe' is not a known network"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/network/join": {
+      "post": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "joinNetwork",
+        "summary": "Join a network",
+        "description": "The reply comes first. The board leaves the network it is on, so a client on that network may lose it; the access point, if on, stays. Without a passphrase, the saved one is used, or the network is taken to be open. A network joined is saved.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequest"
+              },
+              "example": {
+                "ssid": "workshop"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Joining; the network as it was",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "known": [
+                    {
+                      "ssid": "home",
+                      "last": true
+                    },
+                    {
+                      "ssid": "workshop",
+                      "last": false
+                    }
+                  ],
+                  "ap": {
+                    "on": false,
+                    "ssid": "holo-2db0"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/network/ap": {
+      "patch": {
+        "tags": [
+          "network"
+        ],
+        "operationId": "patchAccessPoint",
+        "summary": "The board's own access point",
+        "description": "`ssid` and `passphrase` are saved (a running access point restarts with them, dropping its clients). `on` is for now only: the access point is off at every start.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApPatch"
+              },
+              "examples": {
+                "on": {
+                  "value": {
+                    "on": true
+                  }
+                },
+                "credentials": {
+                  "value": {
+                    "ssid": "holo-2db0",
+                    "passphrase": "r2d2-c3po-bb8x"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Network"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "sta": {
+                    "enabled": true,
+                    "connected": true,
+                    "ssid": "home",
+                    "ip": "10.0.19.118",
+                    "rssi": -45,
+                    "channel": 11,
+                    "ipv6": [
+                      "fe80::3e0f:2ff:fe6f:2db0"
+                    ]
+                  },
+                  "known": [
+                    {
+                      "ssid": "home",
+                      "last": true
+                    },
+                    {
+                      "ssid": "workshop",
+                      "last": false
+                    }
+                  ],
+                  "ap": {
+                    "on": true,
+                    "ssid": "holo-2db0",
+                    "ip": "192.168.4.1",
+                    "channel": 11,
+                    "clients": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad SSID or passphrase",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "bad_request",
+                  "message": "a passphrase is 8..63 characters"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/web": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "operationId": "getWebSettings",
+        "summary": "The web server's settings",
+        "description": "Needs the password when one is set. The password itself is never read back.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSettings"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "auth": true,
+                  "cors": [
+                    "https://editor.swagger.io",
+                    "https://astromech.co",
+                    "https://*.astromech.co"
+                  ],
+                  "cors_default": [
+                    "https://editor.swagger.io",
+                    "https://astromech.co",
+                    "https://*.astromech.co",
+                    "https://davidiansmith.ca",
+                    "https://*.davidiansmith.ca"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "device"
+        ],
+        "operationId": "patchWebSettings",
+        "summary": "Change the web server's settings",
+        "description": "Saved. A new hostname is announced at once; the next request must use it, or the address. A new password is needed from the next request on.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebPatch"
+              },
+              "examples": {
+                "password": {
+                  "value": {
+                    "password": "hunter22"
+                  }
+                },
+                "clear": {
+                  "value": {
+                    "password": null
+                  }
+                },
+                "cors": {
+                  "value": {
+                    "cors": [
+                      "https://editor.swagger.io"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSettings"
+                },
+                "example": {
+                  "hostname": "holo-2db0",
+                  "auth": true,
+                  "cors": [
+                    "https://editor.swagger.io",
+                    "https://astromech.co",
+                    "https://*.astromech.co"
+                  ],
+                  "cors_default": [
+                    "https://editor.swagger.io",
+                    "https://astromech.co",
+                    "https://*.astromech.co",
+                    "https://davidiansmith.ca",
+                    "https://*.davidiansmith.ca"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
+    },
+    "/api/v1/scenes/end": {
+      "post": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "endScene",
+        "summary": "End the running scene now, doing its `then`",
+        "description": "For a scene applied with `then` (`restore` or `off`) that has not reached its end: does now what it would do then. A Stop button, say.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ended: the screen, LEDs and holo as they are now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "No scene is running to its end",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_running",
+                  "message": "no scene is running to its end"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -818,6 +4211,105 @@
           "default": false
         },
         "description": "Accept an image built for another project"
+      },
+      "Path": {
+        "name": "path",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 159,
+          "examples": [
+            "/clips/intro.mov"
+          ]
+        },
+        "description": "From the root of the storage volume. `/data/...` is accepted too."
+      },
+      "DirPath": {
+        "name": "path",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "default": "/",
+          "maxLength": 159
+        },
+        "description": "A directory, from the root of the storage volume"
+      },
+      "Overwrite": {
+        "name": "overwrite",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Replace a file that is already there"
+      },
+      "Parents": {
+        "name": "parents",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Make any missing directories on the way"
+      },
+      "Recursive": {
+        "name": "recursive",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Delete a directory with everything in it"
+      },
+      "WithSha256": {
+        "name": "sha256",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "description": "Also hash the file (a long operation: about 1 s a megabyte)"
+      },
+      "FileSha256": {
+        "name": "sha256",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "description": "The file's SHA-256. The board refuses the file if what arrived differs."
+      },
+      "SceneName": {
+        "name": "name",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9 _.-]{1,32}$"
+        },
+        "example": "cantina"
+      },
+      "ServoId": {
+        "name": "id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "pan",
+        "description": "The servo's ident, as `GET /api/v1/servos` lists them"
+      },
+      "Ssid": {
+        "name": "ssid",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "example": "home"
       }
     },
     "requestBodies": {
@@ -886,7 +4378,7 @@
         }
       },
       "ContentType": {
-        "description": "A POST without Content-Type: application/json",
+        "description": "A POST or PATCH without Content-Type: application/json",
         "content": {
           "application/json": {
             "schema": {
@@ -894,7 +4386,7 @@
             },
             "example": {
               "error": "content_type",
-              "message": "a POST must be Content-Type: application/json"
+              "message": "a POST or PATCH must be Content-Type: application/json"
             }
           }
         }
@@ -937,6 +4429,62 @@
             "example": {
               "error": "not_found",
               "message": "no such endpoint: /api/v1/nope"
+            }
+          }
+        }
+      },
+      "BadPath": {
+        "description": "The path is not one the board accepts",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "bad_path",
+              "message": "'..' is not allowed in a path: /clips/../history.txt"
+            }
+          }
+        }
+      },
+      "PathNotFound": {
+        "description": "Nothing is at that path",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "not_found",
+              "message": "no such file or directory: /clips/intro.mov"
+            }
+          }
+        }
+      },
+      "NoSpace": {
+        "description": "The storage volume is too full",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "no_space",
+              "message": "5242880 bytes will not fit: 3145728 free, less a 32768-byte margin"
+            }
+          }
+        }
+      },
+      "JobBusy": {
+        "description": "Another long operation is running",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": "busy",
+              "message": "a file upload is in progress; try again when it is done"
             }
           }
         }
@@ -1058,8 +4606,13 @@
               "type": "string",
               "enum": [
                 "ota",
+                "files",
+                "screen",
+                "leds",
+                "holo",
+                "scenes",
                 "settings",
-                "clips"
+                "network"
               ]
             },
             "description": "What the web app offers on this firmware"
@@ -1500,6 +5053,1401 @@
           },
           "checked_s_ago": {
             "type": "integer"
+          }
+        }
+      },
+      "Volume": {
+        "type": "object",
+        "required": [
+          "root",
+          "total",
+          "used",
+          "free"
+        ],
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Where the volume is mounted on the board; paths here are relative to it"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Bytes"
+          },
+          "used": {
+            "type": "integer"
+          },
+          "free": {
+            "type": "integer"
+          }
+        }
+      },
+      "Entry": {
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "type",
+          "size",
+          "mtime"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "file",
+              "dir"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "description": "Bytes; 0 for a directory"
+          },
+          "mtime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When it last changed, in UTC; null when the board's clock was not set then"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Only when asked for"
+          }
+        }
+      },
+      "Listing": {
+        "type": "object",
+        "required": [
+          "path",
+          "entries"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            },
+            "description": "Directories first, then files, each by name"
+          }
+        }
+      },
+      "MkdirRequest": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "parents": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "MoveRequest": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 159,
+            "description": "The new path. An existing directory is not a destination: name the file inside it."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ClipStats": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "fps": {
+            "type": "number"
+          },
+          "frames": {
+            "type": "integer",
+            "description": "In one pass of the clip"
+          },
+          "shown": {
+            "type": "integer",
+            "description": "Frames shown since it started, every loop"
+          },
+          "loops": {
+            "type": "integer",
+            "description": "Times through so far"
+          },
+          "late": {
+            "type": "integer",
+            "description": "Frames that missed their time"
+          },
+          "elapsed_ms": {
+            "type": "integer"
+          },
+          "plays": {
+            "type": "integer",
+            "description": "Times through in all; 0 forever"
+          }
+        }
+      },
+      "ScreenState": {
+        "type": "object",
+        "required": [
+          "powered",
+          "backlight",
+          "showing"
+        ],
+        "properties": {
+          "powered": {
+            "type": "boolean",
+            "description": "Whether the panel is awake; it sleeps whenever it shows nothing"
+          },
+          "backlight": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "showing": {
+            "type": "string",
+            "enum": [
+              "nothing",
+              "colour",
+              "calibration",
+              "image",
+              "clip"
+            ],
+            "description": "An animated GIF is a `clip`"
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "`#rrggbb`"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "loop": {
+            "type": "boolean"
+          },
+          "clip": {
+            "$ref": "#/components/schemas/ClipStats"
+          }
+        }
+      },
+      "ScreenPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "backlight": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "ShowFile": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 159,
+            "description": "A QuickTime Motion-JPEG clip (`.mov`), or a PNG, baseline JPEG or GIF"
+          },
+          "loop": {
+            "type": "boolean",
+            "default": false,
+            "description": "A clip or animation: play it forever"
+          },
+          "whole_frame": {
+            "type": "boolean",
+            "default": false,
+            "description": "Decode each frame whole, rather than streamed in blocks"
+          },
+          "loops": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "A clip or animation: play it this many times. Without `loop` or `loops`, a clip plays once and an animated GIF as the file says."
+          }
+        },
+        "not": {
+          "required": [
+            "loop",
+            "loops"
+          ],
+          "properties": {
+            "loop": {
+              "const": true
+            }
+          }
+        }
+      },
+      "ShowColour": {
+        "type": "object",
+        "required": [
+          "colour"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "colour": {
+            "type": "string",
+            "examples": [
+              "#ff8000",
+              "orange",
+              "255,128,0"
+            ],
+            "description": "`#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
+          }
+        }
+      },
+      "ShowCalibration": {
+        "type": "object",
+        "required": [
+          "calibration"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "calibration": {
+            "const": true,
+            "description": "The alignment crosshair"
+          }
+        }
+      },
+      "ShowRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ShowFile"
+          },
+          {
+            "$ref": "#/components/schemas/ShowColour"
+          },
+          {
+            "$ref": "#/components/schemas/ShowCalibration"
+          }
+        ]
+      },
+      "MediaItem": {
+        "type": "object",
+        "required": [
+          "path",
+          "kind",
+          "size"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "clip",
+              "image",
+              "animation"
+            ],
+            "description": "By the name's extension: `.mov` a clip, `.gif` an animation, `.png` and `.jpg` an image. An animation may turn out to have one frame."
+          },
+          "size": {
+            "type": "integer"
+          }
+        }
+      },
+      "MediaList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaItem"
+            }
+          }
+        }
+      },
+      "MediaInfo": {
+        "type": "object",
+        "required": [
+          "path",
+          "kind",
+          "format",
+          "playable"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 159
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "clip",
+              "image",
+              "animation"
+            ]
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "mov",
+              "png",
+              "jpeg",
+              "gif"
+            ]
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "frames": {
+            "type": "integer"
+          },
+          "fps": {
+            "type": "number"
+          },
+          "duration_s": {
+            "type": "number"
+          },
+          "codec": {
+            "type": "string",
+            "description": "A clip's: `jpeg` or `mjpa`"
+          },
+          "playable": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string",
+            "description": "When not playable"
+          }
+        }
+      },
+      "LedState": {
+        "type": "object",
+        "required": [
+          "mode",
+          "colour",
+          "loop",
+          "brightness",
+          "count",
+          "gpio"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "solid",
+              "wipe",
+              "rainbow",
+              "flicker"
+            ],
+            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring -- played once, either ends `off`. `flicker` flickers the colour like a failing hologram, until something else."
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "`#rrggbb`"
+          },
+          "loop": {
+            "type": "boolean"
+          },
+          "brightness": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "count": {
+            "type": "integer"
+          },
+          "gpio": {
+            "type": "integer"
+          }
+        }
+      },
+      "LedPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "solid",
+              "wipe",
+              "rainbow",
+              "flicker"
+            ]
+          },
+          "colour": {
+            "type": "string",
+            "examples": [
+              "#ff8000",
+              "orange",
+              "255,128,0"
+            ],
+            "description": "For `solid`, `wipe` and `flicker` (white if never given). `#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
+          },
+          "loop": {
+            "type": "boolean",
+            "description": "For `wipe` and `rainbow`"
+          },
+          "brightness": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "HoloState": {
+        "type": "object",
+        "required": [
+          "ready",
+          "motion",
+          "position"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "description": "Whether it can move now"
+          },
+          "why": {
+            "type": "string",
+            "enum": [
+              "not fitted",
+              "not armed",
+              "uncalibrated",
+              "unknown axis"
+            ],
+            "description": "Why it cannot move, when it cannot"
+          },
+          "motion": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "move",
+              "twitch",
+              "wag",
+              "nod",
+              "scan",
+              "circle"
+            ]
+          },
+          "stopped": {
+            "type": "string",
+            "description": "Why the last motion ended early, if it did"
+          },
+          "position": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "description": "+ is right"
+              },
+              "y": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "description": "+ is up"
+              }
+            }
+          }
+        }
+      },
+      "MotionRequest": {
+        "type": "object",
+        "required": [
+          "motion"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "motion": {
+            "type": "string",
+            "enum": [
+              "center",
+              "move",
+              "nudge",
+              "twitch",
+              "wag",
+              "nod",
+              "scan",
+              "circle",
+              "stop",
+              "off"
+            ],
+            "description": "`center`, `move` and `nudge` go to a place; `twitch` (random glances) and `scan` (a slow sweep) run until stopped or for `time_s`; `wag`, `nod` and `circle` run `count` times and return. `stop` holds where it is; `off` also lets the axes go limp."
+          },
+          "x": {
+            "type": "integer",
+            "minimum": -200,
+            "maximum": 200,
+            "description": "`move`: -100..100, percent of the way from the centre to an endpoint, + right. `nudge`: -200..200, relative."
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -200,
+            "maximum": 200,
+            "description": "As `x`; + is up"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "`center`, `move`, `nudge`: how long to take; by default, by the distance"
+          },
+          "range": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Percent of the travel each side of the centre. Defaults: twitch 60, scan 70, wag 50, nod 40, circle 50."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "`wag`, `nod`: cycles (3, 2); `circle`: turns (1)"
+          },
+          "period_ms": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 60000,
+            "description": "`wag` 700, `nod` 800, `circle` 2400 a turn, `scan` 6000 a sweep there and back"
+          },
+          "interval_s": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 600
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "`twitch`: the pause between glances, [min, max]; default [1, 5]"
+          },
+          "time_s": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 3600,
+            "description": "`twitch`, `scan`: stop after this long"
+          }
+        }
+      },
+      "DrivePolicy": {
+        "type": "object",
+        "required": [
+          "closed",
+          "open",
+          "mid",
+          "settle_ms"
+        ],
+        "properties": {
+          "closed": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "release"
+            ],
+            "description": "At the closed end of the working range (the first 2% of travel): keep driving once settled, or let go"
+          },
+          "open": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "release"
+            ],
+            "description": "At the open end"
+          },
+          "mid": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "release"
+            ],
+            "description": "Anywhere between"
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "How long a command is driven before a `release` takes effect (at least 100)"
+          }
+        }
+      },
+      "ServoLimits": {
+        "type": "object",
+        "required": [
+          "abs_min_us",
+          "abs_max_us",
+          "op_min_us",
+          "op_max_us",
+          "invert",
+          "calibrated"
+        ],
+        "properties": {
+          "abs_min_us": {
+            "type": "integer",
+            "description": "The most any command may send"
+          },
+          "abs_max_us": {
+            "type": "integer"
+          },
+          "op_min_us": {
+            "type": "integer",
+            "description": "The working range: 0% of travel"
+          },
+          "op_max_us": {
+            "type": "integer",
+            "description": "100% of travel"
+          },
+          "invert": {
+            "type": "boolean",
+            "description": "0% is `op_max_us`"
+          },
+          "calibrated": {
+            "type": "boolean",
+            "description": "Whether the working range was saved, rather than the firmware's default"
+          }
+        }
+      },
+      "Servo": {
+        "type": "object",
+        "required": [
+          "id",
+          "us",
+          "driven",
+          "released",
+          "limits",
+          "policy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gpio": {
+            "type": "integer",
+            "description": "For a servo driven from a pin"
+          },
+          "us": {
+            "type": "integer",
+            "description": "The last pulse commanded; 0 before any"
+          },
+          "driven": {
+            "type": "boolean",
+            "description": "Whether pulses are going out now"
+          },
+          "released": {
+            "type": "boolean",
+            "description": "Whether the drive policy is what stopped them"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ServoLimits"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/DrivePolicy"
+          }
+        }
+      },
+      "ServoList": {
+        "type": "object",
+        "required": [
+          "servos"
+        ],
+        "properties": {
+          "servos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Servo"
+            }
+          }
+        }
+      },
+      "ServoMove": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "us": {
+            "type": "integer",
+            "description": "A pulse width, within the absolute limits"
+          },
+          "percent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Of the working range"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "us"
+            ]
+          },
+          {
+            "required": [
+              "percent"
+            ]
+          }
+        ]
+      },
+      "ServoRelease": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A servo, or `all`"
+          }
+        }
+      },
+      "Calibration": {
+        "type": "object",
+        "required": [
+          "min_us",
+          "max_us"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "min_us": {
+            "type": "integer"
+          },
+          "max_us": {
+            "type": "integer"
+          },
+          "invert": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "SceneScreen": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ShowFile"
+          },
+          {
+            "$ref": "#/components/schemas/ShowColour"
+          },
+          {
+            "$ref": "#/components/schemas/ShowCalibration"
+          },
+          {
+            "type": "object",
+            "required": [
+              "clear"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "clear": {
+                "const": true,
+                "description": "Nothing on the screen"
+              }
+            }
+          }
+        ]
+      },
+      "Scene": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9 _.-]{1,32}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "screen": {
+            "$ref": "#/components/schemas/SceneScreen"
+          },
+          "leds": {
+            "$ref": "#/components/schemas/LedPatch"
+          },
+          "holo": {
+            "$ref": "#/components/schemas/MotionRequest"
+          },
+          "then": {
+            "type": "string",
+            "enum": [
+              "stay",
+              "restore",
+              "off"
+            ],
+            "default": "stay",
+            "description": "When the scene ends: `stay` leaves everything as it is; `restore` puts the screen, LEDs and holo back to what they were doing before the scene -- a behaviour such as a twitch starts again; `off` turns the screen and LEDs off and lets the holo's servos go limp. Anything but `stay` needs the scene to end: `duration_s`, or a clip or animation on the screen that does not `loop` (in such a scene, one with neither `loop` nor `loops` plays once)."
+          },
+          "duration_s": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 86400,
+            "description": "The scene ends after this long, or when its clip has played if that is sooner"
+          }
+        },
+        "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played (once, or its `loops`), or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
+      },
+      "SceneList": {
+        "type": "object",
+        "required": [
+          "scenes",
+          "active"
+        ],
+        "properties": {
+          "scenes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Scene"
+            },
+            "maxItems": 16
+          },
+          "active": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActiveScene"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scene running to its end, with a `then` to do when it gets there"
+          }
+        }
+      },
+      "ApplyRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9 _.-]{1,32}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "scene"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "scene": {
+                "$ref": "#/components/schemas/Scene",
+                "description": "Applied without saving it; its name is not checked against the saved ones"
+              }
+            }
+          }
+        ]
+      },
+      "ApplyResult": {
+        "type": "object",
+        "required": [
+          "screen",
+          "leds",
+          "holo"
+        ],
+        "properties": {
+          "screen": {
+            "$ref": "#/components/schemas/ScreenState"
+          },
+          "leds": {
+            "$ref": "#/components/schemas/LedState"
+          },
+          "holo": {
+            "$ref": "#/components/schemas/HoloState"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "required": [
+          "boot_scene",
+          "screen",
+          "leds"
+        ],
+        "properties": {
+          "boot_scene": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9 _.-]{1,32}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scene applied at every start; null: the screen and LEDs start off"
+          },
+          "screen": {
+            "type": "object",
+            "required": [
+              "backlight"
+            ],
+            "properties": {
+              "backlight": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 100
+              }
+            }
+          },
+          "leds": {
+            "type": "object",
+            "required": [
+              "brightness",
+              "count"
+            ],
+            "properties": {
+              "brightness": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "description": "Keep it at 30 or below when the strip is powered from the board"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256,
+                "description": "LEDs on the strip. Takes effect at the next start."
+              }
+            }
+          }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "boot_scene": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9 _.-]{1,32}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "screen": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "backlight": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            }
+          },
+          "leds": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "brightness": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              }
+            }
+          }
+        }
+      },
+      "SettingsResult": {
+        "type": "object",
+        "required": [
+          "settings",
+          "restart_required"
+        ],
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/Settings"
+          },
+          "restart_required": {
+            "type": "boolean",
+            "description": "A change that takes effect only at the next start is waiting for one"
+          }
+        }
+      },
+      "Network": {
+        "type": "object",
+        "required": [
+          "hostname",
+          "sta",
+          "known",
+          "ap"
+        ],
+        "properties": {
+          "hostname": {
+            "type": "string"
+          },
+          "sta": {
+            "type": "object",
+            "required": [
+              "enabled",
+              "connected"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "connected": {
+                "type": "boolean"
+              },
+              "ssid": {
+                "type": "string"
+              },
+              "ip": {
+                "type": "string",
+                "format": "ipv4"
+              },
+              "rssi": {
+                "type": "integer",
+                "description": "dBm"
+              },
+              "channel": {
+                "type": "integer"
+              },
+              "ipv6": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "known": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "ssid",
+                "last"
+              ],
+              "properties": {
+                "ssid": {
+                  "type": "string"
+                },
+                "last": {
+                  "type": "boolean",
+                  "description": "The one joined last, which the board rejoins at start"
+                }
+              }
+            }
+          },
+          "ap": {
+            "type": "object",
+            "required": [
+              "on",
+              "ssid"
+            ],
+            "properties": {
+              "on": {
+                "type": "boolean"
+              },
+              "ssid": {
+                "type": "string",
+                "description": "The name it has when on"
+              },
+              "ip": {
+                "type": "string",
+                "format": "ipv4"
+              },
+              "channel": {
+                "type": "integer"
+              },
+              "clients": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "NetworkPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "sta_enabled": {
+            "type": "boolean",
+            "description": "Whether the board joins networks at all. Off, a board reached over the network is lost until it is turned back on from the console or the access point."
+          }
+        }
+      },
+      "ScanResult": {
+        "type": "object",
+        "required": [
+          "networks"
+        ],
+        "properties": {
+          "networks": {
+            "type": "array",
+            "description": "Strongest first; one entry an SSID",
+            "items": {
+              "type": "object",
+              "required": [
+                "ssid",
+                "rssi",
+                "channel",
+                "auth",
+                "known"
+              ],
+              "properties": {
+                "ssid": {
+                  "type": "string"
+                },
+                "rssi": {
+                  "type": "integer",
+                  "description": "dBm"
+                },
+                "channel": {
+                  "type": "integer"
+                },
+                "auth": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "wep",
+                    "wpa",
+                    "wpa2",
+                    "wpa3",
+                    "enterprise",
+                    "other"
+                  ]
+                },
+                "known": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "KnownNetwork": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "passphrase": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 63,
+            "description": "Leave it out for an open network"
+          }
+        }
+      },
+      "JoinRequest": {
+        "type": "object",
+        "required": [
+          "ssid"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "passphrase": {
+            "type": "string",
+            "maxLength": 63,
+            "description": "Leave it out to use the saved one, or for an open network"
+          }
+        }
+      },
+      "ApPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "type": "boolean",
+            "description": "Now only: the access point is off at every start"
+          },
+          "ssid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "description": "Saved"
+          },
+          "passphrase": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 63,
+            "description": "Saved; never read back"
+          }
+        }
+      },
+      "WebSettings": {
+        "type": "object",
+        "required": [
+          "hostname",
+          "auth",
+          "cors",
+          "cors_default"
+        ],
+        "properties": {
+          "hostname": {
+            "type": "string"
+          },
+          "auth": {
+            "type": "boolean",
+            "description": "Whether a password is set"
+          },
+          "cors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The sites whose pages may call the API: `https://host`, or `https://*.host` for any subdomain"
+          },
+          "cors_default": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WebPatch": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "hostname": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,30}[A-Za-z0-9])?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The `.local` name; null for the default"
+          },
+          "password": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null to clear it. Never read back."
+          },
+          "cors": {
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole list; `[]` for none, null for the default"
+          }
+        }
+      },
+      "ActiveScene": {
+        "type": "object",
+        "required": [
+          "name",
+          "then",
+          "until_clip_ends",
+          "remaining_s"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "then": {
+            "type": "string",
+            "enum": [
+              "restore",
+              "off"
+            ]
+          },
+          "until_clip_ends": {
+            "type": "boolean",
+            "description": "It ends when its clip has played"
+          },
+          "remaining_s": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Until its `duration_s` is up; null without one"
           }
         }
       }

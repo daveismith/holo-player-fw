@@ -12,6 +12,36 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Added
 
+- **The whole board over the HTTP API, and in the web app.** Everything the console does, the API
+  and the app now do too:
+  - **files**: browse, upload, download, move, rename, copy and delete on the storage volume
+    (`/api/v1/fs`);
+  - **the screen**: play any clip or show any image, a colour or the crosshair, clear it, and set
+    its backlight, with the reason when a file can't be shown (`/api/v1/screen`, `/api/v1/media`);
+  - **the LEDs**: pattern, colour, loop and brightness (`/api/v1/leds`);
+  - **the holo**: move it, or twitch, scan, wag, nod and circle; and the servos' calibration and
+    drive policy (`/api/v1/holo`, `/api/v1/servos`);
+  - **scenes**: the screen, LEDs and holo saved together by name, applied in one call, and one
+    chosen to run at every start (`/api/v1/scenes`);
+  - **settings**: the backlight, LED brightness and LED count the board starts with
+    (`/api/v1/settings`);
+  - **the network and the web server**: saved networks, scanning, joining, the access point, and
+    the name, password and trusted sites (`/api/v1/network`, `/api/v1/web`).
+
+  The web app has a page for each: Show, Holo, Scenes, Files, Settings and Network, beside Status
+  and Update. On a phone, the first four are tabs and the rest are under More. Documented in
+  [The board over Wi-Fi](manual/use/web.md) and [HTTP API](manual/reference/http-api.md).
+- **Scenes that end**: a scene ends when its clip has played (once, or `loops` times) or after `duration_s`,
+  and then (`then`) put the screen, LEDs and holo back to what they were doing before it — a twitch
+  twitches again — or turn everything off, servos limp. `POST /api/v1/scenes/end` (and
+  `scene end`) ends one early. Clips and animations also take `loops` on `POST /api/v1/screen/show`.
+- **An LED flicker**: the colour flickering like a failing hologram (`leds flicker [<c>]`, mode
+  `flicker`).
+- **Console commands** to go with them: `scene` (list, show, apply, delete, and the one the board
+  starts with), `settings` (the backlight, LED brightness and count at start), and `wifi scan`.
+- **`make api-smoke HOST=...`** calls a board's API and checks every reply against the OpenAPI
+  description, and `make api-validate` now checks its examples too.
+
 - **Updates over Wi-Fi, and a web app to do them from.** The board serves a small web app, for
   phones and computers, at `http://holo-xxxx.local/` or its address on your network (`web` on the
   console prints both). It has two pages to start with, built to take settings and clips later:
@@ -67,6 +97,10 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Changed
 
+- `video play` refuses a file it can't play at once, saying why, and leaves the screen alone.
+  Before, it stopped what was showing and printed the reason from the player's task.
+- The console takes commands of up to 16 words. `holo twitch -r 40 -i 1-3 -t 5` lost its last word.
+- The web password now also guards downloading files and reading the web settings.
 - Board output in the documentation is in `text` code blocks. Bare code blocks hold only board
   commands, and `tools/check_command_docs.py` checks that, so every ▶ runs a real command.
 

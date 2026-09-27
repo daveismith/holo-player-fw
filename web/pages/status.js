@@ -45,6 +45,21 @@ function networkCard(info) {
       "No network nearby? ", code("wifi ap on"), " on the console starts the board's own access point."));
 }
 
+function nowCard(screen, leds, holo) {
+  const showing = !screen ? null
+    : screen.showing === "clip" ? `playing ${screen.path}${screen.loop ? ", looping" : ""}`
+    : screen.showing === "image" ? `showing ${screen.path}`
+    : screen.showing === "colour" ? `showing ${screen.colour}`
+    : screen.showing === "calibration" ? "the alignment crosshair" : "off";
+  return h("section", { class: "card" }, h("h2", {}, "Now"), facts([
+    screen ? ["Screen", h("span", { class: "mono" }, showing)] : null,
+    leds ? ["LEDs", leds.mode === "off" ? "off" : `${leds.mode}${leds.mode !== "rainbow" ? ` ${leds.colour}` : ""}${leds.loop ? ", looping" : ""}, ${leds.brightness}%`] : null,
+    holo ? ["Holo", holo.ready ? (holo.motion === "hold" ? "still" : holo.motion) : `can't move: ${holo.why}`] : null,
+  ]), h("div", { class: "actions" },
+    screen ? h("a", { class: "button", href: "#/show" }, "Show") : null,
+    holo ? h("a", { class: "button", href: "#/holo" }, "Holo") : null));
+}
+
 function systemCard(info) {
   return h("section", { class: "card" }, h("h2", {}, "System"), facts([
     ["Up for", formatDuration(info.uptime_s)],
@@ -57,6 +72,7 @@ export default {
   id: "status",
   title: "Status",
   icon: ICON,
+  primary: true,
   feature: null,
 
   mount(el, ctx) {
@@ -75,7 +91,14 @@ export default {
         slots = (await ctx.api.get("/ota")).slots;
       }
       const running = slots?.find((s) => s.running);
-      grid.replaceChildren(firmwareCard(info, running), networkCard(info), systemCard(info));
+      const has = (f) => info.features.includes(f);
+      const [screen, leds, holo] = await Promise.all([
+        has("screen") ? ctx.api.get("/screen") : null,
+        has("leds") ? ctx.api.get("/leds") : null,
+        has("holo") ? ctx.api.get("/holo") : null,
+      ]);
+      grid.replaceChildren(...[screen || leds || holo ? nowCard(screen, leds, holo) : null,
+        firmwareCard(info, running), networkCard(info), systemCard(info)].filter(Boolean));
 
       // One look for a newer release per visit, when the board can reach the internet
       if (!checked && info.features.includes("ota") && info.sta.connected) {

@@ -10,6 +10,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "esp_err.h"
+#include "video_player.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +29,15 @@ void screen_set_image(const char *path, uint32_t w, uint32_t h);
 
 /* A console argument against the storage volume: absolute paths as given, the rest under it. */
 void screen_resolve_path(const char *in, char *out, size_t len);
+
+/* The lock everything that draws holds (recursive): for `image`, whose command is not in
+ * video_player.cpp. */
+void screen_lock(void);
+void screen_unlock(void);
+
+/* A clip's header, as media_probe() reports it: ESP_ERR_NOT_FOUND, ESP_ERR_NOT_SUPPORTED (not a
+ * QuickTime file), or ESP_OK -- playable or not. */
+esp_err_t screen_probe_clip(const char *path, media_info_t *out);
 
 #ifdef __cplusplus
 }

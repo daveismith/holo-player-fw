@@ -57,8 +57,10 @@ over Wi-Fi or the console instead of USB — see [Updating the firmware](manual/
 ## Over Wi-Fi
 
 On your network (`wifi_save <ssid> <pass>`), or on its own access point (`wifi ap on`), the board
-serves a web app for phones and computers — status, and firmware updates by upload or straight from
-the latest release — at `http://holo-xxxx.local/`; `web` on the console prints the addresses. The
+serves a web app for phones and computers at `http://holo-xxxx.local/`; `web` on the console prints
+the addresses. It plays clips and shows images, sets the LEDs, points and animates the holo,
+calibrates its servos, saves scenes and chooses the one the board starts with, manages the files on
+the board, sets up Wi-Fi, and updates the firmware by upload or straight from the latest release. The
 app is a front end for a JSON API that scripts can use too, described in OpenAPI at
 `/api/v1/openapi.json`: see [The board over Wi-Fi](manual/use/web.md) and the
 [HTTP API](manual/reference/http-api.md).
@@ -71,13 +73,14 @@ app is a front end for a JSON API that scripts can use too, described in OpenAPI
 | `components/board_ws128/` | Pins (`include/board.h`), shared I2C bus, LCD, touch, IMU, console colour parsing, and the `lcd`/`touch`/`imu` commands |
 | `components/video/` | QuickTime parser, the player (clips and animated GIFs), the PNG/JPEG/GIF decoders, and the `video`/`screen`/`image` commands |
 | `components/animatedgif/` | Packaging for the GIF decoder in `external/AnimatedGIF`, which is used unmodified |
-| `components/webui/` | The web app's embedding (`web/`, gzipped into the image), `/api/v1` wiring, and release channels from the documentation site |
+| `components/webui/` | The web app's embedding (`web/`, gzipped into the image), the application's own API routes (`/screen`, `/media`, `/leds`, `/holo`, `/scenes`, `/settings`), and release channels from the documentation site |
+| `components/scenes/` | Scenes (the screen, LEDs and holo saved together) and the settings the board starts with, kept in NVS; the `scene` and `settings` commands |
 | `web/` | The web app itself: plain ES modules and CSS, no build step (`tools/web_dev.py` serves it from disk against a real board) |
 | `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
-| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`; `ota_core`, the update session every transport shares), `web_server` (HTTP server, `/api/v1/ota`, pulls), `servo`, `holo` |
+| `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`; `ota_core`, the update session every transport shares), `web_server` (HTTP server, `/api/v1/ota`, `/api/v1/web`, pulls, long operations), `web_api` (`/api/v1/fs`, `/servos`, `/network`), `servo`, `holo` |
 | `external/AnimatedGIF/` | Submodule: [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), Apache-2.0, pinned to `c2478ec` |
 | `manual/` | The documentation site's pages (`mkdocs.yml`) |
-| `tools/` | `check_command_docs.py` (every command is documented), `check_api_docs.py` (the OpenAPI description matches the firmware's routes), `web_dev.py` (the web app from disk), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs), and `test_installer.mjs` and `test_board.mjs` with their `fixtures/` (the pages' JavaScript) |
+| `tools/` | `check_command_docs.py` (every command is documented), `check_api_docs.py` (the OpenAPI description matches the firmware's routes), `check_api_examples.py` (its examples match its schemas), `api_smoke.py` (a board's replies match the description), `web_dev.py` (the web app from disk), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs), and `test_installer.mjs` and `test_board.mjs` with their `fixtures/` (the pages' JavaScript) |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Versioning

@@ -78,6 +78,7 @@ export default {
   id: "update",
   title: "Update",
   icon: ICON,
+  primary: false,
   feature: "ota",
 
   mount(el, ctx) {

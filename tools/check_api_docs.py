@@ -12,6 +12,8 @@ as check_command_docs.py does for the console commands. It fails when:
   * a route the firmware registers -- web_register("/api/v1/...", HTTP_GET, ...) in
     components/ or the esp-console-kit submodule -- is missing from the document, or the
     document describes one the firmware does not register;
+  * an operation is marked `x-planned: true` (described ahead of the firmware, for review)
+    but the firmware registers it -- the mark is stale -- or, with --final, any is marked;
   * a path is never mentioned in manual/reference/http-api.md.
 
 A full schema validation (openapi-spec-validator, in the docs venv) is `make api-validate`.
@@ -21,6 +23,7 @@ Standard library only, so `make docs-check` runs without the docs venv.
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -114,6 +117,10 @@ def structure_problems(doc: dict) -> list[str]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--final", action="store_true",
+                        help="fail if any operation is still marked x-planned")
+    args = parser.parse_args()
     try:
         doc = json.loads(SPEC.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
@@ -129,6 +136,7 @@ def main() -> int:
             print(f"  {p}", file=sys.stderr)
 
     described = {(path, method) for path, item in doc["paths"].items() for method in item if method in METHODS}
+    planned = {(path, method) for path, method in described if doc["paths"][path][method].get("x-planned")}
     routes, present = registered_routes()
     if not routes:
         print("error: no web_register() routes found; has the registration style changed?", file=sys.stderr)
@@ -138,11 +146,18 @@ def main() -> int:
         print(f"error: {method.upper()} {path} is registered at {routes[(path, method)]} but not in "
               f"{SPEC.relative_to(ROOT)}", file=sys.stderr)
     # Without the submodule, most routes are not visible: only check that direction with it.
-    unregistered = sorted(described - set(routes)) if present else []
+    unregistered = sorted(described - set(routes) - planned) if present else []
     for path, method in unregistered:
-        print(f"error: {method.upper()} {path} is in {SPEC.relative_to(ROOT)} but the firmware does not register it",
-              file=sys.stderr)
-    failed |= bool(undescribed or unregistered)
+        print(f"error: {method.upper()} {path} is in {SPEC.relative_to(ROOT)} but the firmware does not register it"
+              " (mark it x-planned if it is still to come)", file=sys.stderr)
+    stale = sorted(planned & set(routes))
+    for path, method in stale:
+        print(f"error: {method.upper()} {path} is registered at {routes[(path, method)]} but still marked "
+              "x-planned: remove the mark", file=sys.stderr)
+    unfinished = sorted(planned) if args.final else []
+    for path, method in unfinished:
+        print(f"error: {method.upper()} {path} is still marked x-planned", file=sys.stderr)
+    failed |= bool(undescribed or unregistered or stale or unfinished)
 
     guide = GUIDE.read_text(encoding="utf-8") if GUIDE.is_file() else ""
     unmentioned = sorted(p for p in doc["paths"] if p not in guide)
@@ -150,7 +165,7 @@ def main() -> int:
         print(f"error: {path} is never mentioned in {GUIDE.relative_to(ROOT)}", file=sys.stderr)
     failed |= bool(unmentioned)
 
-    print(f"{len(described)} API operations described, {len(routes)} registered"
+    print(f"{len(described)} API operations described ({len(planned)} planned), {len(routes)} registered"
           + ("" if present else f" ({SUBMODULE} not checked out: its routes are not covered)"))
     return 1 if failed else 0
 

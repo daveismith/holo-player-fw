@@ -18,6 +18,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
 #include "esp_console.h"
 #include "esp_heap_caps.h"
 #include "board.h"
@@ -247,7 +249,7 @@ bool probe_gif(const char *path, GifHeader *hdr)
  * handed to the video player's task. Either way the decoder and its buffers are ready before
  * the panel is touched.
  */
-int show_gif(const char *path)
+int show_gif(const char *path, int plays)
 {
     GifHeader hdr;
     if (!probe_gif(path, &hdr)) {
@@ -263,11 +265,11 @@ int show_gif(const char *path)
     if (hdr.frames > 1) {
         char loops[32];
         describe_loops(hdr.loop_count, loops, sizeof(loops));
-        if (video_play_gif(g, hdr, path) != ESP_OK) {
+        if (video_play_gif(g, hdr, path, plays) != ESP_OK) {
             return 1;
         }
         printf("image: playing %s (%" PRIu32 "x%" PRIu32 " GIF, %" PRId32 " frames, %s)\n",
-               path, hdr.width, hdr.height, hdr.frames, loops);
+               path, hdr.width, hdr.height, hdr.frames, plays == 0 ? "looping" : loops);
         return 0;
     }
 
@@ -319,7 +321,7 @@ int info_gif(const char *path, size_t len, int64_t t0)
     return 0;
 }
 
-int show(const char *path)
+int show(const char *path, int plays)
 {
     uint8_t sig[8];
     size_t len = 0;
@@ -327,7 +329,7 @@ int show(const char *path)
         return 1;
     }
     if (gif_is_gif(sig, sizeof(sig))) {
-        return show_gif(path);
+        return show_gif(path, plays);
     }
     const bool png = png_is_png(sig, sizeof(sig));
     if (!png && !is_jpeg_file(sig)) {
@@ -457,7 +459,10 @@ int cmd_image(int argc, char **argv)
     char path[PATH_LEN];
     if (strcmp(sub, "show") == 0 && argc >= 3) {
         screen_resolve_path(argv[2], path, sizeof(path));
-        return show(path);
+        screen_lock();
+        const int rc = show(path, -1);
+        screen_unlock();
+        return rc;
     }
     if (strcmp(sub, "info") == 0 && argc >= 3) {
         screen_resolve_path(argv[2], path, sizeof(path));
@@ -467,7 +472,144 @@ int cmd_image(int argc, char **argv)
     return 1;
 }
 
+/* What a file's first bytes say, and how big it is. */
+enum class Sig { None, Png, Jpeg, Gif };
+
+Sig signature(const char *path)
+{
+    uint8_t sig[8] = { 0 };
+    FILE *f = fopen(path, "rb");
+    const size_t n = f != nullptr ? fread(sig, 1, sizeof(sig), f) : 0;
+    if (f != nullptr) {
+        fclose(f);
+    }
+    if (n < sizeof(sig)) {
+        return Sig::None;
+    }
+    return png_is_png(sig, sizeof(sig)) ? Sig::Png : gif_is_gif(sig, sizeof(sig)) ? Sig::Gif
+           : is_jpeg_file(sig) ? Sig::Jpeg : Sig::None;
+}
+
+/* The size check every kind shares, into `out`. */
+void check_fits(media_info_t *out)
+{
+    if (out->width == 0 || out->height == 0) {
+        snprintf(out->why, sizeof(out->why), "it has no pixels");
+    } else if (out->width > BOARD_LCD_H_RES || out->height > BOARD_LCD_V_RES) {
+        snprintf(out->why, sizeof(out->why), "%" PRIu32 "x%" PRIu32 " is larger than the %dx%d screen",
+                 out->width, out->height, BOARD_LCD_H_RES, BOARD_LCD_V_RES);
+    } else {
+        out->playable = true;
+    }
+}
+
+void probe_jpeg(const char *path, size_t len, media_info_t *out)
+{
+    if (len > MAX_JPEG) {
+        snprintf(out->why, sizeof(out->why), "%u bytes: too large for a JPEG the screen could show", (unsigned)len);
+        return;
+    }
+    uint8_t *buf = static_cast<uint8_t *>(heap_caps_malloc(len, MALLOC_CAP_8BIT));
+    FILE *f = buf != nullptr ? fopen(path, "rb") : nullptr;
+    const size_t n = f != nullptr ? fread(buf, 1, len, f) : 0;
+    if (f != nullptr) {
+        fclose(f);
+    }
+    if (n != len) {
+        heap_caps_free(buf);
+        snprintf(out->why, sizeof(out->why), buf == nullptr ? "out of memory" : "it could not be read");
+        return;
+    }
+    const int rc = jpeg_probe(buf, len, &out->width, &out->height);
+    heap_caps_free(buf);
+    if (rc != JPEG_ERR_OK) {
+        const char *reason = jpeg_reason(rc);
+        if (reason != nullptr) {
+            snprintf(out->why, sizeof(out->why), "%s", reason);
+        } else {
+            snprintf(out->why, sizeof(out->why), "JPEG decode error %d", rc);
+        }
+        return;
+    }
+    check_fits(out);
+}
+
+bool has_extension(const char *path, const char *ext)
+{
+    const char *dot = strrchr(path, '.');
+    return dot != nullptr && strcasecmp(dot, ext) == 0;
+}
+
 }  // namespace
+
+extern "C" int image_show_file(const char *path, int plays)
+{
+    screen_lock();
+    const int rc = show(path, plays);
+    screen_unlock();
+    return rc;
+}
+
+extern "C" esp_err_t media_probe(const char *path, media_info_t *out)
+{
+    *out = {};
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        snprintf(out->why, sizeof(out->why), "no such file");
+        return ESP_ERR_NOT_FOUND;
+    }
+    if (S_ISDIR(st.st_mode)) {
+        snprintf(out->why, sizeof(out->why), "a directory, not a clip or an image");
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    char err[ERR_LEN] = "";
+    switch (signature(path)) {
+    case Sig::Png: {
+        out->kind = MEDIA_IMAGE;
+        out->format = MEDIA_PNG;
+        const esp_err_t rc = png_probe(path, &out->width, &out->height, nullptr, 0, err, sizeof(err));
+        if (rc != ESP_OK) {
+            snprintf(out->why, sizeof(out->why), "%s", err[0] ? err : esp_err_to_name(rc));
+        } else {
+            check_fits(out);
+        }
+        return ESP_OK;
+    }
+    case Sig::Gif: {
+        out->format = MEDIA_GIF;
+        GifHeader hdr = {};
+        const esp_err_t rc = gif_probe(path, &hdr, err, sizeof(err));
+        out->kind = hdr.frames > 1 ? MEDIA_ANIMATION : MEDIA_IMAGE;
+        out->width = hdr.width;
+        out->height = hdr.height;
+        out->frames = hdr.frames > 0 ? (uint32_t)hdr.frames : 0;
+        out->duration_s = hdr.duration_ms / 1000.0;
+        out->fps = hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0;
+        if (rc != ESP_OK && rc != ESP_ERR_INVALID_SIZE) {
+            snprintf(out->why, sizeof(out->why), "%s", err[0] ? err : esp_err_to_name(rc));
+        } else {
+            check_fits(out);    /* INVALID_SIZE: wider than the decoder takes, which this says too */
+        }
+        return ESP_OK;
+    }
+    case Sig::Jpeg:
+        out->kind = MEDIA_IMAGE;
+        out->format = MEDIA_JPEG;
+        probe_jpeg(path, (size_t)st.st_size, out);
+        return ESP_OK;
+    case Sig::None:
+        break;
+    }
+    const esp_err_t rc = screen_probe_clip(path, out);
+    if (rc == ESP_ERR_NOT_SUPPORTED && has_extension(path, ".mov")) {
+        return ESP_OK;          /* a clip by its name, just not one the board can read */
+    }
+    if (rc == ESP_ERR_NOT_SUPPORTED) {
+        *out = {};
+        snprintf(out->why, sizeof(out->why), "not a clip or an image (.mov, .png, .jpg, .gif)");
+    }
+    return rc;
+}
 
 extern "C" void register_image_command(void)
 {

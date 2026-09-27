@@ -62,6 +62,7 @@ Full detail in [Video clips](../use/video.md).
 | `leds off` | Off |
 | `leds wipe [<c>] [loop]` | Each LED to the colour in turn, 250 ms apart. White if no colour given |
 | `leds rainbow [loop]` | The colour wheel five times round the ring in 12.8 s |
+| `leds flicker [<c>]` | The colour flickering like a failing hologram, until something else. White if no colour given |
 | `leds bright <1-100>` | Brightness, applied live |
 
 Full detail in [LED patterns](../use/leds.md).
@@ -81,6 +82,28 @@ Full detail in [LED patterns](../use/leds.md).
 
 `holo led` and `holo leia`'s light half do nothing on this board — there is no light attached.
 Full detail in [The holoprojector](../use/holo.md).
+
+## Scenes and settings
+
+| Command | Does |
+|---|---|
+| `scene [list]` | The saved scenes, and which the board starts with |
+| `scene show <name>` | One scene, as JSON |
+| `scene apply <name>` | Apply it: the screen, then the LEDs, then the holo |
+| `scene end` | End the scene running to its end now, doing what it does then (go back, or all off) |
+| `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
+| `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
+| `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |
+| `settings backlight <1-100>` | The backlight at start, and now |
+| `settings brightness <1-100>` | The LEDs' brightness at start, and now |
+| `settings leds <count>` | LEDs on the strip, from the next start |
+| `settings reset` | Back to the firmware's defaults; scenes are kept |
+
+A scene is what the screen shows, what the LEDs do and how the holo moves, saved together by
+name; a scene may have any of the three. Scenes are made with the
+[HTTP API](http-api.md#scenes) or the [web app](../use/web.md) — a scene's JSON is too long to
+type here — and the console applies and chooses them. A name may contain spaces:
+`scene apply amber glow`.
 
 ## Files and firmware
 
@@ -125,9 +148,10 @@ use; nothing else needs it.
 | Command | Does |
 |---|---|
 | `wifi [on\|off]` | Turn the radio on or off |
+| `wifi scan` | The networks in range, strongest first, and which are saved |
 | `wifi ap [on\|off] [--ssid <ssid>] [--pass <passphrase>]` | The board's own access point, `holo-xxxx` at 192.168.4.1: on or off (off again at every boot), and its name and passphrase. Alone, shows them |
 | `web [on\|off]` | The web app and its API: where to reach it. `off` stops the server, and stays off across restarts |
-| `web password <password>\|--clear` | Changes over the web (updates, restarts) need this password |
+| `web password <password>\|--clear` | Changes over the web need this password, as do downloading files and reading the web settings |
 | `web hostname <name>\|--clear` | The board's name on the network: `<name>.local` |
 | `web cors [add <origin>\|remove <origin>\|reset\|none]` | Which other sites' pages may call the API from a browser (CORS). Alone, lists them |
 | `wifi_save <ssid> [pass]` | Remember a network. The board rejoins the last one at boot |

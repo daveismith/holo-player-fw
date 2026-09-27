@@ -18,11 +18,13 @@
 #include "soc/soc_caps.h"
 #include "board.h"
 #include "cmd_fs.h"
+#include "fs_ops.h"
 #include "cmd_ota.h"
 #include "ota_core.h"
 #include "console_history.h"
 #include "holo_servos.h"
 #include "leds.h"
+#include "scenes.h"
 #include "cmd_i2ctools.h"
 #include "cmd_network.h"
 #include "cmd_nvs.h"
@@ -123,6 +125,14 @@ static void before_update(void *ctx)
     }
 }
 
+/* A file is about to be replaced, moved or deleted (the console's `fs`, or the API): a clip
+ * playing from it stops first. */
+static void before_file_change(const char *path, void *ctx)
+{
+    (void)ctx;
+    screen_release(path);
+}
+
 static void initialize_filesystem(void)
 {
     const esp_vfs_littlefs_conf_t conf = {
@@ -172,7 +182,8 @@ static void initialize_board(void)
         ESP_LOGW(TAG, "IMU: %s", esp_err_to_name(err));
     }
 
-    /* The NeoPixel strip on P2, off */
+    /* The NeoPixel strip on P2, off, as long as the settings say */
+    leds_set_count(settings_led_count());
     err = leds_init();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "LEDs: %s", esp_err_to_name(err));
@@ -240,11 +251,14 @@ void app_main(void)
     ESP_ERROR_CHECK(register_fs(&fs_config));
     ESP_ERROR_CHECK(register_ota(-1));
     ota_core_set_begin_hook(before_update, NULL);
+    fs_ops_set_change_hook(before_file_change, NULL);
     board_register_commands();
     register_video_commands(MOUNT_PATH);
     register_leds_commands();
     holo_servos_register_commands();
     web_server_register_commands();
+    scene_register_commands();
+    settings_register_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();
@@ -257,6 +271,13 @@ void app_main(void)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "web: %s", esp_err_to_name(err));
     }
+
+    /* What the board starts with: the saved backlight and LED brightness, and the boot scene */
+    err = scenes_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "scenes: %s", esp_err_to_name(err));
+    }
+    settings_apply_boot();
 
     printf("\n"
            "holo-player-fw on the Waveshare ESP32-S3-Touch-LCD-1.28.\n"
