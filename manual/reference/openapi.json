@@ -3033,7 +3033,7 @@
                   "then": {
                     "value": {
                       "error": "bad_request",
-                      "message": "`then` needs the scene to end: give `duration_s`, or a clip on the screen with `loops`"
+                      "message": "`then` needs the scene to end: give `duration_s`, or a clip on the screen that does not loop forever"
                     }
                   }
                 }
@@ -5929,16 +5929,16 @@
               "off"
             ],
             "default": "stay",
-            "description": "When the scene ends: `stay` leaves everything as it is; `restore` puts the screen, LEDs and holo back to what they were doing before the scene -- a behaviour such as a twitch starts again; `off` turns the screen and LEDs off and lets the holo's servos go limp. Anything but `stay` needs the scene to end: `duration_s`, or a clip on the screen with `loops`."
+            "description": "When the scene ends: `stay` leaves everything as it is; `restore` puts the screen, LEDs and holo back to what they were doing before the scene -- a behaviour such as a twitch starts again; `off` turns the screen and LEDs off and lets the holo's servos go limp. Anything but `stay` needs the scene to end: `duration_s`, or a clip or animation on the screen that does not `loop` (in such a scene, one with neither `loop` nor `loops` plays once)."
           },
           "duration_s": {
             "type": "number",
             "minimum": 0.1,
             "maximum": 86400,
-            "description": "The scene ends after this long, or when its clip has played its `loops` if that is sooner"
+            "description": "The scene ends after this long, or when its clip has played if that is sooner"
           }
         },
-        "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played its `loops`, or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
+        "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played (once, or its `loops`), or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
       },
       "SceneList": {
         "type": "object",
@@ -6440,7 +6440,7 @@
           },
           "until_clip_ends": {
             "type": "boolean",
-            "description": "It ends when its clip has played its `loops`"
+            "description": "It ends when its clip has played"
           },
           "remaining_s": {
             "type": [

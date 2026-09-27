@@ -240,7 +240,8 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     const cJSON *screen = cJSON_GetObjectItem(scene, "screen");
     const cJSON *path = cJSON_IsObject(screen) ? cJSON_GetObjectItem(screen, "path") : NULL;
     char clip[FS_ABS_MAX] = "";
-    if (then != SCENE_THEN_STAY && cJSON_IsString(path) && cJSON_GetObjectItem(screen, "loops") != NULL) {
+    cJSON *once = NULL;             /* the scene, with its clip made to play once, when that is needed */
+    if (then != SCENE_THEN_STAY && cJSON_IsString(path) && !cJSON_IsTrue(cJSON_GetObjectItem(screen, "loop"))) {
         char reason[112];
         media_info_t m;
         if (fs_path(path->valuestring, clip, sizeof(clip), reason, sizeof(reason)) == 0 &&
@@ -250,6 +251,15 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
                 snprintf(why, why_len, "screen: %s is a still, which never ends: give `duration_s`", path->valuestring);
                 return SCENE_BAD;
             }
+        }
+        /* With neither `loop` nor `loops`, a clip plays once -- an animated GIF too, rather than as
+         * its file says, which may be forever: the scene has to end */
+        if (clip[0] != '\0' && cJSON_GetObjectItem(screen, "loops") == NULL) {
+            once = cJSON_Duplicate(scene, true);
+            cJSON *s2 = cJSON_GetObjectItem(once, "screen");
+            cJSON_DeleteItemFromObject(s2, "loop");
+            cJSON_AddNumberToObject(s2, "loops", 1);
+            scene = once;
         }
     }
 
@@ -268,6 +278,7 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
 
     err = scene_apply_parts(scene, why, why_len);
     if (err != SCENE_OK || then == SCENE_THEN_STAY) {
+        cJSON_Delete(once);
         return err;
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
@@ -279,6 +290,7 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     s_run.until_us = dur != NULL ? esp_timer_get_time() + (int64_t)(dur->valuedouble * 1e6) : 0;
     s_run.snap = snap;
     xSemaphoreGive(s_lock);
+    cJSON_Delete(once);
     const clip_end_t kick = { .path = "" };
     xQueueSend(s_queue, &kick, 0);  /* the runner looks at the new time */
     return SCENE_OK;

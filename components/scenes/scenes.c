@@ -62,12 +62,13 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
         return SCENE_BAD;
     }
     /* A scene that does something when it ends has to end: after a time, or when a clip that
-     * plays a set number of times is done */
+     * does not loop forever is done */
     const cJSON *screen = cJSON_GetObjectItem(scene, "screen");
     if (then != NULL && scene_then_of(then) != SCENE_THEN_STAY && dur == NULL &&
         !(cJSON_IsObject(screen) && cJSON_GetObjectItem(screen, "path") != NULL &&
-          cJSON_GetObjectItem(screen, "loops") != NULL)) {
-        snprintf(why, why_len, "`then` needs the scene to end: give `duration_s`, or a clip on the screen with `loops`");
+          !cJSON_IsTrue(cJSON_GetObjectItem(screen, "loop")))) {
+        snprintf(why, why_len, "`then` needs the scene to end: give `duration_s`, or a clip on the screen that does not "
+                 "loop forever");
         return SCENE_BAD;
     }
     char part[96];

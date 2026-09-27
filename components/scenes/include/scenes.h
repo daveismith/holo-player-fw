@@ -11,7 +11,7 @@
  *    "holo":   {"motion": "twitch", "range": 50, ...},
  *    "then": "stay" | "restore" | "off", "duration_s": 30}
  * Each part is optional; a part left out leaves that alone. A scene ends when its clip has played
- * its `loops`, or after `duration_s`, whichever is first; `then` is what happens then: nothing
+ * (once, or its `loops`; not with `loop`), or after `duration_s`, whichever is first; `then` is what happens then: nothing
  * (stay), the screen, LEDs and holo back to what they did before it (restore), or all off.
  */
 #pragma once

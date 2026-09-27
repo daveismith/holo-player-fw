@@ -216,7 +216,7 @@ export default {
         part("The holo", f.useHolo, h("div", { class: "fields" }, field("Motion", f.holoMotion), field("How far (%)", f.holoRange))),
         h("fieldset", { class: "card", style: "margin-top:12px" }, h("legend", {}, h("strong", {}, "When it ends")),
           h("div", { class: "fields", style: "margin-top:8px" }, field("Then", f.then), field("Or after (seconds)", f.duration)),
-          h("p", { class: "muted hint" }, "The scene ends when its clip has played its number of times, or after the seconds given, whichever is first. ",
+          h("p", { class: "muted hint" }, "The scene ends when its clip has played (once, or its number of times), or after the seconds given, whichever is first. ",
             "Going back restarts what the LEDs and the holo were doing (a twitch twitches again), and what the screen showed.")),
         h("div", { class: "actions" },
           h("button", { class: "button primary", onclick: () => save(f, scene) }, "Save"),
@@ -230,8 +230,8 @@ export default {
       const scene = sceneOf(f);
       if (!NAME.test(scene.name)) return fail(new Error("A name is 1-32 letters, digits, spaces, _ . and -."));
       if (!scene.screen && !scene.leds && !scene.holo) return fail(new Error("Choose at least one part: the screen, the LEDs or the holo."));
-      if (scene.then && !scene.duration_s && !scene.screen?.loops) {
-        return fail(new Error("To do something when it ends, the scene has to end: play its clip a number of times, or give it seconds."));
+      if (scene.then && !scene.duration_s && !(scene.screen?.path && !scene.screen.loop)) {
+        return fail(new Error("To do something when it ends, the scene has to end: play its clip once or a number of times, or give it seconds."));
       }
       if (!existing && scenes.some((x) => x.name === scene.name)
         && !await confirmAsk(`A scene called ${scene.name} exists. Replace it?`, { ok: "Replace" })) return;

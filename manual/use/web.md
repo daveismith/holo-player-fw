@@ -37,8 +37,9 @@ To make one:
   scene. A twitching holo twitches again, and a looping clip plays again.
 - **All off**: the screen and LEDs go off, and the holo's servos go limp.
 
-A scene ends when its clip has played its number of times, or after the seconds given, whichever
-is first, so "go back" and "all off" need one of them. While such a scene runs, the Scenes page
+A scene ends when its clip has played (once, or its number of times), or after the seconds given,
+whichever is first, so "go back" and "all off" need a clip that doesn't play over and over, or
+seconds. While such a scene runs, the Scenes page
 shows it with **End it now**, which does what it would do at its end. Applying another scene, or
 showing something else in place of its clip, ends it without that.
 

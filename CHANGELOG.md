@@ -31,7 +31,7 @@ so the release tag is the version baked into the image and reported by `version`
   The web app has a page for each: Show, Holo, Scenes, Files, Settings and Network, beside Status
   and Update. On a phone, the first four are tabs and the rest are under More. Documented in
   [The board over Wi-Fi](manual/use/web.md) and [HTTP API](manual/reference/http-api.md).
-- **Scenes that end**: a scene can play its clip a number of times (`loops`) or last `duration_s`,
+- **Scenes that end**: a scene ends when its clip has played (once, or `loops` times) or after `duration_s`,
   and then (`then`) put the screen, LEDs and holo back to what they were doing before it — a twitch
   twitches again — or turn everything off, servos limp. `POST /api/v1/scenes/end` (and
   `scene end`) ends one early. Clips and animations also take `loops` on `POST /api/v1/screen/show`.

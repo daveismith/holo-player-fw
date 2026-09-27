@@ -232,14 +232,15 @@ A scene can say what happens when it is over, with `then`:
 | `restore` | The screen, the LEDs and the holo go back to what they were doing before the scene. A behaviour such as a twitch starts again, and a clip that was looping plays again |
 | `off` | The screen and LEDs go off, and the holo's servos go limp |
 
-A scene ends when its clip has played its `loops`, or after `duration_s`, whichever comes first, so
-a scene with `restore` or `off` needs one of them:
+A scene ends when its clip has played (once, or its `loops`), or after `duration_s`, whichever
+comes first. A scene with `restore` or `off` needs one of them: a clip that doesn't `loop` forever,
+or a duration. In such a scene, a clip or animated GIF with neither `loop` nor `loops` plays once.
 
 ```sh
 # Leia's message once, with the LEDs flickering blue and the holo looking straight out; then back
 # to whatever the board was doing
 curl -X PUT -H "$J" "$B/scenes/scene?name=message" -d '{
-  "screen": {"path": "/clips/leia.mov", "loops": 1},
+  "screen": {"path": "/clips/leia.mov"},
   "leds":   {"mode": "flicker", "colour": "#4da6ff"},
   "holo":   {"motion": "center"},
   "then":   "restore"
