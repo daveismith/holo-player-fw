@@ -249,7 +249,7 @@ bool probe_gif(const char *path, GifHeader *hdr)
  * handed to the video player's task. Either way the decoder and its buffers are ready before
  * the panel is touched.
  */
-int show_gif(const char *path, bool loop)
+int show_gif(const char *path, int plays)
 {
     GifHeader hdr;
     if (!probe_gif(path, &hdr)) {
@@ -265,11 +265,11 @@ int show_gif(const char *path, bool loop)
     if (hdr.frames > 1) {
         char loops[32];
         describe_loops(hdr.loop_count, loops, sizeof(loops));
-        if (video_play_gif(g, hdr, path, loop) != ESP_OK) {
+        if (video_play_gif(g, hdr, path, plays) != ESP_OK) {
             return 1;
         }
         printf("image: playing %s (%" PRIu32 "x%" PRIu32 " GIF, %" PRId32 " frames, %s)\n",
-               path, hdr.width, hdr.height, hdr.frames, loop ? "looping" : loops);
+               path, hdr.width, hdr.height, hdr.frames, plays == 0 ? "looping" : loops);
         return 0;
     }
 
@@ -321,7 +321,7 @@ int info_gif(const char *path, size_t len, int64_t t0)
     return 0;
 }
 
-int show(const char *path, bool loop)
+int show(const char *path, int plays)
 {
     uint8_t sig[8];
     size_t len = 0;
@@ -329,7 +329,7 @@ int show(const char *path, bool loop)
         return 1;
     }
     if (gif_is_gif(sig, sizeof(sig))) {
-        return show_gif(path, loop);
+        return show_gif(path, plays);
     }
     const bool png = png_is_png(sig, sizeof(sig));
     if (!png && !is_jpeg_file(sig)) {
@@ -460,7 +460,7 @@ int cmd_image(int argc, char **argv)
     if (strcmp(sub, "show") == 0 && argc >= 3) {
         screen_resolve_path(argv[2], path, sizeof(path));
         screen_lock();
-        const int rc = show(path, false);
+        const int rc = show(path, -1);
         screen_unlock();
         return rc;
     }
@@ -542,10 +542,10 @@ bool has_extension(const char *path, const char *ext)
 
 }  // namespace
 
-extern "C" int image_show_file(const char *path, bool loop)
+extern "C" int image_show_file(const char *path, int plays)
 {
     screen_lock();
-    const int rc = show(path, loop);
+    const int rc = show(path, plays);
     screen_unlock();
     return rc;
 }

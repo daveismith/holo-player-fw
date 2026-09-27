@@ -62,6 +62,7 @@ Full detail in [Video clips](../use/video.md).
 | `leds off` | Off |
 | `leds wipe [<c>] [loop]` | Each LED to the colour in turn, 250 ms apart. White if no colour given |
 | `leds rainbow [loop]` | The colour wheel five times round the ring in 12.8 s |
+| `leds flicker [<c>]` | The colour flickering like a failing hologram, until something else. White if no colour given |
 | `leds bright <1-100>` | Brightness, applied live |
 
 Full detail in [LED patterns](../use/leds.md).
@@ -89,6 +90,7 @@ Full detail in [The holoprojector](../use/holo.md).
 | `scene [list]` | The saved scenes, and which the board starts with |
 | `scene show <name>` | One scene, as JSON |
 | `scene apply <name>` | Apply it: the screen, then the LEDs, then the holo |
+| `scene end` | End the scene running to its end now, doing what it does then (go back, or all off) |
 | `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
 | `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
 | `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |

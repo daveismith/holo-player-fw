@@ -61,4 +61,4 @@ void gif_rewind(GifFile *g);
 void gif_close(GifFile *g);
 
 /* A playing animation, on the video player's task: it owns `g` from here, even on failure. */
-esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, bool loop);
+esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int plays);

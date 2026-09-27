@@ -5,6 +5,7 @@
 #include <string.h>
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -135,10 +136,49 @@ static void rainbow_pass(void)
     }
 }
 
+/* [0, 1) */
+static float frand(void)
+{
+    return (float)(esp_random() >> 8) / 16777216.0f;
+}
+
+/*
+ * flicker: a failing hologram, as the holo's own light flickers -- restless and mostly bright,
+ * each LED a little apart from the rest, with the odd dropout to near dark and, now and then, a
+ * short stutter of them. Runs until stopped.
+ */
+static void flicker(void)
+{
+    int stutter = 0;
+    while (!s_stop) {
+        float level;
+        if (stutter > 0) {
+            stutter--;
+            level = (stutter & 1) ? 0.15f + 0.2f * frand() : 0.6f + 0.4f * frand();
+        } else if (frand() < 0.04f) {
+            stutter = 2 + (int)(frand() * 5);
+            level = 0.1f + 0.2f * frand();
+        } else {
+            level = 0.55f + 0.45f * frand();
+        }
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        for (int i = 0; i < N; i++) {
+            const float l = level * (0.85f + 0.15f * frand());
+            put(i, (uint8_t)(s_rgb[0] * l), (uint8_t)(s_rgb[1] * l), (uint8_t)(s_rgb[2] * l));
+        }
+        led_strip_refresh(s_strip);
+        xSemaphoreGive(s_lock);
+        vTaskDelay(pdMS_TO_TICKS(stutter > 0 ? 30 + (int)(frand() * 30) : 40 + (int)(frand() * 80)));
+    }
+}
+
 static void pattern_task(void *arg)
 {
     (void)arg;
-    do {
+    if (s_mode == LEDS_FLICKER) {
+        flicker();
+    }
+    while (s_mode != LEDS_FLICKER) {
         if (s_mode == LEDS_WIPE) {
             xSemaphoreTake(s_lock, portMAX_DELAY);
             led_strip_clear(s_strip);   /* each pass starts from dark */
@@ -148,7 +188,10 @@ static void pattern_task(void *arg)
             rainbow_pass();
         }
         pause_ms(1000);   /* a second's hold after each pass */
-    } while (s_loop && !s_stop);
+        if (!s_loop || s_stop) {
+            break;
+        }
+    }
 
     /* Played out (or stopped): off. */
     xSemaphoreTake(s_lock, portMAX_DELAY);
@@ -180,6 +223,7 @@ esp_err_t leds_solid(uint8_t r, uint8_t g, uint8_t b)
     s_rgb[1] = g;
     s_rgb[2] = b;
     s_mode = LEDS_SOLID;
+    s_loop = false;
     const esp_err_t err = fill_locked(s_rgb);
     xSemaphoreGive(s_lock);
     xSemaphoreGive(s_ctl);
@@ -193,6 +237,7 @@ esp_err_t leds_off(void)
     stop_pattern();
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_mode = LEDS_OFF;
+    s_loop = false;
     const esp_err_t err = led_strip_clear(s_strip);
     xSemaphoreGive(s_lock);
     xSemaphoreGive(s_ctl);
@@ -202,7 +247,7 @@ esp_err_t leds_off(void)
 esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool loop)
 {
     ESP_RETURN_ON_FALSE(s_strip != NULL, ESP_ERR_INVALID_STATE, TAG, "not initialised");
-    ESP_RETURN_ON_FALSE(pattern == LEDS_WIPE || pattern == LEDS_RAINBOW, ESP_ERR_INVALID_ARG,
+    ESP_RETURN_ON_FALSE(pattern == LEDS_WIPE || pattern == LEDS_RAINBOW || pattern == LEDS_FLICKER, ESP_ERR_INVALID_ARG,
                         TAG, "not a pattern");
     xSemaphoreTake(s_ctl, portMAX_DELAY);
     stop_pattern();
@@ -211,7 +256,7 @@ esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool l
     s_rgb[0] = r;
     s_rgb[1] = g;
     s_rgb[2] = b;
-    s_loop = loop;
+    s_loop = pattern != LEDS_FLICKER && loop;     /* a flicker runs until something else */
     s_stop = false;
     xSemaphoreGive(s_lock);
     esp_err_t err = ESP_OK;

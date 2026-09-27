@@ -273,6 +273,10 @@ void app_main(void)
     }
 
     /* What the board starts with: the saved backlight and LED brightness, and the boot scene */
+    err = scenes_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "scenes: %s", esp_err_to_name(err));
+    }
     settings_apply_boot();
 
     printf("\n"

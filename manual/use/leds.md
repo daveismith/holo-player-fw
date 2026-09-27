@@ -52,6 +52,19 @@ leds rainbow loop
 `rainbow` takes no colour — it is the whole wheel — so `leds rainbow green` is an error rather
 than a tint.
 
+### Flicker
+
+```
+leds flicker
+leds flicker #4da6ff
+```
+
+`flicker` makes the colour flicker like a failing hologram: mostly bright and restless, each LED a
+little apart from the others, with the odd dropout to near dark and a short stutter. White if no
+colour is given. Unlike the other patterns it has no end: it runs until something else takes the
+strip, such as `leds off`, another pattern, or a scene. Paired with a clip in a scene, it makes the
+ring look like part of the hologram.
+
 ## Brightness
 
 ```

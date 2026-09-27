@@ -8,14 +8,15 @@
 #include "esp_console.h"
 #include "leds.h"
 
-static const char *const k_modes[] = { "off", "solid", "wipe", "rainbow" };
+static const char *const k_modes[] = { "off", "solid", "wipe", "rainbow", "flicker" };
 
 static int usage(void)
 {
-    printf("usage: leds [colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | bright <1-100>]\n"
+    printf("usage: leds [colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | flicker [<c>] | bright <1-100>]\n"
            "patterns, played once and then off, or over and over with `loop` until `leds off`:\n"
            "  wipe [<c>]  each LED to the colour in turn, 250 ms apart (white if none given)\n"
            "  rainbow     the colour wheel five times round the ring, 12.8 s\n"
+           "  flicker [<c>]  the colour flickering like a failing hologram, until something else\n"
            "a colour <c> is a name (red, orange, ...), #RRGGBB, R,G,B or R G B\n");
     return 1;
 }
@@ -28,7 +29,7 @@ static int cmd_leds(int argc, char **argv)
         bool loop;
         const leds_mode_t mode = leds_mode(rgb, &loop);
         printf("%s", k_modes[mode]);
-        if (mode == LEDS_SOLID || mode == LEDS_WIPE) {
+        if (mode == LEDS_SOLID || mode == LEDS_WIPE || mode == LEDS_FLICKER) {
             printf(" #%02x%02x%02x", rgb[0], rgb[1], rgb[2]);
         }
         if ((mode == LEDS_WIPE || mode == LEDS_RAINBOW) && loop) {
@@ -67,6 +68,13 @@ static int cmd_leds(int argc, char **argv)
         }
         return leds_play(LEDS_RAINBOW, 0, 0, 0, loop) == ESP_OK ? 0 : 1;
     }
+    if (strcmp(sub, "flicker") == 0) {
+        uint8_t rgb[3] = { 255, 255, 255 };
+        if (argc > 2 && !board_parse_rgb_args(argc - 2, argv + 2, rgb)) {
+            return usage();
+        }
+        return leds_play(LEDS_FLICKER, rgb[0], rgb[1], rgb[2], false) == ESP_OK ? 0 : 1;
+    }
     if (strcmp(sub, "bright") == 0 && argc == 3) {
         leds_set_brightness(atoi(argv[2]));
         return 0;
@@ -80,8 +88,8 @@ void register_leds_commands(void)
         .command = "leds",
         .help = "The NeoPixel strip: a solid colour, off, brightness, or a pattern played once "
                 "then off, or looped. Patterns: wipe [<c>] (each LED to the colour in turn), "
-                "rainbow (the colour wheel round the ring)",
-        .hint = "[colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | bright <1-100>]",
+                "rainbow (the colour wheel round the ring), flicker [<c>] (a failing hologram, until something else)",
+        .hint = "[colour <c> | off | wipe [<c>] [loop] | rainbow [loop] | flicker [<c>] | bright <1-100>]",
         .func = cmd_leds,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));

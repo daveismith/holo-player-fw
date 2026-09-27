@@ -33,7 +33,7 @@ static bool only_keys(const cJSON *o, const char *const *keys, size_t n, const c
 
 scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *why, size_t why_len)
 {
-    static const char *const KEYS[] = { "path", "loop", "whole_frame", "colour", "calibration", "clear" };
+    static const char *const KEYS[] = { "path", "loop", "loops", "whole_frame", "colour", "calibration", "clear" };
     const char *bad = NULL;
     if (!cJSON_IsObject(show)) {
         return BAD(SCENE_BAD, "an object: {path}, {colour} or {calibration: true}");
@@ -75,10 +75,20 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
         return SCENE_OK;
     }
     const cJSON *loop = cJSON_GetObjectItem(show, "loop");
+    const cJSON *loops = cJSON_GetObjectItem(show, "loops");
     const cJSON *whole = cJSON_GetObjectItem(show, "whole_frame");
     if (!cJSON_IsString(path) || (loop && !cJSON_IsBool(loop)) || (whole && !cJSON_IsBool(whole))) {
         return BAD(SCENE_BAD, "`path` is a string; `loop` and `whole_frame` are true or false");
     }
+    if (loops && !(cJSON_IsNumber(loops) && loops->valuedouble >= 1 && loops->valuedouble <= 1000 &&
+                   loops->valuedouble == (int)loops->valuedouble)) {
+        return BAD(SCENE_BAD, "`loops` is how many times it plays: 1..1000");
+    }
+    if (loops && cJSON_IsTrue(loop)) {
+        return BAD(SCENE_BAD, "give `loop` (forever) or `loops` (a number of times), not both");
+    }
+    /* Times through: forever, a number, or the default (a clip once, a GIF as the file says) */
+    const int plays = cJSON_IsTrue(loop) ? 0 : loops ? (int)loops->valuedouble : -1;
     char abs[FS_ABS_MAX], rel[FS_PATH_MAX + 8];
     char reason[112];
     if (fs_path(path->valuestring, abs, sizeof(abs), reason, sizeof(reason)) != 0) {
@@ -89,7 +99,7 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
     }
     fs_rel(abs, rel, sizeof(rel));
     char msg[96] = "";
-    const esp_err_t err = screen_show_file(abs, cJSON_IsTrue(loop), cJSON_IsTrue(whole), msg, sizeof(msg));
+    const esp_err_t err = screen_show_file(abs, plays, cJSON_IsTrue(whole), msg, sizeof(msg));
     if (err == ESP_ERR_NOT_FOUND) {
         return BAD(SCENE_MISSING, "no such file: %s", rel);
     }
@@ -104,7 +114,7 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
 
 /* ------------------------------------------------------------------ the LEDs */
 
-static const char *const LED_MODES[] = { "off", "solid", "wipe", "rainbow" };
+static const char *const LED_MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
 
 scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_len)
 {
@@ -126,13 +136,13 @@ scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_le
     leds_mode_t m = leds_mode(rgb, &cur_loop);
     if (mode != NULL) {
         int found = -1;
-        for (int i = 0; cJSON_IsString(mode) && i < 4; i++) {
+        for (int i = 0; cJSON_IsString(mode) && i < 5; i++) {
             if (strcmp(mode->valuestring, LED_MODES[i]) == 0) {
                 found = i;
             }
         }
         if (found < 0) {
-            return BAD(SCENE_BAD, "`mode` is off, solid, wipe or rainbow");
+            return BAD(SCENE_BAD, "`mode` is off, solid, wipe, rainbow or flicker");
         }
         m = (leds_mode_t)found;
     }

@@ -139,7 +139,8 @@ curl -X DELETE "$B/fs/entry?path=/clips/old&recursive=true"
 shows something else:
 
 ```sh
-curl -X POST -H "$J" -d '{"path":"/clips/intro.mov","loop":true}' "$B/screen/show"
+curl -X POST -H "$J" -d '{"path":"/clips/intro.mov","loop":true}' "$B/screen/show"     # forever
+curl -X POST -H "$J" -d '{"path":"/clips/intro.mov","loops":3}' "$B/screen/show"      # three times
 curl -X POST -H "$J" -d '{"path":"/stills/logo.png"}' "$B/screen/show"
 curl -X POST -H "$J" -d '{"colour":"#102030"}' "$B/screen/show"
 curl -X POST -H "$J" -d '{"calibration":true}' "$B/screen/show"
@@ -155,12 +156,14 @@ rate -- without showing it.
 
 ## The LEDs
 
-`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`), `colour`, `loop`
-and `brightness`. `PATCH` changes any of them now:
+`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`, `flicker`),
+`colour`, `loop` and `brightness`. `flicker` flickers the colour like a failing hologram until
+something else replaces it. `PATCH` changes any of them now:
 
 ```sh
 curl -X PATCH -H "$J" -d '{"mode":"solid","colour":"orange"}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"mode":"rainbow","loop":true}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"flicker","colour":"#4da6ff"}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"brightness":10}' "$B/leds"
 ```
 
@@ -218,6 +221,39 @@ curl -X DELETE "$B/scenes/scene?name=cantina"
 `POST /api/v1/scenes/apply` also takes a scene that isn't saved, as `{"scene": {...}}`. It applies
 the screen, then the LEDs, then the holo, and a part that fails stops the rest, with an error
 naming it. The files a scene names are checked when it is applied, not when it is saved.
+
+### When a scene ends
+
+A scene can say what happens when it is over, with `then`:
+
+| `then` | When the scene ends |
+|---|---|
+| `stay` (the default) | Nothing: everything carries on as the scene left it |
+| `restore` | The screen, the LEDs and the holo go back to what they were doing before the scene. A behaviour such as a twitch starts again, and a clip that was looping plays again |
+| `off` | The screen and LEDs go off, and the holo's servos go limp |
+
+A scene ends when its clip has played its `loops`, or after `duration_s`, whichever comes first, so
+a scene with `restore` or `off` needs one of them:
+
+```sh
+# Leia's message once, with the LEDs flickering blue and the holo looking straight out; then back
+# to whatever the board was doing
+curl -X PUT -H "$J" "$B/scenes/scene?name=message" -d '{
+  "screen": {"path": "/clips/leia.mov", "loops": 1},
+  "leds":   {"mode": "flicker", "colour": "#4da6ff"},
+  "holo":   {"motion": "center"},
+  "then":   "restore"
+}'
+# Thirty seconds of flicker and a nod, then everything off
+curl -X PUT -H "$J" "$B/scenes/scene?name=bow" -d '{
+  "leds": {"mode": "flicker"}, "holo": {"motion": "nod"}, "duration_s": 30, "then": "off"
+}'
+```
+
+`GET /api/v1/scenes` says which scene is running to its end, under `active`. `POST
+/api/v1/scenes/end` ends it now, doing its `then`. Applying another scene, or showing something else
+in place of its clip, ends it without its `then`. One `restore` scene after another goes back to what
+the board was doing before the first.
 
 ## Settings
 
@@ -444,6 +480,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 403 | `forbidden_host` | The `Host` header doesn't name the board |
 | 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, network, slot, scene, or firmware on that channel |
 | 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another long operation is running, or the update session isn't in the state asked of it |
+| 409 | `not_running` | No scene is running to its end |
 | 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
 | 409 | `not_ready` | The holo can't move now; the message says why |
 | 411 | `length_required` | An upload without a `Content-Length` |
@@ -497,6 +534,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | PUT | `/api/v1/scenes/scene` | Save a scene |
 | DELETE | `/api/v1/scenes/scene` | Delete a scene |
 | POST | `/api/v1/scenes/apply` | Apply a scene |
+| POST | `/api/v1/scenes/end` | End the running scene now, doing its `then` |
 | GET | `/api/v1/settings` | What the board starts with |
 | PATCH | `/api/v1/settings` | Change it (saved) |
 | DELETE | `/api/v1/settings` | Back to the defaults |

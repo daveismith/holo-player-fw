@@ -8,7 +8,7 @@
 #include "web_server.h"
 #include "api.h"
 
-static const char *const MODES[] = { "off", "solid", "wipe", "rainbow" };
+static const char *const MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
 
 cJSON *api_leds_json(void)
 {

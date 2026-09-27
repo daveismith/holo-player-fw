@@ -138,6 +138,7 @@ def reads(c: Checker) -> None:
     c.check("POST", "/holo/motion", 400, body={"motion": "move", "x": 500, "y": 0}, code="bad_request")
     c.check("POST", "/scenes/apply", 404, body={"name": "no such scene"}, code="unknown_scene")
     c.check("PATCH", "/settings", 400, body={"volume": 11}, code="bad_request")
+    c.check("POST", "/scenes/end", 409, body={}, code="not_running")
 
 
 def writes(c: Checker) -> None:

@@ -35,7 +35,8 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
     }
     for (const cJSON *k = scene->child; k != NULL; k = k->next) {
         if (strcmp(k->string, "name") && strcmp(k->string, "description") && strcmp(k->string, "screen") &&
-            strcmp(k->string, "leds") && strcmp(k->string, "holo")) {
+            strcmp(k->string, "leds") && strcmp(k->string, "holo") && strcmp(k->string, "then") &&
+            strcmp(k->string, "duration_s")) {
             snprintf(why, why_len, "unknown field `%s`", k->string);
             return SCENE_BAD;
         }
@@ -48,6 +49,25 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
     const cJSON *desc = cJSON_GetObjectItem(scene, "description");
     if (desc != NULL && !(cJSON_IsString(desc) && strlen(desc->valuestring) <= 120)) {
         snprintf(why, why_len, "a description is text, at most 120 characters");
+        return SCENE_BAD;
+    }
+    const cJSON *then = cJSON_GetObjectItem(scene, "then");
+    if (then != NULL && scene_then_of(then) < 0) {
+        snprintf(why, why_len, "`then` is stay, restore or off");
+        return SCENE_BAD;
+    }
+    const cJSON *dur = cJSON_GetObjectItem(scene, "duration_s");
+    if (dur != NULL && !(cJSON_IsNumber(dur) && dur->valuedouble >= 0.1 && dur->valuedouble <= 86400)) {
+        snprintf(why, why_len, "`duration_s` is 0.1..86400 seconds");
+        return SCENE_BAD;
+    }
+    /* A scene that does something when it ends has to end: after a time, or when a clip that
+     * plays a set number of times is done */
+    const cJSON *screen = cJSON_GetObjectItem(scene, "screen");
+    if (then != NULL && scene_then_of(then) != SCENE_THEN_STAY && dur == NULL &&
+        !(cJSON_IsObject(screen) && cJSON_GetObjectItem(screen, "path") != NULL &&
+          cJSON_GetObjectItem(screen, "loops") != NULL)) {
+        snprintf(why, why_len, "`then` needs the scene to end: give `duration_s`, or a clip on the screen with `loops`");
         return SCENE_BAD;
     }
     char part[96];
@@ -71,12 +91,10 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
     return SCENE_OK;
 }
 
-scene_err_t scene_apply(const cJSON *scene, char *why, size_t why_len)
+/* The screen, then the LEDs, then the holo: checked already. For runner.c. */
+scene_err_t scene_apply_parts(const cJSON *scene, char *why, size_t why_len)
 {
-    scene_err_t err = scene_check(scene, why, why_len);
-    if (err != SCENE_OK) {
-        return err;
-    }
+    scene_err_t err;
     char part[96];
     const cJSON *p;
     if ((p = cJSON_GetObjectItem(scene, "screen")) != NULL &&
@@ -283,6 +301,20 @@ static int cmd_scene(int argc, char **argv)
         if (n == 0) {
             printf("no scenes: save them with the HTTP API (PUT /api/v1/scenes/scene) or the web app\n");
         }
+        scene_active_t a;
+        if (scene_active(&a)) {
+            printf("running: %s, then %s %s\n", a.name, SCENE_THEN_NAMES[a.then],
+                   a.remaining_s >= 0 ? "when its time is up" : "when its clip is done");
+        }
+        return 0;
+    }
+    if (strcmp(sub, "end") == 0 && argc == 2) {
+        char why[128];
+        if (scene_end(why, sizeof(why)) != SCENE_OK) {
+            printf("scene: %s\n", why);
+            return 1;
+        }
+        printf("ended\n");
         return 0;
     }
     if (strcmp(sub, "boot") == 0) {
@@ -306,7 +338,7 @@ static int cmd_scene(int argc, char **argv)
         return 0;
     }
     if (argc < 3 || (strcmp(sub, "show") && strcmp(sub, "apply") && strcmp(sub, "delete"))) {
-        printf("usage: scene [list] | show <name> | apply <name> | delete <name> | boot [<name>|--clear]\n");
+        printf("usage: scene [list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear]\n");
         return 1;
     }
     if (strcmp(sub, "delete") == 0) {
@@ -345,9 +377,9 @@ void scene_register_commands(void)
     const esp_console_cmd_t cmd = {
         .command = "scene",
         .help = "Saved scenes -- what the screen, the LEDs and the holo do together: list them, show one, apply "
-                "it, delete it, or choose the one the board starts with. They are made with the HTTP API or "
-                "the web app.",
-        .hint = "[list] | show <name> | apply <name> | delete <name> | boot [<name>|--clear]",
+                "it, end the one running (doing what it does when it ends), delete one, or choose the one the "
+                "board starts with. They are made with the HTTP API or the web app.",
+        .hint = "[list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear]",
         .func = cmd_scene,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));

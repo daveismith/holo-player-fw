@@ -10,11 +10,13 @@ const MOTIONS = ["twitch", "scan", "wag", "nod", "circle", "center", "stop", "of
 function summary(scene) {
   const parts = [];
   const s = scene.screen;
-  if (s) parts.push(s.path ? `screen: ${s.path.split("/").pop()}${s.loop ? " (loop)" : ""}` : s.colour ? `screen: ${s.colour}`
+  if (s) parts.push(s.path ? `screen: ${s.path.split("/").pop()}${s.loop ? " (loop)" : s.loops ? ` ×${s.loops}` : ""}` : s.colour ? `screen: ${s.colour}`
     : s.calibration ? "screen: crosshair" : "screen: off");
   const l = scene.leds;
   if (l) parts.push(`LEDs: ${l.mode ?? ""}${l.colour ? ` ${l.colour}` : ""}${l.brightness ? ` ${l.brightness}%` : ""}`.trim());
   if (scene.holo) parts.push(`holo: ${scene.holo.motion}`);
+  if (scene.duration_s) parts.push(`${scene.duration_s} s`);
+  if (scene.then && scene.then !== "stay") parts.push(scene.then === "restore" ? "then back as it was" : "then all off");
   return parts;
 }
 
@@ -24,7 +26,11 @@ function sceneOf(form) {
   if (form.description.value.trim()) scene.description = form.description.value.trim();
   if (form.useScreen.checked) {
     const kind = form.screenKind.value;
-    if (kind === "file") scene.screen = { path: form.screenPath.value, ...(form.screenLoop.checked ? { loop: true } : {}) };
+    if (kind === "file") {
+      scene.screen = { path: form.screenPath.value };
+      if (form.screenPlays.value === "forever") scene.screen.loop = true;
+      else if (form.screenPlays.value === "times") scene.screen.loops = Math.max(1, Math.min(1000, Number(form.screenLoops.value) || 1));
+    }
     else if (kind === "colour") scene.screen = { colour: form.screenColour.value };
     else if (kind === "calibration") scene.screen = { calibration: true };
     else scene.screen = { clear: true };
@@ -32,6 +38,7 @@ function sceneOf(form) {
   if (form.useLeds.checked) {
     scene.leds = { mode: form.ledMode.value };
     if (form.ledMode.value !== "rainbow" && form.ledMode.value !== "off") scene.leds.colour = form.ledColour.value;
+    if (form.ledMode.value === "flicker") delete scene.leds.loop;
     if (form.ledMode.value === "wipe" || form.ledMode.value === "rainbow") scene.leds.loop = form.ledLoop.checked;
     scene.leds.brightness = Number(form.ledBright.value);
   }
@@ -39,6 +46,8 @@ function sceneOf(form) {
     scene.holo = { motion: form.holoMotion.value };
     if (["twitch", "scan", "wag", "nod", "circle"].includes(form.holoMotion.value)) scene.holo.range = Number(form.holoRange.value);
   }
+  if (form.then.value !== "stay") scene.then = form.then.value;
+  if (form.duration.value) scene.duration_s = Number(form.duration.value);
   return scene;
 }
 
@@ -52,10 +61,11 @@ export default {
   mount(el, ctx) {
     const alert = h("div");
     const listBox = h("div", { class: "stack" });
+    const activeBox = h("div");
     const editorBox = h("div");
     el.append(h("h1", {}, "Scenes"),
       h("p", { class: "muted" }, "A scene is what the screen shows, what the LEDs do and how the holo moves, saved together. Any part can be left out: a scene with only LEDs is an LED preset."),
-      alert, editorBox, listBox);
+      alert, activeBox, editorBox, listBox);
 
     const fail = (e) => alert.replaceChildren(notice("bad", h("p", {}, e.message)));
     const say = (text) => alert.replaceChildren(notice("ok", h("p", {}, text)));
@@ -63,10 +73,27 @@ export default {
     let settings = null;
     let media = [];
 
+    let active = null;
     async function load() {
-      [scenes, settings] = await Promise.all([ctx.api.get("/scenes").then((r) => r.scenes), ctx.api.get("/settings")]);
+      let list;
+      [list, settings] = await Promise.all([ctx.api.get("/scenes"), ctx.api.get("/settings")]);
+      scenes = list.scenes;
+      renderActive(list.active);
       render();
     }
+
+    function renderActive(a) {
+      active = a;
+      activeBox.replaceChildren(...(a ? [h("section", { class: "card", style: "margin-bottom:16px" },
+        h("h2", {}, `${a.name} is running`, chip(a.then === "restore" ? "then back as it was" : "then all off", "primary")),
+        h("p", { class: "muted" }, a.remaining_s !== null ? `${Math.ceil(a.remaining_s)} s to go${a.until_clip_ends ? ", or until its clip is done" : ""}.` : "Until its clip is done."),
+        h("div", { class: "actions" }, h("button", { class: "button", onclick: () => ctx.api.post("/scenes/end", {}).then(() => { say(`Ended ${a.name}.`); return load(); }).catch(fail) }, "End it now")))] : []));
+    }
+
+    // While a scene runs to its end, follow it
+    const follow = setInterval(() => {
+      if (active) ctx.api.get("/scenes").then((r) => renderActive(r.active)).catch(() => {});
+    }, 2000);
 
     function render() {
       const newBtn = h("div", { class: "actions" }, h("button", { class: "button primary", onclick: () => edit(null) }, "New scene"));
@@ -81,7 +108,7 @@ export default {
           scene.description ? h("p", {}, scene.description) : null,
           h("div", { class: "chips" }, summary(scene).map((p) => chip(p))),
           h("div", { class: "actions" },
-            h("button", { class: "button primary", onclick: () => ctx.api.post("/scenes/apply", { name: scene.name }).then(() => say(`Applied ${scene.name}.`)).catch(fail) }, "Apply"),
+            h("button", { class: "button primary", onclick: () => ctx.api.post("/scenes/apply", { name: scene.name }).then(() => { say(`Applied ${scene.name}.`); return load(); }).catch(fail) }, "Apply"),
             h("button", { class: "button", onclick: () => edit(scene) }, "Edit"),
             h("button", { class: "button", onclick: () => ctx.api.patch("/settings", { boot_scene: boot ? null : scene.name }).then(load)
               .then(() => say(boot ? "The board now starts with nothing." : `The board now starts with ${scene.name}.`)).catch(fail) },
@@ -110,12 +137,14 @@ export default {
       f.screenPath = h("select", {}, media.map((m) => h("option", { value: m.path }, m.path)));
       if (s.screen?.path && !media.some((m) => m.path === s.screen.path)) f.screenPath.prepend(h("option", { value: s.screen.path }, `${s.screen.path} (missing)`));
       if (s.screen?.path) f.screenPath.value = s.screen.path;
-      f.screenLoop = h("input", { type: "checkbox", checked: s.screen?.loop ?? true });
+      f.screenPlays = h("select", {}, [["once", "Once"], ["times", "A number of times"], ["forever", "Over and over"]].map(([v, t]) => h("option", { value: v }, t)));
+      f.screenPlays.value = s.screen?.loop ? "forever" : s.screen?.loops ? "times" : s.screen ? "once" : "forever";
+      f.screenLoops = h("input", { type: "number", min: 1, max: 1000, value: s.screen?.loops ?? 2 });
       f.screenColour = h("input", { type: "color", value: colourOf(s.screen?.colour) });
 
       // LEDs
       f.useLeds = h("input", { type: "checkbox", checked: Boolean(s.leds) });
-      f.ledMode = h("select", {}, ["solid", "wipe", "rainbow", "off"].map((m) => h("option", { value: m }, m)));
+      f.ledMode = h("select", {}, ["solid", "wipe", "rainbow", "flicker", "off"].map((m) => h("option", { value: m }, m)));
       f.ledMode.value = s.leds?.mode ?? "solid";
       f.ledColour = h("input", { type: "color", value: colourOf(s.leds?.colour) });
       f.ledLoop = h("input", { type: "checkbox", checked: s.leds?.loop ?? true });
@@ -126,6 +155,11 @@ export default {
       f.holoMotion = h("select", {}, MOTIONS.map((m) => h("option", { value: m }, m)));
       f.holoMotion.value = s.holo?.motion ?? "twitch";
       f.holoRange = h("input", { type: "number", min: 1, max: 100, value: s.holo?.range ?? 50 });
+
+      // when it ends
+      f.then = h("select", {}, [["stay", "Leave it as it is"], ["restore", "Go back to before"], ["off", "All off"]].map(([v, t]) => h("option", { value: v }, t)));
+      f.then.value = s.then ?? "stay";
+      f.duration = h("input", { type: "number", min: 0.1, max: 86400, step: "any", value: s.duration_s ?? "", placeholder: "until its clip is done" });
 
       const part = (title, use, ...content) => {
         const body = h("div", { style: "margin-top:8px" }, ...content);
@@ -139,10 +173,12 @@ export default {
         const k = f.screenKind.value;
         screenFields.replaceChildren(...[
           k === "file" ? field("File", f.screenPath, media.length ? null : "No clips or images on the board yet.") : null,
-          k === "file" ? h("label", { class: "toggle" }, f.screenLoop, h("span", {}, "Loop it")) : null,
+          k === "file" ? h("div", { class: "fields" }, field("Plays", f.screenPlays),
+            f.screenPlays.value === "times" ? field("Times", f.screenLoops) : null) : null,
           k === "colour" ? field("Colour", f.screenColour) : null].filter(Boolean));
       };
       f.screenKind.addEventListener("change", syncScreen);
+      f.screenPlays.addEventListener("change", syncScreen);
       syncScreen();
 
       const fill = h("button", { type: "button", class: "button", onclick: async () => {
@@ -155,7 +191,8 @@ export default {
             if (![...f.screenPath.options].some((o) => o.value === screen.path)) f.screenPath.append(h("option", { value: screen.path }, screen.path));
             f.screenPath.value = screen.path;
           }
-          f.screenLoop.checked = screen.loop ?? true;
+          f.screenPlays.value = screen.showing === "clip" ? (screen.loop ? "forever" : "times") : "once";
+          if (screen.clip?.plays) f.screenLoops.value = screen.clip.plays;
           if (screen.colour) f.screenColour.value = screen.colour;
           f.useLeds.checked = true;
           f.ledMode.value = leds.mode;
@@ -177,9 +214,13 @@ export default {
         part("The LEDs", f.useLeds, h("div", { class: "fields" }, field("Pattern", f.ledMode), field("Colour", f.ledColour), field("Brightness (%)", f.ledBright)),
           h("label", { class: "toggle" }, f.ledLoop, h("span", {}, "Loop a wipe or rainbow"))),
         part("The holo", f.useHolo, h("div", { class: "fields" }, field("Motion", f.holoMotion), field("How far (%)", f.holoRange))),
+        h("fieldset", { class: "card", style: "margin-top:12px" }, h("legend", {}, h("strong", {}, "When it ends")),
+          h("div", { class: "fields", style: "margin-top:8px" }, field("Then", f.then), field("Or after (seconds)", f.duration)),
+          h("p", { class: "muted hint" }, "The scene ends when its clip has played its number of times, or after the seconds given, whichever is first. ",
+            "Going back restarts what the LEDs and the holo were doing (a twitch twitches again), and what the screen showed.")),
         h("div", { class: "actions" },
           h("button", { class: "button primary", onclick: () => save(f, scene) }, "Save"),
-          h("button", { class: "button", onclick: () => ctx.api.post("/scenes/apply", { scene: sceneOf(f) }).then(() => say("Tried it: nothing was saved.")).catch(fail) }, "Try it"),
+          h("button", { class: "button", onclick: () => ctx.api.post("/scenes/apply", { scene: sceneOf(f) }).then(() => { say("Tried it: nothing was saved."); return load(); }).catch(fail) }, "Try it"),
           h("button", { class: "button", onclick: () => editorBox.replaceChildren() }, "Cancel")));
       editorBox.replaceChildren(card);
       card.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -189,6 +230,9 @@ export default {
       const scene = sceneOf(f);
       if (!NAME.test(scene.name)) return fail(new Error("A name is 1-32 letters, digits, spaces, _ . and -."));
       if (!scene.screen && !scene.leds && !scene.holo) return fail(new Error("Choose at least one part: the screen, the LEDs or the holo."));
+      if (scene.then && !scene.duration_s && !scene.screen?.loops) {
+        return fail(new Error("To do something when it ends, the scene has to end: play its clip a number of times, or give it seconds."));
+      }
       if (!existing && scenes.some((x) => x.name === scene.name)
         && !await confirmAsk(`A scene called ${scene.name} exists. Replace it?`, { ok: "Replace" })) return;
       try {
@@ -200,6 +244,6 @@ export default {
     }
 
     load().catch(fail);
-    return null;
+    return () => clearInterval(follow);
   },
 };

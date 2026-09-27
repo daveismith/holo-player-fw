@@ -31,6 +31,12 @@ so the release tag is the version baked into the image and reported by `version`
   The web app has a page for each: Show, Holo, Scenes, Files, Settings and Network, beside Status
   and Update. On a phone, the first four are tabs and the rest are under More. Documented in
   [The board over Wi-Fi](manual/use/web.md) and [HTTP API](manual/reference/http-api.md).
+- **Scenes that end**: a scene can play its clip a number of times (`loops`) or last `duration_s`,
+  and then (`then`) put the screen, LEDs and holo back to what they were doing before it — a twitch
+  twitches again — or turn everything off, servos limp. `POST /api/v1/scenes/end` (and
+  `scene end`) ends one early. Clips and animations also take `loops` on `POST /api/v1/screen/show`.
+- **An LED flicker**: the colour flickering like a failing hologram (`leds flicker [<c>]`, mode
+  `flicker`).
 - **Console commands** to go with them: `scene` (list, show, apply, delete, and the one the board
   starts with), `settings` (the backlight, LED brightness and count at start), and `wifi scan`.
 - **`make api-smoke HOST=...`** calls a board's API and checks every reply against the OpenAPI

@@ -53,7 +53,7 @@ constexpr uint32_t BLOCK_LINES = 16;
 
 struct Request {
     char path[PATH_LEN];
-    bool loop;
+    int plays;               /* times through: 0 forever; -1 the default (a clip once, a GIF as it says) */
     bool whole_frame;
     GifFile *gif;            /* an animated GIF, already open; null for a clip */
     GifHeader gif_hdr;
@@ -61,7 +61,8 @@ struct Request {
 
 struct Stats {
     char path[PATH_LEN];
-    bool loop;
+    bool loop;               /* forever */
+    uint32_t plays;          /* times through in all; 0 forever */
     uint32_t width, height, frames;
     double fps;              /* the file's */
     const char *mode;        /* how frames reach the panel, for the report */
@@ -87,6 +88,8 @@ volatile bool s_stop;
 volatile bool s_replacing;
 esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
+screen_end_hook_t s_end_hook;
+void *s_end_ctx;
 
 /*
  * Everything that draws, or says what is drawn, holds this: the console and the API run on
@@ -267,7 +270,8 @@ void play_clip(const Request &req)
     Stats &s = s_stats;
     s = {};
     strlcpy(s.path, req.path, sizeof(s.path));
-    s.loop = req.loop;
+    s.plays = req.plays > 0 ? (uint32_t)req.plays : req.plays == 0 ? 0 : 1;
+    s.loop = s.plays == 0;
     s.width = w;
     s.height = h;
     s.frames = (uint32_t)qt.FrameCount();
@@ -281,7 +285,7 @@ void play_clip(const Request &req)
     const int x = (BOARD_LCD_H_RES - (int)w) / 2, y = (BOARD_LCD_V_RES - (int)h) / 2;
     printf("video: playing %s (%" PRIu32 "x%" PRIu32 ", %" PRIu32 " frames, %.2f fps, %s)%s\n",
            req.path, w, h, s.frames, s.fps, streamed ? "streamed" : "whole frame",
-           req.loop ? ", looping" : "");
+           s.loop ? ", looping" : "");
 
     s.started_us = now_us();
     const uint32_t scale = qt.TimeScale();
@@ -337,7 +341,7 @@ void play_clip(const Request &req)
             sleep_until(due);
         }
         s.loops++;
-    } while (req.loop && !s_stop);
+    } while (!s_stop && (s.plays == 0 || s.loops < s.plays));
     end_playback(false);
     heap_caps_free(jpg);
     heap_caps_free(fb);
@@ -351,7 +355,7 @@ void play_clip(const Request &req)
  * It loops as the file asks: NETSCAPE's count is of repeats, so n plays it n + 1 times, 0 plays
  * it forever, and a file without the extension plays once. When the passes run out the last
  * frame stays up, as a still does -- a GIF is shown with `image show`, and an image stays.
- * `loop` (from the API) plays it forever instead.
+ * A count from the API overrides the file's.
  */
 void play_gif(const Request &req)
 {
@@ -360,7 +364,6 @@ void play_gif(const Request &req)
     Stats &s = s_stats;
     s = {};
     strlcpy(s.path, req.path, sizeof(s.path));
-    s.loop = req.loop;
     s.width = hdr.width;
     s.height = hdr.height;
     s.frames = (uint32_t)hdr.frames;
@@ -371,8 +374,10 @@ void play_gif(const Request &req)
     board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
-    /* `loop` plays it forever, whatever the file says */
-    const int passes = req.loop ? 0 : hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+    /* As many times as asked (0 forever); by default, as the file says */
+    const int passes = req.plays >= 0 ? req.plays : hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+    s.plays = (uint32_t)passes;
+    s.loop = passes == 0;
 
     s.started_us = now_us();
     bool held = false, broken = false;
@@ -429,6 +434,14 @@ void player_task(void *arg)
         play_gif(*req);
     } else {
         play_clip(*req);
+    }
+    /* Played out, or stopped (by something else taking the screen, or an error) */
+    const bool finished = !s_stop;
+    const screen_end_hook_t hook = s_end_hook;
+    /* Told before s_task clears, so whoever stopped it (video_stop() waits for that) finds the
+     * news already delivered */
+    if (hook != nullptr) {
+        hook(req->path, finished, s_end_ctx);
     }
     delete req;
     s_task = nullptr;
@@ -729,11 +742,12 @@ int cmd_video(int argc, char **argv)
 
 /* What is about to play, from its header, for anyone who asks before the player's task has
  * started (which fills in the rest). */
-static void prime_stats(const char *path, bool loop, uint32_t w, uint32_t h, uint32_t frames, double fps)
+static void prime_stats(const char *path, uint32_t plays, uint32_t w, uint32_t h, uint32_t frames, double fps)
 {
     s_stats = {};
     strlcpy(s_stats.path, path, sizeof(s_stats.path));
-    s_stats.loop = loop;
+    s_stats.plays = plays;
+    s_stats.loop = plays == 0;
     s_stats.width = w;
     s_stats.height = h;
     s_stats.frames = frames;
@@ -888,6 +902,7 @@ extern "C" void screen_get_state(screen_state_t *out)
         out->showing = SCREEN_CLIP;
         strlcpy(out->path, s.path, sizeof(out->path));
         out->loop = s.loop;
+        out->plays = s.plays;
         out->width = s.width;
         out->height = s.height;
         out->frames = s.frames;
@@ -920,7 +935,7 @@ extern "C" void screen_get_state(screen_state_t *out)
     }
 }
 
-extern "C" esp_err_t screen_show_file(const char *path, bool loop, bool whole_frame, char *why, size_t why_len)
+extern "C" esp_err_t screen_show_file(const char *path, int plays, bool whole_frame, char *why, size_t why_len)
 {
     Lock lock;
     media_info_t info;
@@ -934,13 +949,13 @@ extern "C" esp_err_t screen_show_file(const char *path, bool loop, bool whole_fr
         return ESP_ERR_INVALID_ARG;
     }
     if (info.kind == MEDIA_CLIP) {
-        const esp_err_t played = video_play(path, loop, whole_frame);
+        const esp_err_t played = video_play_n(path, plays, whole_frame);
         if (played != ESP_OK) {
             snprintf(why, why_len, "%s", esp_err_to_name(played));
         }
         return played;
     }
-    if (image_show_file(path, loop) != 0) {
+    if (image_show_file(path, plays) != 0) {
         snprintf(why, why_len, "it could not be drawn");
         return ESP_FAIL;
     }
@@ -948,6 +963,17 @@ extern "C" esp_err_t screen_show_file(const char *path, bool loop, bool whole_fr
 }
 
 extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
+{
+    return video_play_n(path, loop ? 0 : -1, whole_frame);
+}
+
+extern "C" void screen_set_end_hook(screen_end_hook_t hook, void *ctx)
+{
+    s_end_ctx = ctx;
+    s_end_hook = hook;
+}
+
+extern "C" esp_err_t video_play_n(const char *path, int plays, bool whole_frame)
 {
     Lock lock;
     /* Checked here, before anything that is showing stops, so a file that cannot play is
@@ -961,9 +987,9 @@ extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
     screen_take_panel();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
-    req->loop = loop;
+    req->plays = plays;
     req->whole_frame = whole_frame;
-    prime_stats(path, loop, info.width, info.height, info.frames, info.fps);
+    prime_stats(path, plays > 0 ? (uint32_t)plays : plays == 0 ? 0 : 1, info.width, info.height, info.frames, info.fps);
     s_stop = false;
     if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
                                 TASK_CORE) != pdPASS) {
@@ -975,14 +1001,15 @@ extern "C" esp_err_t video_play(const char *path, bool loop, bool whole_frame)
     return ESP_OK;
 }
 
-esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, bool loop)
+esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int plays)
 {
     Lock lock;
     screen_take_panel();
     Request *req = new Request{};
     strlcpy(req->path, path, sizeof(req->path));
-    req->loop = loop;
-    prime_stats(path, loop, hdr.width, hdr.height, (uint32_t)hdr.frames,
+    req->plays = plays;
+    const int file_plays = hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+    prime_stats(path, (uint32_t)(plays >= 0 ? plays : file_plays), hdr.width, hdr.height, (uint32_t)hdr.frames,
                 hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
     req->gif = g;
     req->gif_hdr = hdr;

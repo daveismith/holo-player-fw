@@ -22,6 +22,16 @@ void register_video_commands(const char *base_path);
  * multiple of 8, which block decoding needs).
  */
 esp_err_t video_play(const char *path, bool loop, bool whole_frame);
+/* The same, `plays` times through: 0 forever, -1 once. */
+esp_err_t video_play_n(const char *path, int plays, bool whole_frame);
+
+/*
+ * Told when a clip or animation stops: `finished` when it played out, false when it was stopped
+ * (something else took the screen, or an error). Called from the player's task, which is ending:
+ * it must not call into this component -- signal another task instead. One hook.
+ */
+typedef void (*screen_end_hook_t)(const char *path, bool finished, void *ctx);
+void screen_set_end_hook(screen_end_hook_t hook, void *ctx);
 /* Stop playback and wait for it to end. */
 void video_stop(void);
 bool video_playing(void);
@@ -69,12 +79,13 @@ typedef struct {
 esp_err_t media_probe(const char *path, media_info_t *out);
 
 /*
- * Show a file: a clip (QuickTime Motion-JPEG), or a PNG, JPEG or GIF -- an animated GIF plays,
- * looping forever with `loop`, else as the file says. Checked before the panel is touched:
+ * Show a file: a clip (QuickTime Motion-JPEG), or a PNG, JPEG or GIF. A clip or animated GIF
+ * plays `plays` times: 0 forever, -1 the default (a clip once, a GIF as the file says). Checked
+ * before the panel is touched:
  * ESP_ERR_NOT_FOUND, or ESP_ERR_INVALID_ARG for a file the board cannot show, with `why`
  * (a sentence without the path), and the screen unchanged.
  */
-esp_err_t screen_show_file(const char *path, bool loop, bool whole_frame, char *why, size_t why_len);
+esp_err_t screen_show_file(const char *path, int plays, bool whole_frame, char *why, size_t why_len);
 
 typedef enum { SCREEN_NOTHING, SCREEN_COLOUR, SCREEN_CALIBRATION, SCREEN_IMAGE, SCREEN_CLIP } screen_showing_t;
 
@@ -84,7 +95,8 @@ typedef struct {
     int backlight;
     uint8_t rgb[3];             /* SCREEN_COLOUR */
     char path[160];             /* SCREEN_IMAGE, SCREEN_CLIP: absolute */
-    bool loop;                  /* SCREEN_CLIP */
+    bool loop;                  /* SCREEN_CLIP: forever */
+    uint32_t plays;             /* SCREEN_CLIP: times through in all; 0 forever */
     uint32_t width, height, frames, shown, loops, late;
     double fps;
     int64_t elapsed_ms;

@@ -35,11 +35,57 @@ static bool query_name(httpd_req_t *req, char *name, size_t len)
 
 /* ------------------------------------------------------------------ /scenes */
 
+static cJSON *active_json(void)
+{
+    scene_active_t a;
+    if (!scene_active(&a)) {
+        return cJSON_CreateNull();
+    }
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "name", a.name);
+    cJSON_AddStringToObject(o, "then", SCENE_THEN_NAMES[a.then]);
+    cJSON_AddBoolToObject(o, "until_clip_ends", a.clip);
+    if (a.remaining_s >= 0) {
+        cJSON_AddNumberToObject(o, "remaining_s", (double)(int)(a.remaining_s * 10 + 0.5) / 10);
+    } else {
+        cJSON_AddNullToObject(o, "remaining_s");
+    }
+    return o;
+}
+
 static esp_err_t scenes_get(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "scenes", scene_load_all());
+    cJSON_AddItemToObject(root, "active", active_json());
     return web_send_json(req, 200, root);
+}
+
+static cJSON *now_json(void)
+{
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "screen", api_screen_json());
+    cJSON_AddItemToObject(root, "leds", api_leds_json());
+    cJSON_AddItemToObject(root, "holo", api_holo_json());
+    return root;
+}
+
+static esp_err_t end_post(httpd_req_t *req)
+{
+    cJSON *body = web_read_json(req, 64);
+    if (body == NULL) {
+        return ESP_OK;
+    }
+    const bool empty = body->child == NULL;
+    cJSON_Delete(body);
+    if (!empty) {
+        return web_send_error(req, 400, "bad_request", "send {}");
+    }
+    char why[96];
+    if (scene_end(why, sizeof(why)) != SCENE_OK) {
+        return web_send_error(req, 409, "not_running", "%s", why);
+    }
+    return web_send_json(req, 200, now_json());
 }
 
 static esp_err_t scene_put(httpd_req_t *req)
@@ -121,11 +167,7 @@ static esp_err_t apply_post(httpd_req_t *req)
     if (err != SCENE_OK) {
         return api_send_scene_error(req, err, why);
     }
-    cJSON *root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "screen", api_screen_json());
-    cJSON_AddItemToObject(root, "leds", api_leds_json());
-    cJSON_AddItemToObject(root, "holo", api_holo_json());
-    return web_send_json(req, 200, root);
+    return web_send_json(req, 200, now_json());
 }
 
 /* ------------------------------------------------------------------ /settings */
@@ -259,6 +301,7 @@ esp_err_t api_scenes_register(void)
     err |= web_register("/api/v1/scenes/scene", HTTP_PUT, scene_put, WEB_AUTH);
     err |= web_register("/api/v1/scenes/scene", HTTP_DELETE, scene_delete, WEB_AUTH);
     err |= web_register("/api/v1/scenes/apply", HTTP_POST, apply_post, WEB_AUTH);
+    err |= web_register("/api/v1/scenes/end", HTTP_POST, end_post, WEB_AUTH);
     err |= web_register("/api/v1/settings", HTTP_GET, settings_get_route, 0);
     err |= web_register("/api/v1/settings", HTTP_PATCH, settings_patch, WEB_AUTH);
     err |= web_register("/api/v1/settings", HTTP_DELETE, settings_delete, WEB_AUTH);

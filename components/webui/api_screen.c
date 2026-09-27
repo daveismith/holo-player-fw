@@ -57,6 +57,7 @@ cJSON *api_screen_json(void)
         cJSON_AddNumberToObject(c, "frames", st.frames);
         cJSON_AddNumberToObject(c, "shown", st.shown);
         cJSON_AddNumberToObject(c, "loops", st.loops);
+        cJSON_AddNumberToObject(c, "plays", st.plays);
         cJSON_AddNumberToObject(c, "late", st.late);
         cJSON_AddNumberToObject(c, "elapsed_ms", (double)st.elapsed_ms);
     }

@@ -31,6 +31,7 @@ typedef enum {
     LEDS_SOLID,
     LEDS_WIPE,      /* each LED in turn to the colour, 250 ms apart; a second lit; off */
     LEDS_RAINBOW,   /* the colour wheel five times round the strip (12.8 s); a second; off */
+    LEDS_FLICKER,   /* the colour, flickering like a failing hologram, until something else */
 } leds_mode_t;
 
 /* LEDs on the strip, before leds_init(): a saved setting, over CONFIG_LEDS_COUNT. Ignored once
@@ -41,7 +42,8 @@ esp_err_t leds_init(void);
 /* Each stops any pattern first. */
 esp_err_t leds_solid(uint8_t r, uint8_t g, uint8_t b);
 esp_err_t leds_off(void);
-/* Start LEDS_WIPE (in r,g,b) or LEDS_RAINBOW (r,g,b unused) in the background. */
+/* Start LEDS_WIPE or LEDS_FLICKER (in r,g,b), or LEDS_RAINBOW (r,g,b unused), in the background.
+ * A flicker runs until something else replaces it: `loop` means nothing to it. */
 esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool loop);
 /* Percent, 1-100; applied at once to a solid colour and from the next frame to a pattern. */
 void leds_set_brightness(int percent);

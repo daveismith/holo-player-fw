@@ -8,8 +8,11 @@
  *    "screen": {"path": "/clips/cantina.mov", "loop": true} | {"colour": "#ff8000"}
  *              | {"calibration": true} | {"clear": true},
  *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30},
- *    "holo":   {"motion": "twitch", "range": 50, ...}}
- * Each part is optional; a part left out leaves that alone.
+ *    "holo":   {"motion": "twitch", "range": 50, ...},
+ *    "then": "stay" | "restore" | "off", "duration_s": 30}
+ * Each part is optional; a part left out leaves that alone. A scene ends when its clip has played
+ * its `loops`, or after `duration_s`, whichever is first; `then` is what happens then: nothing
+ * (stay), the screen, LEDs and holo back to what they did before it (restore), or all off.
  */
 #pragma once
 
@@ -53,8 +56,28 @@ bool scene_name_ok(const char *name);
 scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len);
 
 /* The screen, then the LEDs, then the holo; a part that fails stops the rest, and `why` starts
- * with its name ("screen: ..."). A missing file is SCENE_UNPLAYABLE here. */
+ * with its name ("screen: ..."). A missing file is SCENE_UNPLAYABLE here. A scene with `then`
+ * other than stay is watched until it ends; any other scene applied first cancels that. */
 scene_err_t scene_apply(const cJSON *scene, char *why, size_t why_len);
+
+typedef enum { SCENE_THEN_STAY, SCENE_THEN_RESTORE, SCENE_THEN_OFF } scene_then_t;
+extern const char *const SCENE_THEN_NAMES[];
+int scene_then_of(const cJSON *then);      /* a scene_then_t, or -1 for none of them */
+
+/* The scene being watched to its end, if one is. */
+typedef struct {
+    char name[SCENE_NAME_MAX + 1];
+    scene_then_t then;
+    bool clip;                  /* ends when its clip is done */
+    double remaining_s;         /* until its time is up; -1 when it has no duration */
+} scene_active_t;
+bool scene_active(scene_active_t *out);
+
+/* End the scene being watched now, doing its `then`. SCENE_MISSING when none is. */
+scene_err_t scene_end(char *why, size_t why_len);
+
+/* Start the watcher (a task of its own). Once, before any scene is applied. */
+esp_err_t scenes_start(void);
 
 /* The saved scenes. Each returns a new cJSON the caller deletes; NULL for none. */
 cJSON *scene_load(const char *name);

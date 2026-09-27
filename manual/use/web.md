@@ -30,6 +30,18 @@ To make one:
 2. Tick the parts it has. **Fill from what's showing now** copies whatever the board is doing now.
 3. **Try it** applies the scene without saving it. **Save** keeps it.
 
+**When it ends** says what happens once the scene is over:
+
+- **Leave it as it is**: everything carries on as the scene left it.
+- **Go back to before**: the screen, the LEDs and the holo return to what they were doing before the
+  scene. A twitching holo twitches again, and a looping clip plays again.
+- **All off**: the screen and LEDs go off, and the holo's servos go limp.
+
+A scene ends when its clip has played its number of times, or after the seconds given, whichever
+is first, so "go back" and "all off" need one of them. While such a scene runs, the Scenes page
+shows it with **End it now**, which does what it would do at its end. Applying another scene, or
+showing something else in place of its clip, ends it without that.
+
 **Start with it** makes the board apply that scene every time it starts. The board keeps 16
 scenes. The console's `scene` command lists and applies them too: see
 [Console commands](../reference/console.md#scenes-and-settings).

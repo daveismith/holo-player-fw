@@ -1751,6 +1751,12 @@
                   "value": {
                     "calibration": true
                   }
+                },
+                "three times": {
+                  "value": {
+                    "path": "/clips/intro.mov",
+                    "loops": 3
+                  }
                 }
               }
             }
@@ -2836,8 +2842,30 @@
                         "mode": "solid",
                         "colour": "#ffb000"
                       }
+                    },
+                    {
+                      "name": "message",
+                      "description": "Leia's message, then back to what it was doing",
+                      "screen": {
+                        "path": "/clips/leia.mov",
+                        "loops": 1
+                      },
+                      "leds": {
+                        "mode": "flicker",
+                        "colour": "#4da6ff"
+                      },
+                      "holo": {
+                        "motion": "center"
+                      },
+                      "then": "restore"
                     }
-                  ]
+                  ],
+                  "active": {
+                    "name": "message",
+                    "then": "restore",
+                    "until_clip_ends": true,
+                    "remaining_s": null
+                  }
                 }
               }
             }
@@ -2874,21 +2902,60 @@
               "schema": {
                 "$ref": "#/components/schemas/Scene"
               },
-              "example": {
-                "name": "cantina",
-                "description": "Band clip, warm LEDs, a look around",
-                "screen": {
-                  "path": "/clips/cantina.mov",
-                  "loop": true
+              "examples": {
+                "cantina": {
+                  "value": {
+                    "name": "cantina",
+                    "description": "Band clip, warm LEDs, a look around",
+                    "screen": {
+                      "path": "/clips/cantina.mov",
+                      "loop": true
+                    },
+                    "leds": {
+                      "mode": "solid",
+                      "colour": "#ff8000",
+                      "brightness": 30
+                    },
+                    "holo": {
+                      "motion": "twitch",
+                      "range": 50
+                    }
+                  }
                 },
-                "leds": {
-                  "mode": "solid",
-                  "colour": "#ff8000",
-                  "brightness": 30
+                "message": {
+                  "summary": "A clip, then back to what the board was doing",
+                  "value": {
+                    "name": "message",
+                    "description": "Leia's message, then back to what it was doing",
+                    "screen": {
+                      "path": "/clips/leia.mov",
+                      "loops": 1
+                    },
+                    "leds": {
+                      "mode": "flicker",
+                      "colour": "#4da6ff"
+                    },
+                    "holo": {
+                      "motion": "center"
+                    },
+                    "then": "restore"
+                  }
                 },
-                "holo": {
-                  "motion": "twitch",
-                  "range": 50
+                "bow": {
+                  "summary": "Thirty seconds of flicker, then everything off",
+                  "value": {
+                    "name": "bow",
+                    "leds": {
+                      "mode": "flicker",
+                      "colour": "#ffffff"
+                    },
+                    "holo": {
+                      "motion": "nod",
+                      "count": 2
+                    },
+                    "duration_s": 30,
+                    "then": "off"
+                  }
                 }
               }
             }
@@ -2956,9 +3023,19 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "error": "bad_request",
-                  "message": "`leds.mode` must be off, solid, wipe or rainbow"
+                "examples": {
+                  "led": {
+                    "value": {
+                      "error": "bad_request",
+                      "message": "leds: `mode` is off, solid, wipe, rainbow or flicker"
+                    }
+                  },
+                  "then": {
+                    "value": {
+                      "error": "bad_request",
+                      "message": "`then` needs the scene to end: give `duration_s`, or a clip on the screen with `loops`"
+                    }
+                  }
                 }
               }
             }
@@ -4017,6 +4094,72 @@
           }
         }
       }
+    },
+    "/api/v1/scenes/end": {
+      "post": {
+        "tags": [
+          "scenes"
+        ],
+        "operationId": "endScene",
+        "summary": "End the running scene now, doing its `then`",
+        "description": "For a scene applied with `then` (`restore` or `off`) that has not reached its end: does now what it would do then. A Stop button, say.",
+        "security": [
+          {},
+          {
+            "bearer": []
+          },
+          {
+            "basic": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "maxProperties": 0
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ended: the screen, LEDs and holo as they are now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenHost"
+          },
+          "409": {
+            "description": "No scene is running to its end",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "not_running",
+                  "message": "no scene is running to its end"
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/ContentType"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5059,7 +5202,8 @@
             "description": "Frames shown since it started, every loop"
           },
           "loops": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Times through so far"
           },
           "late": {
             "type": "integer",
@@ -5067,6 +5211,10 @@
           },
           "elapsed_ms": {
             "type": "integer"
+          },
+          "plays": {
+            "type": "integer",
+            "description": "Times through in all; 0 forever"
           }
         }
       },
@@ -5142,12 +5290,29 @@
           "loop": {
             "type": "boolean",
             "default": false,
-            "description": "A clip or animation: play it again and again"
+            "description": "A clip or animation: play it forever"
           },
           "whole_frame": {
             "type": "boolean",
             "default": false,
             "description": "Decode each frame whole, rather than streamed in blocks"
+          },
+          "loops": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "A clip or animation: play it this many times. Without `loop` or `loops`, a clip plays once and an animated GIF as the file says."
+          }
+        },
+        "not": {
+          "required": [
+            "loop",
+            "loops"
+          ],
+          "properties": {
+            "loop": {
+              "const": true
+            }
           }
         }
       },
@@ -5310,9 +5475,10 @@
               "off",
               "solid",
               "wipe",
-              "rainbow"
+              "rainbow",
+              "flicker"
             ],
-            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring. Played once, either ends `off`."
+            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring -- played once, either ends `off`. `flicker` flickers the colour like a failing hologram, until something else."
           },
           "colour": {
             "type": "string",
@@ -5346,7 +5512,8 @@
               "off",
               "solid",
               "wipe",
-              "rainbow"
+              "rainbow",
+              "flicker"
             ]
           },
           "colour": {
@@ -5356,7 +5523,7 @@
               "orange",
               "255,128,0"
             ],
-            "description": "For `solid` and `wipe` (white if never given). `#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
+            "description": "For `solid`, `wipe` and `flicker` (white if never given). `#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
           },
           "loop": {
             "type": "boolean",
@@ -5753,14 +5920,31 @@
           },
           "holo": {
             "$ref": "#/components/schemas/MotionRequest"
+          },
+          "then": {
+            "type": "string",
+            "enum": [
+              "stay",
+              "restore",
+              "off"
+            ],
+            "default": "stay",
+            "description": "When the scene ends: `stay` leaves everything as it is; `restore` puts the screen, LEDs and holo back to what they were doing before the scene -- a behaviour such as a twitch starts again; `off` turns the screen and LEDs off and lets the holo's servos go limp. Anything but `stay` needs the scene to end: `duration_s`, or a clip on the screen with `loops`."
+          },
+          "duration_s": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 86400,
+            "description": "The scene ends after this long, or when its clip has played its `loops` if that is sooner"
           }
         },
-        "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset."
+        "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played its `loops`, or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
       },
       "SceneList": {
         "type": "object",
         "required": [
-          "scenes"
+          "scenes",
+          "active"
         ],
         "properties": {
           "scenes": {
@@ -5769,6 +5953,17 @@
               "$ref": "#/components/schemas/Scene"
             },
             "maxItems": 16
+          },
+          "active": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActiveScene"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scene running to its end, with a `then` to do when it gets there"
           }
         }
       },
@@ -6221,6 +6416,38 @@
               }
             ],
             "description": "The whole list; `[]` for none, null for the default"
+          }
+        }
+      },
+      "ActiveScene": {
+        "type": "object",
+        "required": [
+          "name",
+          "then",
+          "until_clip_ends",
+          "remaining_s"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "then": {
+            "type": "string",
+            "enum": [
+              "restore",
+              "off"
+            ]
+          },
+          "until_clip_ends": {
+            "type": "boolean",
+            "description": "It ends when its clip has played its `loops`"
+          },
+          "remaining_s": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Until its `duration_s` is up; null without one"
           }
         }
       }

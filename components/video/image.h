@@ -12,9 +12,9 @@ extern "C" {
 
 void register_image_command(void);
 
-/* `image show`, for screen_show_file(): 0, or 1 having printed why. With `loop`, an animated GIF
- * plays forever. */
-int image_show_file(const char *path, bool loop);
+/* `image show`, for screen_show_file(): 0, or 1 having printed why. An animated GIF plays `plays`
+ * times (0 forever, -1 as the file says). */
+int image_show_file(const char *path, int plays);
 
 #ifdef __cplusplus
 }

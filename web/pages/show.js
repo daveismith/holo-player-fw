@@ -8,7 +8,7 @@ const ICON = "M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 
 const CLIP = "M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z";
 const IMAGE = "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z";
 const SWATCHES = ["#ffffff", "#ff0000", "#ff8000", "#ffc107", "#00ff00", "#00bcd4", "#0000ff", "#673ab7", "#ff69b4", "#000000"];
-const LED_MODES = [["off", "Off"], ["solid", "Solid"], ["wipe", "Wipe"], ["rainbow", "Rainbow"]];
+const LED_MODES = [["off", "Off"], ["solid", "Solid"], ["wipe", "Wipe"], ["rainbow", "Rainbow"], ["flicker", "Flicker"]];
 
 function describe(s) {
   switch (s.showing) {
