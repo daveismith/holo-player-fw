@@ -84,7 +84,7 @@ def handler_for(board: str):
             else:
                 self.send_error(405)
 
-        do_GET = do_HEAD = do_POST = do_PUT = do_DELETE = route
+        do_GET = do_HEAD = do_POST = do_PUT = do_PATCH = do_DELETE = route
 
     return Handler
 

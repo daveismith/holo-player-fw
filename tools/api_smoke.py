@@ -164,13 +164,14 @@ def writes(c: Checker) -> None:
     c.check("DELETE", "/fs/entry", 409, {"path": "/test-api"}, code="not_empty")
     c.check("GET", "/fs/list", 200, {"path": "/test-api/a"})
 
+    before = c.check("GET", "/leds", 200)
     c.check("PUT", "/scenes/scene", (200, 201), {"name": "test-api"},
             body={"leds": {"mode": "solid", "colour": "#102030", "brightness": 5}})
     c.check("POST", "/scenes/apply", 200, body={"name": "test-api"})
     c.check("POST", "/scenes/apply", 200, body={"scene": {"leds": {"mode": "off"}}})
     c.check("DELETE", "/scenes/scene", 204, {"name": "test-api"})
     c.check("PATCH", "/leds", 200, body={"mode": "wipe", "colour": "blue"})
-    c.check("PATCH", "/leds", 200, body={"mode": "off"})
+    c.check("PATCH", "/leds", 200, body={"mode": "off", **({"brightness": before["brightness"]} if isinstance(before, dict) else {})})
     c.check("DELETE", "/fs/entry", 204, {"path": "/test-api", "recursive": "true"})
 
 
