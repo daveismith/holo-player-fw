@@ -43,7 +43,8 @@ so the release tag is the version baked into the image and reported by `version`
 - **Events, not polling**: `GET /api/v1/events` is a stream of Server-Sent Events: the screen,
   LEDs, holo, running scene, scenes, settings, network and update session as each changes, and
   `clip_ended`, `scene_ended` and `touch` as they happen, numbered, with the last 32 kept and
-  replayed to a client that reconnects. The web app follows it instead of polling, so a change
+  replayed to a client that reconnects. While a clip plays or a scene runs, their states are sent
+  every 5 seconds besides, for clients to sync to. The web app follows it instead of polling, so a change
   made anywhere (the console, a script, another browser) shows on every open page at once; it polls
   as before on a board without it, or when every stream is taken.
 - **An LED flicker**: the colour flickering like a failing hologram (`leds flicker [<c>]`, mode

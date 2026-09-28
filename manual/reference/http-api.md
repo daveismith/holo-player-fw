@@ -340,8 +340,11 @@ Two sorts of event come down it:
 
 - **`?kinds=`** takes only those kinds; without it, every kind.
 - **Changes close together are sent as one**, the latest, and the holo's position at most four
-  times a second while it moves. Only the change is sent: a page counts a scene's time down, or a
-  clip's frames on, itself.
+  times a second while it moves. Between changes, a page counts a scene's time down, or a clip's
+  frames on, itself.
+- **While a clip plays or a scene runs to its end**, `screen` (with the clip's frames, loops and
+  elapsed time) and `scene` (with its time left) are also sent every 5 seconds, so a client that
+  counts on by itself is put right however its clock, or the clip's real frame rate, drifts.
 - **Happenings are numbered** (`seq`, which is also the SSE `id:`) and the board keeps the last 32.
   A browser's `EventSource` reconnects by itself and sends `Last-Event-ID`, and the board replays
   what it missed; `?after=40` does the same by hand. States aren't kept: after a reconnect, read

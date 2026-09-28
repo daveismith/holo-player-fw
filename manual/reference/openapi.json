@@ -6719,7 +6719,7 @@
           "event",
           "state"
         ],
-        "description": "A resource changed: `state` is what its GET returns now. `screen`: ScreenState; `leds`: LedState; `holo`: HoloState, four times a second at most while it moves; `scene`: the running scene (SceneList.active), or null; `scenes`: the saved scenes (SceneList.scenes); `settings`: Settings; `network`: Network; `ota`: the update session (Ota.session), each second at most while an image arrives; `system`: {uptime_s, heap_free, rssi}, every 15 s. Changes close together are sent as one, the latest; states are not kept, so a client that reconnects reads them again.",
+        "description": "A resource changed: `state` is what its GET returns now. `screen`: ScreenState; `leds`: LedState; `holo`: HoloState, four times a second at most while it moves; `scene`: the running scene (SceneList.active), or null; `scenes`: the saved scenes (SceneList.scenes); `settings`: Settings; `network`: Network; `ota`: the update session (Ota.session), each second at most while an image arrives; `system`: {uptime_s, heap_free, rssi}, every 15 s. While a clip plays or a scene runs to its end, `screen` and `scene` are also sent every 5 s (CONFIG_WEBUI_EVENTS_SYNC_S), for clients counting frames or time on by themselves to sync to. Changes close together are sent as one, the latest; states are not kept, so a client that reconnects reads them again.",
         "properties": {
           "event": {
             "type": "string",
