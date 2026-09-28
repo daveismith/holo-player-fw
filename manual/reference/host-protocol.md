@@ -112,6 +112,7 @@ and Wi-Fi:
 | The holo and servos | `GET /holo`, `POST /holo/motion`, `GET /servos`, `POST /servos/move`, `POST /servos/release` |
 | Scenes | `GET /scenes`, `PUT` and `DELETE /scenes/scene`, `POST /scenes/apply`, `POST /scenes/end` |
 | Settings | `GET`, `PATCH` and `DELETE /settings` |
+| Events | `GET /events` (the kept happenings, as JSON) |
 | The link | `GET` and `PATCH /link`, `GET` and `PATCH /link/events` |
 
 Not served: files and uploads, firmware updates, the network, the web server's settings, and
@@ -125,60 +126,85 @@ to its link.
 
 ## Events
 
-Events tell the host that something happened without it having to ask.
+Events tell the host what changed without it having to ask. They are the board's own events, the
+same ones the web app follows over Wi-Fi ([`GET /api/v1/events`](http-api.md#events)), with the
+same names and the same JSON. Two sorts come over the link:
+
+**Something happened.** Each is numbered (`seq`) and stamped (`t_ms`, the board's uptime in
+milliseconds):
 
 | Event | When | Fields |
 |---|---|---|
-| `ready` | The link has started, after a restart | `firmware`, `protocol`, `address` |
-| `clip_ended` | A clip or animation has stopped | `path`; `finished`: `true` when it played to its end, `false` when something replaced or stopped it |
+| `clip_ended` | A clip or animation has stopped | `path`, from the root of the storage volume; `finished`: `true` when it played to its end, `false` when something replaced or stopped it |
 | `scene_ended` | A scene running to its end has ended | `name`; `slot`, when it has one; `then`: what it does at its end; `by`: `clip` (its clip played), `time` (its `duration_s` was up), `end` (`POST /scenes/end`), or `replaced` (another scene or clip took over, and its `then` wasn't done) |
 | `touch` | The screen was touched, or let go. Only while touch reporting is on (`touch on`) | `action`: `down` or `up`; `x`, `y`: 0–239 |
 
-Every event also has `event` (its name), `seq` and `t_ms` (the board's uptime, in
-milliseconds). In JSON lines it is a line that starts with `!` and a space:
+**A resource changed.** The event carries the resource under `state`, exactly as its `GET`
+returns it: `screen`, `leds`, `holo`, `scene` (the scene running to its end, or null), `scenes`,
+`settings`, `network`, `ota` and `system`. Changes close together come as one, the latest; the
+holo's at most four times a second while it moves. While a clip plays or a scene runs to its end,
+`screen` and `scene` also come every 5 seconds, so a host that counts frames or time on by itself
+can put itself right.
+
+In JSON lines an event is a line that starts with `!` and a space:
 
 ```text
 ! {"event":"scene_ended","seq":41,"t_ms":812345,"name":"message","slot":3,"then":"restore","by":"clip"}
+! {"event":"leds","state":{"mode":"solid","colour":"#ffa500","loop":false,"brightness":30,"count":16,"gpio":16}}
 ```
 
 A host reading line by line can sort every line by its first character: `!` is an event, `@` or
 `#` or a digit is a reply.
 
+**`ready`** is the link's own: sent once on UART when the link starts, after a restart, whatever the
+host asked for. It tells a host that the board has restarted, and that it must ask for events
+again:
+
+```text
+! {"event":"ready","firmware":"v1.1.0","protocol":1,"address":1}
+```
+
 ### Asking for events
 
 **The link reports nothing until the host asks**, so a host that never reads what the board
-sends is never flooded. The one exception is `ready`, sent once when the link starts on UART.
+sends is never flooded.
 
 ```text
-> PATCH /link/events {"kinds":["scene_ended","clip_ended"],"push":true}
-< 200 {"kinds":["clip_ended","scene_ended"],"push":true,"seq":0,"pending":0}
+> PATCH /link/events {"kinds":["scene_ended","clip_ended","leds"],"push":true}
+< 200 {"kinds":["clip_ended","leds","scene_ended"],"push":true,"seq":0,"pending":0}
 ```
 
-- `kinds`: the events the link reports. `[]` reports none.
+- `kinds`: the events the link reports, of either sort. `[]` reports none.
 - `push`: whether they are sent as they happen (`true`), or kept for the host to fetch
   (`false`). Pushing works only on UART. On RS485 and I2C the board speaks only when asked, so
   events are always kept.
+- **A resource's changes are only pushed.** With `push` off, and on RS485 and I2C, the host reads
+  the resource itself (or the native [status block](#the-status-block)) when it wants to know.
+  The pending count and `GET /link/events` count happenings only.
 
 What a host asks for lasts until the board restarts. The link's saved settings say what it
 starts with (`PATCH /link` with `events`), and start as nothing.
 
 ### Kept events, and the ones missed
 
-- **The board keeps the last 32 reported events.** `seq` numbers them from 1, and goes back to 1
-  after 65535. Only reported kinds get a number, so a gap in `seq` always means a missed event.
-- **The pending count** is how many reported events the host hasn't been given yet. It's on every
-  reply, as `+<pending>`, whenever it isn't 0. An event has been given once it has been pushed,
-  or returned by `GET /link/events` over the link.
-- **`GET /link/events`** returns the events not yet given. `GET /link/events?after=40` returns
-  every kept event after 40, given or not, which is how a host catches up after a gap, or after
-  it restarted itself:
+- **The board keeps its last 32 happenings.** `seq` numbers every happening on the board, from 1,
+  going back to 1 after 65535. It is shared with the web app's stream, so it counts kinds this
+  host didn't ask for too: a gap means *something* happened that this host may not have seen.
+- **Catching up**: `GET /events?after=<the last seq seen>&kinds=<its kinds>` returns the kept
+  happenings of those kinds after it, as JSON. An empty list, with `lost` 0, means nothing was
+  missed. `lost` is how many after `after` are no longer kept. It is how a host catches up after a
+  gap, or after it restarted itself:
 
   ```text
-  > GET /link/events?after=40
-  < 200 {"seq":43,"lost":0,"events":[{"event":"clip_ended","seq":41,...},{"event":"scene_ended","seq":42,...},{"event":"touch","seq":43,...}]}
+  > GET /events?after=40&kinds=clip_ended,scene_ended
+  < 200 {"seq":43,"lost":0,"events":[{"event":"clip_ended","seq":41,...},{"event":"scene_ended","seq":42,...}]}
   ```
 
-  `lost` is how many events after `after` are no longer kept.
+- **The pending count** is how many happenings of the host's kinds it hasn't been given yet. It's
+  on every reply, as `+<pending>`, whenever it isn't 0. A happening has been given once it has been
+  pushed, or returned by `GET /link/events` over the link.
+- **`GET /link/events`** returns the happenings not yet given, in the same shape, and counts them
+  as given.
 
 A host that doesn't want anything sent unasked can leave `push` off and still know when to look:
 the `+<pending>` on the replies to its own requests says when there is something to fetch.
@@ -284,8 +310,9 @@ only on UART, where it's the only board on the wire.
   - `push`: 1 to send events as they happen (UART only), 0 to keep them.
 
   The reply's `seq` is the latest event's number.
-- **`EVENTS_GET`** with `after` 0 returns the events not yet given, and otherwise every kept
-  event after `after`, as `GET /link/events` does. A host that gets 5 asks again.
+- **`EVENTS_GET`** with `after` 0 returns the happenings not yet given, as `GET /link/events`
+  does, and otherwise every kept one of the host's kinds after `after`, as
+  `GET /events?after=` does. A host that gets 5 asks again.
 
 ### The status block
 
@@ -304,13 +331,15 @@ only on UART, where it's the only board on the wire.
 
 ### Event records
 
-Pushed on its own, an event is a frame of type **0xC0** whose payload is one record. `EVENTS_GET`
-returns several. A record is 8 bytes:
+Native frames carry happenings (and `ready`) only: a resource's state doesn't fit a record, and a
+small host reads the [status block](#the-status-block) instead. Pushed on its own, an event is a
+frame of type **0xC0** whose payload is one record. `EVENTS_GET` returns several. A record is 8
+bytes:
 
 | Bytes | Field |
 |---|---|
 | 0 | `kind`: 1 `clip_ended`, 2 `scene_ended`, 3 `touch`, 15 `ready` |
-| 1–2 | `seq` |
+| 1–2 | `seq` (0 for `ready`, which isn't numbered) |
 | 3–7 | By kind, below. Unused bytes are 0 |
 
 | Kind | Bytes 3–7 |

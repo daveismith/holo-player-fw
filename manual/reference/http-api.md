@@ -381,12 +381,13 @@ curl -X PATCH -H "$J" -d '{"mode":"rs485","address":3,"groups":[2]}' "$B/link"
 restart), and the counters. A new transport or pins wait for a restart, and the reply says so with
 `"restart_required": true`. A pin the board uses for something else is `409` `pin_in_use`.
 
-`GET /api/v1/link/events` is the link's recent events, and `PATCH /api/v1/link/events` says which it
-reports, until the next restart:
+`PATCH /api/v1/link/events` says which [events](#events) the link reports to its host, until the
+next restart, and `GET /api/v1/link/events` shows the happenings it hasn't given the host yet
+(looking over HTTP gives nothing away):
 
 ```sh
-curl -X PATCH -H "$J" -d '{"kinds":["scene_ended"],"push":true}' "$B/link/events"
-curl "$B/link/events?after=40"
+curl -X PATCH -H "$J" -d '{"kinds":["scene_ended","leds"],"push":true}' "$B/link/events"
+curl "$B/link/events"
 ```
 
 A scene can have a `slot`, a number from 1 to 255 that small controllers apply it by:

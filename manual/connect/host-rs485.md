@@ -107,8 +107,10 @@ A line without `@` is ignored on RS485, and counted in `link`.
 
 ## Events on a bus
 
-Nobody on the bus speaks unasked, so the host polls for events. It doesn't need to poll hard,
-because every reply says how many events are waiting on the board that sent it:
+Nobody on the bus speaks unasked, so the host polls for what happened (`clip_ended`,
+`scene_ended`, `touch`); a resource's changes are only pushed, on UART, so here the host reads the
+resource when it wants it. It doesn't need to poll hard, because every reply says how many events
+are waiting on the board that sent it:
 
 ```text
 > @3 GET /screen

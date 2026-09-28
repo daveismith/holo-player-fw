@@ -153,7 +153,7 @@ Planned: not in the firmware yet. See [the host link](../use/host-link.md).
 | `link address <1-223>` | The board's address on UART and RS485 |
 | `link groups [<group>…\|--clear]` | The groups it acts for, 1–31, up to 8 |
 | `link pins <a> <b> <c>` | The GPIOs for roles A, B and C, from the next restart |
-| `link events [<kind>…\|--none] [--push\|--keep]` | The events it reports from the start: `clip_ended`, `scene_ended`, `touch` |
+| `link events [<kind>…\|--none] [--push\|--keep]` | The events it reports from the start: `clip_ended`, `scene_ended`, `touch`, or a resource's changes (`screen`, `leds`, `scene`, …) |
 | `link log [on\|off]` | Print everything the link sends and receives |
 | `link reset` | Back to the firmware's defaults |
 

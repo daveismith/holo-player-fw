@@ -4510,29 +4510,16 @@
           "link"
         ],
         "operationId": "getLinkEvents",
-        "summary": "The link's events",
+        "summary": "The happenings the link hasn't given its host yet",
         "x-planned": true,
-        "description": "Without `after`: the events not yet given to the host, which over the link then count as given. With `after`: every kept event after that number, given or not, to catch up after a gap. Over HTTP, this only looks: nothing counts as given.",
-        "parameters": [
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            },
-            "example": 40
-          }
-        ],
+        "description": "The happenings of the link's kinds not yet given to its host, oldest first; over the link, they then count as given. Over HTTP, this only looks. To catch up after a gap in `seq`, use `GET /events?after=`.",
         "responses": {
           "200": {
             "description": "Events, oldest first",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LinkEvents"
+                  "$ref": "#/components/schemas/EventHistory"
                 },
                 "example": {
                   "seq": 43,
@@ -4550,17 +4537,8 @@
                       "seq": 42,
                       "t_ms": 812345,
                       "name": "message",
-                      "slot": 3,
                       "then": "restore",
                       "by": "clip"
-                    },
-                    {
-                      "event": "touch",
-                      "seq": 43,
-                      "t_ms": 815002,
-                      "action": "down",
-                      "x": 120,
-                      "y": 96
                     }
                   ]
                 }
@@ -4596,7 +4574,8 @@
               "example": {
                 "kinds": [
                   "scene_ended",
-                  "clip_ended"
+                  "clip_ended",
+                  "leds"
                 ],
                 "push": true
               }
@@ -4614,6 +4593,7 @@
                 "example": {
                   "kinds": [
                     "clip_ended",
+                    "leds",
                     "scene_ended"
                   ],
                   "push": true,
@@ -6959,7 +6939,7 @@
           "seq",
           "t_ms"
         ],
-        "description": "Something that happened. `seq` numbers happenings from 1, going back to 1 after 65535, so a gap is a missed one; the board keeps the last 32. Its other fields depend on `event` (ClipEnded, SceneEnded, Touch). A client ignores events and fields it doesn't know.",
+        "description": "Something that happened. `seq` numbers happenings from 1, going back to 1 after 65535, so a gap is a missed one (among the kinds a client follows, a gap means one of another kind, or a missed one: `?after=` with its `kinds` says which); the board keeps the last 32. Its other fields depend on `event` (ClipEnded, SceneEnded, Touch). A client ignores events and fields it doesn't know.",
         "properties": {
           "event": {
             "type": "string",
@@ -7044,6 +7024,12 @@
                   "replaced"
                 ],
                 "description": "`clip`: its clip played; `time`: its `duration_s` was up; `end`: `POST /scenes/end`; `replaced`: another scene or clip took over, and its `then` was not done"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 255,
+                "description": "The scene's slot, when it has one. *Planned: not in the firmware yet.*"
               }
             }
           }
@@ -7164,11 +7150,20 @@
               "enum": [
                 "clip_ended",
                 "scene_ended",
-                "touch"
+                "touch",
+                "screen",
+                "leds",
+                "holo",
+                "scene",
+                "scenes",
+                "settings",
+                "network",
+                "ota",
+                "system"
               ]
             },
             "uniqueItems": true,
-            "description": "The events the link reports. `[]` for none"
+            "description": "The events the link reports: happenings, and resources whose changes are pushed (UART, with `push`). `[]` for none"
           },
           "push": {
             "type": "boolean",
@@ -7450,7 +7445,16 @@
               "enum": [
                 "clip_ended",
                 "scene_ended",
-                "touch"
+                "touch",
+                "screen",
+                "leds",
+                "holo",
+                "scene",
+                "scenes",
+                "settings",
+                "network",
+                "ota",
+                "system"
               ]
             }
           },
@@ -7461,12 +7465,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 65535,
-            "description": "The latest event's number; 0 for none yet"
+            "description": "The latest happening's number on the board (shared with GET /events); 0 for none yet"
           },
           "pending": {
             "type": "integer",
             "minimum": 0,
-            "description": "Events not yet given to the host"
+            "description": "Happenings of these kinds not yet given to the host"
           }
         }
       },
@@ -7552,64 +7556,6 @@
           }
         }
       },
-      "LinkEvent": {
-        "type": "object",
-        "required": [
-          "event",
-          "seq",
-          "t_ms"
-        ],
-        "description": "Something that happened. Fields beyond these depend on `event`: `ready` has `firmware`, `protocol` and `address`; `clip_ended` has `path` and `finished`; `scene_ended` has `name`, `slot` (when it has one), `then` and `by` (`clip`, `time`, `end` or `replaced`); `touch` has `action` (`down` or `up`), `x` and `y`. A host ignores fields and events it doesn't know.",
-        "properties": {
-          "event": {
-            "type": "string",
-            "examples": [
-              "ready",
-              "clip_ended",
-              "scene_ended",
-              "touch"
-            ]
-          },
-          "seq": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 65535,
-            "description": "Numbers the reported events, going back to 1 after 65535; a gap is a missed event"
-          },
-          "t_ms": {
-            "type": "integer",
-            "description": "The board's uptime when it happened"
-          }
-        }
-      },
-      "LinkEvents": {
-        "type": "object",
-        "required": [
-          "seq",
-          "lost",
-          "events"
-        ],
-        "properties": {
-          "seq": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 65535,
-            "description": "The latest event's number"
-          },
-          "lost": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Events after `after` no longer kept (the board keeps 32)"
-          },
-          "events": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LinkEvent"
-            },
-            "maxItems": 32
-          }
-        }
-      },
       "LinkEventsPatch": {
         "type": "object",
         "additionalProperties": false,
@@ -7621,11 +7567,20 @@
               "enum": [
                 "clip_ended",
                 "scene_ended",
-                "touch"
+                "touch",
+                "screen",
+                "leds",
+                "holo",
+                "scene",
+                "scenes",
+                "settings",
+                "network",
+                "ota",
+                "system"
               ]
             },
             "uniqueItems": true,
-            "description": "The events the link reports. `[]` for none"
+            "description": "The events the link reports: happenings, and resources whose changes are pushed (UART, with `push`). `[]` for none"
           },
           "push": {
             "type": "boolean",

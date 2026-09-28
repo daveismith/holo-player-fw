@@ -62,7 +62,7 @@ With a 3.3 V USB-serial adapter on the three wires, open it in any terminal prog
 baud, 8N1. After the board restarts, it sends:
 
 ```text
-! {"event":"ready","seq":1,"t_ms":2410,"firmware":"v1.1.0","protocol":1,"address":1}
+! {"event":"ready","firmware":"v1.1.0","protocol":1,"address":1}
 ```
 
 Type a request and press Enter. The board doesn't echo it, so turn on local echo in the terminal

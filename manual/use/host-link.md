@@ -109,16 +109,17 @@ the screen, the LEDs and the holo are all doing.
 
 ## Events
 
-A host can hear about things as they happen, rather than asking:
+A host can hear about things as they happen, rather than asking. They are the board's own events,
+the same ones the web app follows:
 
-- `clip_ended`: a clip has stopped;
-- `scene_ended`: a scene has ended, and how;
-- `touch`: the screen was touched (when touch reporting is on);
-- `ready`: the board has started (always sent once on UART).
+- what happened: `clip_ended`, `scene_ended`, and `touch` (when touch reporting is on);
+- what changed: `screen`, `leds`, `holo`, `scene`, `scenes`, `settings`, `network`, `ota` and
+  `system`, each with the resource as its `GET` returns it;
+- `ready`: the link has started (always sent once on UART, after a restart).
 
 Nothing but `ready` is sent until the host asks, with `PATCH /link/events` or the native
 `EVENTS_SET`. On UART, the board sends events as they happen, with no extra wire. On RS485 and
-I2C, the host fetches them, and every reply says how many are waiting.
+I2C, the host fetches what happened, and every reply says how many are waiting.
 [Events](../reference/host-protocol.md#events) has the details.
 
 ## Status
