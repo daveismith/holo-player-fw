@@ -143,12 +143,12 @@ flash counters; all are enabled in `sdkconfig.defaults`.
 
 ## The host link
 
-Planned: not in the firmware yet. See [the host link](../use/host-link.md).
+See [the host link](../use/host-link.md).
 
 | Command | Does |
 |---|---|
 | `link` | The transport, its pins and settings, the counters, and the events asked for |
-| `link mode <off\|uart\|rs485\|i2c> [-b <baud>] [-a <address>]` | The transport, from the next restart. `-a` is the address: 1–223, or for I2C a 7-bit address (`0x42`) |
+| `link mode <off\|uart\|rs485> [-b <baud>] [-a <address>]` | The transport, from the next restart; `-b` the baud rate, `-a` the address, 1–223 |
 | `link proto <auto\|json\|native>` | What UART and RS485 accept |
 | `link address <1-223>` | The board's address on UART and RS485 |
 | `link groups [<group>…\|--clear]` | The groups it acts for, 1–31, up to 8 |

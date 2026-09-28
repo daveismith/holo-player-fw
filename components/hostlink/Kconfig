@@ -1,0 +1,69 @@
+menu "Host link (hostlink)"
+
+    choice HOSTLINK_MODE
+        prompt "Transport, unless the saved link settings say otherwise"
+        default HOSTLINK_MODE_OFF
+        help
+            The link on P2's spare pins, for a controller on a wire. `link mode` on the console,
+            PATCH /api/v1/link, or the web app's Settings page change it, saved.
+
+        config HOSTLINK_MODE_OFF
+            bool "Off"
+        config HOSTLINK_MODE_UART
+            bool "UART"
+        config HOSTLINK_MODE_RS485
+            bool "RS485 (a transceiver, DE/RE on pin C)"
+    endchoice
+
+    choice HOSTLINK_PROTOCOL
+        prompt "What UART and RS485 accept"
+        default HOSTLINK_PROTOCOL_AUTO
+        config HOSTLINK_PROTOCOL_AUTO
+            bool "Either: JSON lines or native frames, by the first byte"
+        config HOSTLINK_PROTOCOL_JSON
+            bool "JSON lines"
+        config HOSTLINK_PROTOCOL_NATIVE
+            bool "Native frames"
+    endchoice
+
+    config HOSTLINK_PIN_A
+        int "Pin A: TX, or SDA"
+        default 21
+        help
+            P2 pin 11.
+
+    config HOSTLINK_PIN_B
+        int "Pin B: RX, or SCL"
+        default 33
+        help
+            P2 pin 12.
+
+    config HOSTLINK_PIN_C
+        int "Pin C: ATTN, DE/RE, or IRQ (-1 for none)"
+        default 15
+        range -1 48
+        help
+            P2 pin 7.
+
+    config HOSTLINK_BAUD
+        int "Baud rate"
+        default 115200
+        range 1200 921600
+
+    config HOSTLINK_ADDRESS
+        int "The board's address on UART and RS485"
+        default 1
+        range 1 223
+
+    config HOSTLINK_I2C_ADDRESS
+        hex "The board's I2C address"
+        default 0x42
+        range 0x08 0x77
+
+    config HOSTLINK_TASK_STACK
+        int "The link task's stack"
+        default 10240
+        help
+            A request runs on it, as on the web server's: showing an image decodes it there.
+
+endmenu

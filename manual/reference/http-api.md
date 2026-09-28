@@ -73,7 +73,7 @@ access point, which is WPA2.
 - `sta` and `ap`: the station link (SSID, address, signal) and the access point;
 - `via`: `ap` when the request came in on the board's access point;
 - `features`: what the web app offers on this firmware: `ota`, `files`, `screen`, `leds`, `holo`,
-  `scenes`, `settings`, `network`, `events`, and (planned) `link`.
+  `scenes`, `settings`, `network`, `events`, `link`.
 
 ```sh
 curl http://holo-2db0.local/api/v1/info
@@ -369,9 +369,6 @@ events.addEventListener("leds", (m) => console.log("LEDs now", JSON.parse(m.data
 
 ## The host link
 
-!!! note "Not in the firmware yet"
-    The host link, and the endpoints in this section, are described ahead of the firmware.
-
 The [host link](../use/host-link.md) runs the board from a controller on a wire rather than over
 Wi-Fi. Over its UART and RS485, it speaks this API one request a line, and the
 [host link protocol](host-protocol.md) has the details. Its settings are here too:
@@ -641,10 +638,10 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | PATCH | `/api/v1/network/ap` | The access point: on or off, name, passphrase |
 | GET | `/api/v1/web` | The web server's settings |
 | PATCH | `/api/v1/web` | Change them (saved) |
-| GET | `/api/v1/link` | The host link: settings, what's running, counters (planned) |
-| PATCH | `/api/v1/link` | Change its settings (saved; planned) |
-| GET | `/api/v1/link/events` | Its recent events (planned) |
-| PATCH | `/api/v1/link/events` | Which events it reports (planned) |
+| GET | `/api/v1/link` | The host link: settings, what's running, counters |
+| PATCH | `/api/v1/link` | Change its settings (saved) |
+| GET | `/api/v1/link/events` | The happenings it hasn't given its host yet |
+| PATCH | `/api/v1/link/events` | Which events it reports |
 
 `v1` changes only when an existing client would break; new endpoints and new fields arrive without
 it changing.

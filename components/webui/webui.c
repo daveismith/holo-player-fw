@@ -26,7 +26,7 @@ esp_err_t webui_start(void)
     err |= web_net_register();
     err |= web_servo_register(board_api_stop_holo);
     err |= board_api_start();
-    static const char *const FEATURES[] = { "screen", "leds", "holo", "scenes", "settings" };
+    static const char *const FEATURES[] = { "screen", "leds", "holo", "scenes", "settings", "link" };
     for (size_t i = 0; i < sizeof(FEATURES) / sizeof(FEATURES[0]); i++) {
         web_server_add_feature(FEATURES[i]);
     }

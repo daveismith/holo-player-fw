@@ -1,8 +1,8 @@
 # Host link protocol
 
-!!! note "Not in the firmware yet"
-    This page describes the host link ahead of the firmware, for review. Nothing here works on
-    a board yet.
+!!! note "What's in the firmware so far"
+    JSON lines and events, on UART and RS485. Native frames and the I2C register map are described
+    ahead of the firmware.
 
 This is the specification of what goes over the [host link](../use/host-link.md): the wire
 between the board and a controller (another microcontroller, an ESP32, a Raspberry Pi, a dome

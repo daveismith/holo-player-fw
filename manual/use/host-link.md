@@ -1,8 +1,8 @@
 # The host link
 
-!!! note "Not in the firmware yet"
-    This page describes the host link ahead of the firmware, for review. Nothing here works on
-    a board yet.
+!!! note "What's in the firmware so far"
+    UART and RS485 with JSON lines, and events. Native frames and I2C are described here ahead of
+    the firmware. RS485 has been tried through a plain UART, not yet with a transceiver.
 
 The host link lets another controller run the board over a wire: an Arduino or MarcDuino, a dome
 controller, another ESP32, or a Raspberry Pi. It plays scenes, shows clips, sets the LEDs and moves
@@ -53,7 +53,7 @@ USB console, the HTTP API, or the web app.
 
 **On the console:**
 
-```text
+```
 link mode uart -b 115200
 restart
 ```
@@ -62,7 +62,8 @@ After the restart, `link` shows it running:
 
 ```text
 link: uart on GPIO21 (TX), GPIO33 (RX), 115200 baud, protocol auto, address 1
-  requests 0, events 0 (none asked for), errors 0, last request never
+  requests 0, events given 0, bad lines 0, framing errors 0, overruns 0, ignored 0; last request never
+  events: [], pushed, 0 pending
 ```
 
 **Over the HTTP API:**
@@ -84,7 +85,7 @@ after the reply, which is sent at the old one.
 | Command | Does |
 |---|---|
 | `link` | The transport, its pins and settings, the counters, and the events asked for |
-| `link mode <off\|uart\|rs485\|i2c> [-b <baud>] [-a <address>]` | The transport. `-a` is the board's address: 1–223, or for I2C its 7-bit address (`0x42`) |
+| `link mode <off\|uart\|rs485> [-b <baud>] [-a <address>]` | The transport, from the next restart. `-b` is the baud rate, `-a` the board's address: 1–223 |
 | `link proto <auto\|json\|native>` | What the board accepts on UART and RS485. I2C is always native |
 | `link address <1-223>` | The board's address on UART and RS485 |
 | `link groups [<group>…\|--clear]` | The groups it belongs to, 1–31, up to 8 |

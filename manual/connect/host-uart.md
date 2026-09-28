@@ -1,9 +1,5 @@
 # Host link: UART
 
-!!! note "Not in the firmware yet"
-    This page describes the host link ahead of the firmware, for review. Nothing here works on
-    a board yet.
-
 A UART is the simplest [host link](../use/host-link.md): three wires to one host close by, such as
 a Raspberry Pi, an ESP32, an Arduino with a spare serial port, or a USB-serial adapter on a
 computer. It carries both [JSON lines and native frames](../reference/host-protocol.md), and the
@@ -51,7 +47,7 @@ high again once the host has read them.
 
 On the board's USB console:
 
-```text
+```
 link mode uart -b 115200
 restart
 ```
@@ -143,7 +139,7 @@ Mega's `Serial1`, or SoftwareSerial at 9600 or 19200 baud (`link mode uart -b 19
 can't send and receive at once, so leave events unpushed and use the pending count instead.
 
 With little memory, [native frames](../reference/host-protocol.md#native-frames) are easier than
-JSON. A `SCENE` request for slot 3 is these bytes before COBS: the board's address (1), a
+JSON (they aren't in the firmware yet). A `SCENE` request for slot 3 is these bytes before COBS: the board's address (1), a
 sequence number the reply carries back (7), the type (0x10), the slot, and the CRC:
 
 ```text

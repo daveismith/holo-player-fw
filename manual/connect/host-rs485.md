@@ -1,8 +1,8 @@
 # Host link: RS485
 
-!!! note "Not in the firmware yet"
-    This page describes the host link ahead of the firmware, for review. Nothing here works on
-    a board yet.
+!!! note "Not yet tried with a transceiver"
+    RS485 is in the firmware, and its addressing has been tried through a plain UART adapter, but
+    not yet on a bus with a transceiver.
 
 RS485 is the [host link](../use/host-link.md) for long runs and for several boards on one bus. It
 is the UART over a twisted pair, through a small transceiver on each board: runs of tens of metres
@@ -70,7 +70,7 @@ A standard transceiver is one "unit load", and a bus takes 32. Parts rated at 1/
 
 Give each board its own address, from 1 to 223, on its USB console:
 
-```text
+```
 link mode rs485 -b 115200 -a 3
 restart
 ```
@@ -78,7 +78,7 @@ restart
 **Groups** let one request reach several boards: a board in groups 2 and 5 answers requests to
 its own address, and acts on requests to `@g2` and `@g5`, without answering them.
 
-```text
+```
 link groups 2 5
 ```
 

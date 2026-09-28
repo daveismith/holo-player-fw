@@ -23,6 +23,7 @@
 #include "ota_core.h"
 #include "console_history.h"
 #include "holo_servos.h"
+#include "hostlink.h"
 #include "leds.h"
 #include "scenes.h"
 #include "cmd_i2ctools.h"
@@ -231,7 +232,20 @@ void app_main(void)
     /* Register commands */
     esp_console_register_help_command();
     register_system_common();
-    register_gpio(s_gpio_reserved, sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]));
+    /* The pins the host link holds, when it holds any, go with the board's own */
+    hostlink_init();
+    static gpio_reserved_t reserved[sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]) + 3];
+    size_t n_reserved = sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]);
+    memcpy(reserved, s_gpio_reserved, sizeof(s_gpio_reserved));
+    int link_pins[3];
+    static const char *const LINK_ROLES[] = { "host link (A)", "host link (B)", "host link (C)" };
+    hostlink_pins(&link_pins[0], &link_pins[1], &link_pins[2]);
+    for (int i = 0; i < 3; i++) {
+        if (link_pins[i] >= 0) {
+            reserved[n_reserved++] = (gpio_reserved_t){ link_pins[i], LINK_ROLES[i] };
+        }
+    }
+    register_gpio(reserved, n_reserved);
 #if SOC_LIGHT_SLEEP_SUPPORTED
     register_system_light_sleep();
 #endif
@@ -260,6 +274,7 @@ void app_main(void)
     web_server_register_commands();
     scene_register_commands();
     settings_register_commands();
+    hostlink_register_commands();
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();
@@ -273,7 +288,8 @@ void app_main(void)
         ESP_LOGW(TAG, "wifi fallback: %s", esp_err_to_name(err));
     }
 
-    /* The web app and its API, on every interface: `web` says where */
+    /* The web app and its API, on every interface: `web` says where. The host link's routes first. */
+    hostlink_register_routes();
     err = webui_start();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "web: %s", esp_err_to_name(err));
@@ -285,6 +301,12 @@ void app_main(void)
         ESP_LOGW(TAG, "scenes: %s", esp_err_to_name(err));
     }
     settings_apply_boot();
+
+    /* A controller on a wire, when the link settings say so: `link` says how */
+    err = hostlink_start();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "host link: %s", esp_err_to_name(err));
+    }
 
     printf("\n"
            "holo-player-fw on the Waveshare ESP32-S3-Touch-LCD-1.28.\n"

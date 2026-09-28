@@ -1,8 +1,7 @@
 # Host link: I2C
 
 !!! note "Not in the firmware yet"
-    This page describes the host link ahead of the firmware, for review. Nothing here works on
-    a board yet.
+    This page describes the I2C link ahead of the firmware, for review. UART and RS485 work now.
 
 On I2C, the board is a target on the host's bus, like a sensor, at an address of its own (0x42
 unless changed). It suits a host that already runs an I2C bus through the dome. It speaks
