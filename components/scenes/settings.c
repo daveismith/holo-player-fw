@@ -7,6 +7,7 @@
 #include <string.h>
 #include "esp_console.h"
 #include "esp_log.h"
+#include "events.h"
 #include "nvs.h"
 #include "sdkconfig.h"
 #include "leds.h"
@@ -75,6 +76,7 @@ esp_err_t settings_save(const settings_t *s)
         err = nvs_commit(h);
     }
     nvs_close(h);
+    events_changed("settings");
     return err;
 }
 

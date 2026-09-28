@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "led_strip.h"
+#include "events.h"
 #include "leds.h"
 
 static const char *TAG = "leds";
@@ -199,6 +200,7 @@ static void pattern_task(void *arg)
     s_mode = LEDS_OFF;
     xSemaphoreGive(s_lock);
     s_task = NULL;
+    events_changed("leds");
     vTaskDelete(NULL);
 }
 
@@ -227,6 +229,7 @@ esp_err_t leds_solid(uint8_t r, uint8_t g, uint8_t b)
     const esp_err_t err = fill_locked(s_rgb);
     xSemaphoreGive(s_lock);
     xSemaphoreGive(s_ctl);
+    events_changed("leds");
     return err;
 }
 
@@ -241,6 +244,7 @@ esp_err_t leds_off(void)
     const esp_err_t err = led_strip_clear(s_strip);
     xSemaphoreGive(s_lock);
     xSemaphoreGive(s_ctl);
+    events_changed("leds");
     return err;
 }
 
@@ -266,6 +270,7 @@ esp_err_t leds_play(leds_mode_t pattern, uint8_t r, uint8_t g, uint8_t b, bool l
         err = ESP_ERR_NO_MEM;
     }
     xSemaphoreGive(s_ctl);
+    events_changed("leds");
     return err;
 }
 
@@ -282,6 +287,7 @@ void leds_set_brightness(int percent)
         fill_locked(s_rgb);
     }
     xSemaphoreGive(s_lock);
+    events_changed("leds");
 }
 
 int leds_count(void)

@@ -35,7 +35,7 @@ static bool query_name(httpd_req_t *req, char *name, size_t len)
 
 /* ------------------------------------------------------------------ /scenes */
 
-static cJSON *active_json(void)
+cJSON *api_active_scene_json(void)
 {
     scene_active_t a;
     if (!scene_active(&a)) {
@@ -57,7 +57,7 @@ static esp_err_t scenes_get(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "scenes", scene_load_all());
-    cJSON_AddItemToObject(root, "active", active_json());
+    cJSON_AddItemToObject(root, "active", api_active_scene_json());
     return web_send_json(req, 200, root);
 }
 
@@ -172,7 +172,7 @@ static esp_err_t apply_post(httpd_req_t *req)
 
 /* ------------------------------------------------------------------ /settings */
 
-static cJSON *settings_json(const settings_t *s)
+cJSON *api_settings_json(const settings_t *s)
 {
     cJSON *o = cJSON_CreateObject();
     if (s->boot_scene[0] != '\0') {
@@ -191,7 +191,7 @@ static cJSON *settings_json(const settings_t *s)
 static esp_err_t send_settings_result(httpd_req_t *req, const settings_t *s)
 {
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "settings", settings_json(s));
+    cJSON_AddItemToObject(root, "settings", api_settings_json(s));
     cJSON_AddBoolToObject(root, "restart_required", s->led_count != leds_count());
     return web_send_json(req, 200, root);
 }
@@ -200,7 +200,7 @@ static esp_err_t settings_get_route(httpd_req_t *req)
 {
     settings_t s;
     settings_get(&s);
-    return web_send_json(req, 200, settings_json(&s));
+    return web_send_json(req, 200, api_settings_json(&s));
 }
 
 /* A number within lo..hi at o[key], if there: false when there and not. */

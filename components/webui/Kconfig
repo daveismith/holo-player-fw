@@ -9,4 +9,14 @@ menu "Web app (webui)"
             <this><version>/firmware/manifest.json. The site's own domain, not
             daveismith.github.io: that redirects through plain http, which a pull refuses.
 
+    config WEBUI_EVENTS_SYNC_S
+        int "While a clip plays or a scene runs, send its state this often (seconds)"
+        default 5
+        range 1 60
+        help
+            The `screen` event (with the clip's frame and loop counts) and the `scene` event (with
+            its time left) are sent when they change, and this often besides while a clip plays
+            or a scene runs to its end, so a client that counts on by itself between events is
+            put right again, however its clock or the clip's real frame rate drifts.
+
 endmenu

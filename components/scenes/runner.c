@@ -5,11 +5,16 @@
  *
  * A task of its own does the ending: the player tells of a clip's end from its own task, which
  * may not call back into the player, and putting things back can mean decoding an image.
+ *
+ * Events (components `events`): `clip_ended` for every clip that stops, `scene_ended` for a
+ * watched scene that ends -- its clip done, its time up, ended, or replaced -- and `scene` (the
+ * state: which one is watched) whenever that changes.
  */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
+#include "events.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -149,6 +154,17 @@ static void finish(scene_then_t then, const snapshot_t *snap, const char *name)
     }
 }
 
+/* A watched scene is over: `by` is clip, time, end or replaced (when its `then` was not done). */
+static void publish_end(const char *name, scene_then_t then, const char *by)
+{
+    cJSON *f = cJSON_CreateObject();
+    cJSON_AddStringToObject(f, "name", name);
+    cJSON_AddStringToObject(f, "then", SCENE_THEN_NAMES[then]);
+    cJSON_AddStringToObject(f, "by", by);
+    events_happened("scene_ended", f);
+    events_changed("scene");
+}
+
 static void runner_task(void *arg)
 {
     (void)arg;
@@ -167,20 +183,24 @@ static void runner_task(void *arg)
         char name[SCENE_NAME_MAX + 1];
         scene_then_t then = SCENE_THEN_STAY;
         bool end = false;
+        const char *by = NULL;
         xSemaphoreTake(s_lock, portMAX_DELAY);
         if (s_run.on) {
             if (got && s_run.clip[0] != '\0' && strcmp(ev.path, s_run.clip) == 0) {
                 if (ev.finished) {
                     end = true;
+                    by = "clip";
                 } else {
                     s_run.on = false;       /* something else took the screen: it is over, as it is */
+                    by = "replaced";
                     ESP_LOGI(TAG, "'%s' replaced", s_run.name);
                 }
             }
-            if (s_run.until_us != 0 && esp_timer_get_time() >= s_run.until_us) {
+            if (by == NULL && s_run.until_us != 0 && esp_timer_get_time() >= s_run.until_us) {
                 end = true;
+                by = "time";
             }
-            if (end) {
+            if (by != NULL) {
                 s_run.on = false;
                 then = s_run.then;
                 snap = s_run.snap;
@@ -191,12 +211,21 @@ static void runner_task(void *arg)
         if (end) {
             finish(then, &snap, name);
         }
+        if (by != NULL) {
+            publish_end(name, then, by);
+        }
     }
 }
 
 static void on_clip_end(const char *path, bool finished, void *ctx)
 {
     (void)ctx;
+    char rel[FS_ABS_MAX];
+    fs_rel(path, rel, sizeof(rel));     /* from the root of the volume, as the API names files */
+    cJSON *f = cJSON_CreateObject();
+    cJSON_AddStringToObject(f, "path", rel);
+    cJSON_AddBoolToObject(f, "finished", finished);
+    events_happened("clip_ended", f);
     clip_end_t ev = { .finished = finished };
     strlcpy(ev.path, path, sizeof(ev.path));
     xQueueSend(s_queue, &ev, 0);
@@ -214,6 +243,8 @@ esp_err_t scenes_start(void)
         xTaskCreate(runner_task, "scene", STACK, NULL, 4, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+    events_declare("clip_ended", NULL);
+    events_declare("scene_ended", NULL);
     screen_set_end_hook(on_clip_end, NULL);
     return ESP_OK;
 }
@@ -265,13 +296,22 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
 
     /* What it goes back to: before this scene -- or, if it follows one that goes back too, before that */
     static snapshot_t snap;
+    char before[SCENE_NAME_MAX + 1] = "";
+    scene_then_t before_then = SCENE_THEN_STAY;
     xSemaphoreTake(s_lock, portMAX_DELAY);
     const bool inherit = s_run.on && s_run.then == SCENE_THEN_RESTORE && then == SCENE_THEN_RESTORE;
     if (inherit) {
         snap = s_run.snap;
     }
+    if (s_run.on) {
+        strlcpy(before, s_run.name, sizeof(before));
+        before_then = s_run.then;
+    }
     s_run.on = false;               /* any scene before this one is over */
     xSemaphoreGive(s_lock);
+    if (before[0] != '\0') {
+        publish_end(before, before_then, "replaced");
+    }
     if (then == SCENE_THEN_RESTORE && !inherit) {
         take_snapshot(&snap);
     }
@@ -293,6 +333,7 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     cJSON_Delete(once);
     const clip_end_t kick = { .path = "" };
     xQueueSend(s_queue, &kick, 0);  /* the runner looks at the new time */
+    events_changed("scene");
     return SCENE_OK;
 }
 
@@ -329,6 +370,7 @@ scene_err_t scene_end(char *why, size_t why_len)
     xSemaphoreGive(s_lock);
     if (on) {
         finish(then, &snap, name);
+        publish_end(name, then, "end");
     } else {
         snprintf(why, why_len, "no scene is running to its end");
     }

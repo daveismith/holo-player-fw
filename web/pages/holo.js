@@ -1,7 +1,6 @@
 // Holo: the holoprojector's motion -- a pad to point it, and its behaviours -- and the servos
 // behind it: where each is, and calibrating the travel.
 
-import { poll } from "../api.js";
 import { h, chip, notice, facts, slider, segmented, confirmAsk, field } from "../ui.js";
 
 const ICON = "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z";
@@ -197,13 +196,31 @@ export default {
       if (!servos.length) servoBox.replaceChildren(h("p", { class: "muted" }, "No servos."));
     }
 
-    async function refresh() {
-      holo = await ctx.api.get("/holo");
-      renderState();
+    async function loadServos() {
       servos = (await ctx.api.get("/servos")).servos;
       renderServos();
     }
 
-    return poll(refresh, () => (holo && holo.motion !== "hold" ? 700 : 3000), fail);
+    async function refresh() {
+      holo = await ctx.api.get("/holo");
+      renderState();
+      await loadServos();
+    }
+
+    // The holo's events come four times a second while it moves; the servos behind it are read
+    // at most once a second then, and once more when it stops
+    let servoTimer = null;
+    function servosSoon() {
+      if (servoTimer) return;
+      servoTimer = setTimeout(() => { servoTimer = null; loadServos().catch(() => {}); }, 1000);
+    }
+
+    const stopFollowing = ctx.events.follow({
+      on: { holo: (x) => { holo = x; renderState(); servosSoon(); } },
+      refresh,
+      fallback: () => (holo && holo.motion !== "hold" ? 700 : 3000),
+      onError: fail,
+    });
+    return () => { clearTimeout(servoTimer); stopFollowing(); };
   },
 };

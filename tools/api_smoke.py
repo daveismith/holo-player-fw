@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -67,6 +68,32 @@ class Board:
         if "json" in ctype and payload:
             return status, json.loads(payload)
         return status, payload
+
+
+class Stream:
+    """GET /api/v1/events as a stream: its events, one at a time."""
+
+    def __init__(self, board: Board, kinds: str):
+        req = urllib.request.Request(f"{board.base}/events?kinds={kinds}", headers={"Accept": "text/event-stream"})
+        self.r = urllib.request.urlopen(req, timeout=20)
+        self.ctype = self.r.headers.get("Content-Type", "")
+
+    def next(self, want: str, timeout: float = 10):
+        """The next `want` event's data, or None."""
+        end = time.monotonic() + timeout
+        name = None
+        while time.monotonic() < end:
+            line = self.r.readline().decode().rstrip("\n")
+            if line.startswith("event: "):
+                name = line[7:]
+            elif line.startswith("data: ") and name == want:
+                return json.loads(line[6:])
+            elif line == "":
+                name = None
+        return None
+
+    def close(self):
+        self.r.close()
 
 
 class Checker:
@@ -117,11 +144,18 @@ class Checker:
         print(f"  {'ok  ' if not problem else 'FAIL'} {where}: {status}")
         return reply
 
+    def valid(self, where: str, instance, schema: str) -> None:
+        """Fail unless `instance` matches components/schemas/`schema`."""
+        v = Draft202012Validator({"$ref": f"{BASE}#/components/schemas/{schema}"}, registry=self.registry)
+        for e in list(v.iter_errors(instance))[:3]:
+            at = "/".join(str(p) for p in e.absolute_path) or "(the event)"
+            self.failures.append(f"{where}: {at}: {e.message}")
+
 
 def reads(c: Checker) -> None:
     print("reading")
     for path in ("/info", "/ota", "/fs", "/screen", "/leds", "/holo", "/servos", "/scenes", "/settings",
-                 "/network", "/web"):
+                 "/network", "/web", "/events"):
         c.check("GET", path, 200)
     c.check("GET", "/fs/list", 200, {"path": "/"})
     media = c.check("GET", "/media", 200)
@@ -139,6 +173,7 @@ def reads(c: Checker) -> None:
     c.check("POST", "/scenes/apply", 404, body={"name": "no such scene"}, code="unknown_scene")
     c.check("PATCH", "/settings", 400, body={"volume": 11}, code="bad_request")
     c.check("POST", "/scenes/end", 409, body={}, code="not_running")
+    c.check("GET", "/events", 400, {"kinds": "no-such-kind"}, code="bad_request")
 
 
 def writes(c: Checker) -> None:
@@ -174,6 +209,31 @@ def writes(c: Checker) -> None:
     c.check("PATCH", "/leds", 200, body={"mode": "wipe", "colour": "blue"})
     c.check("PATCH", "/leds", 200, body={"mode": "off", **({"brightness": before["brightness"]} if isinstance(before, dict) else {})})
     c.check("DELETE", "/fs/entry", 204, {"path": "/test-api", "recursive": "true"})
+
+    print("following (events)")
+    stream = Stream(c.board, "leds,scene_ended")
+    c.calls += 1
+    if not stream.ctype.startswith("text/event-stream"):
+        c.failures.append(f"GET /events: Content-Type {stream.ctype}, not text/event-stream")
+    c.check("PATCH", "/leds", 200, body={"mode": "solid", "colour": "#102030"})
+    ev = stream.next("leds")
+    if ev is None:
+        c.failures.append("GET /events: no `leds` event after PATCH /leds")
+    else:
+        c.valid("event leds", ev, "StateEvent")
+        c.valid("event leds: state", ev.get("state"), "LedState")
+    c.check("POST", "/scenes/apply", 200,
+            body={"scene": {"name": "test-api", "leds": {"mode": "off"}, "duration_s": 0.5, "then": "restore"}})
+    ev = stream.next("scene_ended")
+    if ev is None:
+        c.failures.append("GET /events: no `scene_ended` after a scene's time was up")
+    else:
+        c.valid("event scene_ended", ev, "SceneEnded")
+        if ev.get("by") != "time":
+            c.failures.append(f"event scene_ended: by {ev.get('by')}, not time")
+    stream.close()
+    c.check("PATCH", "/leds", 200, body={"mode": "off", **({"brightness": before["brightness"]} if isinstance(before, dict) else {})})
+    print("  ok   GET /events (stream)" if not any("event" in f for f in c.failures) else "  FAIL GET /events (stream)")
 
 
 def main() -> int:

@@ -15,6 +15,7 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_touch_cst816s.h"
 #include "esp_log.h"
+#include "events.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -54,6 +55,16 @@ static bool read_point(uint16_t *x, uint16_t *y)
     return true;
 }
 
+/* `touch`, for whoever follows the board's events: a press and a release, not the moves between */
+static void publish(const char *action, uint16_t x, uint16_t y)
+{
+    cJSON *f = cJSON_CreateObject();
+    cJSON_AddStringToObject(f, "action", action);
+    cJSON_AddNumberToObject(f, "x", x);
+    cJSON_AddNumberToObject(f, "y", y);
+    events_happened("touch", f);
+}
+
 static void touch_task(void *arg)
 {
     (void)arg;
@@ -71,6 +82,7 @@ static void touch_task(void *arg)
         if (read_point(&x, &y)) {
             if (!down) {
                 printf("touch down x=%u y=%u\n", x, y);
+                publish("down", x, y);
             } else if (abs((int)x - last_x) > 2 || abs((int)y - last_y) > 2) {
                 printf("touch move x=%u y=%u\n", x, y);
             }
@@ -79,6 +91,7 @@ static void touch_task(void *arg)
             last_y = y;
         } else if (down) {
             printf("touch up   x=%u y=%u\n", last_x, last_y);
+            publish("up", last_x, last_y);
             down = false;
         }
     }
@@ -91,6 +104,7 @@ esp_err_t board_touch_start(void)
     if (s_tp != NULL) {
         return ESP_OK;
     }
+    events_declare("touch", NULL);
     i2c_master_bus_handle_t bus = board_i2c_bus();
     ESP_RETURN_ON_FALSE(bus != NULL, ESP_ERR_INVALID_STATE, TAG, "board_init() first");
 

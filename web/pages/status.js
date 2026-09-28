@@ -1,6 +1,5 @@
 // Status: what the board is running, how it is connected, and whether there is an update.
 
-import { poll } from "../api.js";
 import { h, chip, facts, notice, formatBytes, formatDuration, code } from "../ui.js";
 
 const ICON = "M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z";
@@ -82,27 +81,35 @@ export default {
     const grid = h("div", { class: "grid" });
     el.append(h("h1", {}, "Status"), alert, banner, grid);
 
+    const has = (f) => ctx.info.features.includes(f);
     let slots = null;
+    let screen = null;
+    let leds = null;
+    let holo = null;
     let checked = false;
+
+    function render() {
+      const info = ctx.info;
+      const running = slots?.find((s) => s.running);
+      grid.replaceChildren(...[screen || leds || holo ? nowCard(screen, leds, holo) : null,
+        firmwareCard(info, running), networkCard(info), systemCard(info)].filter(Boolean));
+    }
 
     async function refresh() {
       const info = await ctx.refreshInfo();
       alert.replaceChildren();
-      if (info.features.includes("ota")) {
+      if (has("ota")) {
         slots = (await ctx.api.get("/ota")).slots;
       }
-      const running = slots?.find((s) => s.running);
-      const has = (f) => info.features.includes(f);
-      const [screen, leds, holo] = await Promise.all([
+      [screen, leds, holo] = await Promise.all([
         has("screen") ? ctx.api.get("/screen") : null,
         has("leds") ? ctx.api.get("/leds") : null,
         has("holo") ? ctx.api.get("/holo") : null,
       ]);
-      grid.replaceChildren(...[screen || leds || holo ? nowCard(screen, leds, holo) : null,
-        firmwareCard(info, running), networkCard(info), systemCard(info)].filter(Boolean));
+      render();
 
       // One look for a newer release per visit, when the board can reach the internet
-      if (!checked && info.features.includes("ota") && info.sta.connected) {
+      if (!checked && has("ota") && info.sta.connected) {
         checked = true;
         ctx.api.get("/ota/check?channel=latest").then((c) => {
           if (c.newer) {
@@ -113,8 +120,21 @@ export default {
       }
     }
 
-    return poll(refresh, 10000, (e) => {
-      alert.replaceChildren(notice("bad", h("p", {}, `Lost touch with the board: ${e.message}`)));
-    });
+    // What changes by itself arrives as it happens; the network and the slots are read again
+    const on = {
+      system: (s) => {
+        Object.assign(ctx.info, { uptime_s: s.uptime_s, heap_free: s.heap_free });
+        if (ctx.info.sta?.connected && s.rssi !== null) ctx.info.sta.rssi = s.rssi;
+        render();
+      },
+      network: () => ctx.refreshInfo().then(render).catch(() => {}),
+    };
+    if (has("ota")) on.ota = () => ctx.api.get("/ota").then((o) => { slots = o.slots; render(); }).catch(() => {});
+    if (has("screen")) on.screen = (s) => { screen = s; render(); };
+    if (has("leds")) on.leds = (l) => { leds = l; render(); };
+    if (has("holo")) on.holo = (x) => { holo = x; render(); };
+
+    const lost = (e) => alert.replaceChildren(notice("bad", h("p", {}, `Lost touch with the board: ${e.message}`)));
+    return ctx.events.follow({ on, refresh, fallback: 10000, onError: lost, onLost: lost });
   },
 };

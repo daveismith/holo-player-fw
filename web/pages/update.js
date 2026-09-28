@@ -2,7 +2,6 @@
 // release, and uploading an image. Every step is one call to the API, so what this page does a
 // script can do too: see /api/v1/openapi.json.
 
-import { poll } from "../api.js";
 import { h, chip, facts, notice, formatBytes, code } from "../ui.js";
 import { parseAppDesc, compareVersions } from "../lib/inspect.js";
 
@@ -412,16 +411,27 @@ export default {
       if (check === null && !checking && ota.pull.available && ota.pull.channels && ota.pull.online) runCheck();
     }
 
-    return poll(async () => {
+    async function reread() {
       await refresh();
       if (lostTouch) {
         lostTouch = false;
         alert.replaceChildren();
       }
-    }, () => (local || ACTIVE_STATES.has(ota?.session.state) ? 1000 : 5000), (e) => {
+    }
+
+    // The session's events come as its state changes, and each second while an image arrives
+    return ctx.events.follow({
+      on: { ota: () => reread().catch(() => {}) },
+      refresh: reread,
+      fallback: () => (local || ACTIVE_STATES.has(ota?.session.state) ? 1000 : 5000),
+      onError: lost,
+      onLost: lost,
+    });
+
+    function lost(e) {
       if (busy) return;       // restarting, or an action that reports its own error
       lostTouch = true;
       fail(new Error(`Lost touch with the board: ${e.message}`));
-    });
+    }
   },
 };

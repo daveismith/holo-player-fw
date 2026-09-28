@@ -7,6 +7,10 @@ script can do the same.
 On a phone, **Status**, **Show**, **Holo** and **Scenes** are tabs along the bottom, and the other
 pages are under **More**. On a computer, the side bar lists them all.
 
+Each page keeps up by itself. When the board changes, from the console, a script, a scene ending
+or another browser, every open page shows it at once. Up to three tabs follow the board this way;
+a fourth checks every few seconds instead.
+
 | Page | What it does |
 |---|---|
 | **Status** | What the board is doing now, the firmware it runs, how it is connected, and whether a newer release is out |

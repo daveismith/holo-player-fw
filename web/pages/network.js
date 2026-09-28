@@ -150,7 +150,12 @@ export default {
       }
     }
 
-    load().catch(fail);
-    return null;
+    // The station and the access point as they change: a join landing, the access point's time up
+    return ctx.events.follow({
+      on: { network: (n) => { net = n; render(); } },
+      refresh: load,
+      fallback: null,
+      onError: fail,
+    });
   },
 };
