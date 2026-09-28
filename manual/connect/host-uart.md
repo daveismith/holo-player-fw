@@ -71,6 +71,15 @@ PATCH /leds {"mode":"solid","colour":"orange"}
 200 {"mode":"solid","colour":"#ffa500","loop":false,"brightness":30,"count":16,"gpio":16}
 ```
 
+Or use `tools/hostlink.py` from the repository, which sends a request and prints the reply, sends
+native frames, and follows events (it needs `pip install pyserial`):
+
+```sh
+tools/hostlink.py /dev/cu.usbserial-X GET /leds
+tools/hostlink.py /dev/cu.usbserial-X --native status
+tools/hostlink.py /dev/cu.usbserial-X --listen scene_ended,leds
+```
+
 If nothing comes back, run `link log on` on the USB console and try again. Nothing arriving means
 the wiring (TX and RX swapped is the usual fault). Garbage, or `framing_errors` climbing in `link`,
 means the baud rates differ.
@@ -139,7 +148,7 @@ Mega's `Serial1`, or SoftwareSerial at 9600 or 19200 baud (`link mode uart -b 19
 can't send and receive at once, so leave events unpushed and use the pending count instead.
 
 With little memory, [native frames](../reference/host-protocol.md#native-frames) are easier than
-JSON (they aren't in the firmware yet). A `SCENE` request for slot 3 is these bytes before COBS: the board's address (1), a
+JSON. A `SCENE` request for slot 3 is these bytes before COBS: the board's address (1), a
 sequence number the reply carries back (7), the type (0x10), the slot, and the CRC:
 
 ```text

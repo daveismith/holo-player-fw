@@ -60,6 +60,10 @@ bool hl_events_push(void);
 uint32_t hl_events_pending(void);
 /* {"seq", "lost", "events"}: the happenings not yet given; `give` counts them as given. */
 cJSON *hl_events_ungiven(bool give);
+/* As hl_events_ungiven(), at most `max`: the rest stay ungiven. */
+cJSON *hl_events_ungiven_max(size_t max, bool give);
+/* For a native host, pushed: the happenings not yet given (a JSON array, given now), or NULL. */
+cJSON *hl_events_push_happenings(void);
 /* For the transport: every event to push now, as JSON lines ("! {...}\n"), appended to `out`
  * (malloc'd, *len bytes); NULL when none. Also tells whether pending changed. */
 char *hl_events_push_lines(size_t *len);
@@ -75,6 +79,17 @@ cJSON *hl_kinds_json(events_mask_t kinds);
 /* One JSON line (no line feed), as it came. The reply line (no line feed, malloc'd), or NULL
  * when there is none to send (another board's address, a broadcast on RS485, ...). */
 char *hl_line_handle(const char *line, const hl_settings_t *run);
+
+/* ---- hl_native.c ---- */
+
+/* One native frame, COBS-decoded (addr seq type payload crc16). The reply frame, encoded and
+ * delimited (malloc'd, *out_len bytes), or NULL for none. */
+uint8_t *hl_native_handle(const uint8_t *frame, size_t len, const hl_settings_t *run, size_t *out_len);
+/* COBS-decode `in` (no delimiters) into `out`: the decoded length, or -1 when it isn't COBS. */
+int hl_cobs_decode(const uint8_t *in, size_t len, uint8_t *out, size_t out_max);
+/* The pushed happenings as 0x70 frames, and `ready` as one */
+uint8_t *hl_native_event_frames(const hl_settings_t *run, size_t *out_len);
+uint8_t *hl_native_ready(const hl_settings_t *run, size_t *out_len);
 
 /* ---- hl_uart.c ---- */
 

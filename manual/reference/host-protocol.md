@@ -1,7 +1,7 @@
 # Host link protocol
 
 !!! note "What's in the firmware so far"
-    JSON lines and events, on UART and RS485. Native frames and the I2C register map are described
+    JSON lines, native frames and events, on UART and RS485. The I2C register map is described
     ahead of the firmware.
 
 This is the specification of what goes over the [host link](../use/host-link.md): the wire
@@ -333,7 +333,8 @@ only on UART, where it's the only board on the wire.
 
 Native frames carry happenings (and `ready`) only: a resource's state doesn't fit a record, and a
 small host reads the [status block](#the-status-block) instead. Pushed on its own, an event is a
-frame of type **0xC0** whose payload is one record. `EVENTS_GET` returns several. A record is 8
+frame of type **0x70** whose payload is one record. (Replies have the top bit set, and 0x70
+doesn't: no reply can be mistaken for an event.) `EVENTS_GET` returns several. A record is 8
 bytes:
 
 | Bytes | Field |

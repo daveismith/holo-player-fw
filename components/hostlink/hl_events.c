@@ -7,6 +7,7 @@
  * next looks, and a happening as it came. Not pushed, a resource's changes are dropped (the host
  * reads the resource when it wants) and happenings wait to be fetched.
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,26 +110,43 @@ uint32_t hl_events_pending(void)
     return n;
 }
 
+typedef struct {
+    cJSON *arr;
+    size_t max, n;
+    uint16_t last;          /* the seq of the last one taken */
+} taking_t;
+
 static void add_parsed(uint16_t seq, events_mask_t bit, const char *json, void *ctx)
 {
-    (void)seq;
     (void)bit;
+    taking_t *t = ctx;
+    if (t->n >= t->max) {
+        return;
+    }
     cJSON *e = cJSON_Parse(json);
     if (e != NULL) {
-        cJSON_AddItemToArray((cJSON *)ctx, e);
+        cJSON_AddItemToArray(t->arr, e);
+        t->n++;
+        t->last = seq;
     }
 }
 
 cJSON *hl_events_ungiven(bool give)
 {
+    return hl_events_ungiven_max(SIZE_MAX, give);
+}
+
+cJSON *hl_events_ungiven_max(size_t max, bool give)
+{
     cJSON *o = cJSON_CreateObject();
     cJSON *arr = cJSON_CreateArray();
     uint32_t lost = 0;
+    taking_t t = { .arr = arr, .max = max };
     lock();
     const events_mask_t happenings = s_kinds & ~events_states();
-    const uint16_t seq = events_since(s_cursor, happenings, add_parsed, arr, &lost);
+    const uint16_t seq = events_since(s_cursor, happenings, add_parsed, &t, &lost);
     if (give) {
-        s_cursor = seq;
+        s_cursor = t.n < max ? seq : t.last;    /* the rest wait for the next ask */
     }
     unlock();
     cJSON_AddNumberToObject(o, "seq", seq);
@@ -165,6 +183,28 @@ static void add_line(uint16_t seq, events_mask_t bit, const char *json, void *ct
     (void)seq;
     (void)bit;
     append(ctx, json);
+}
+
+cJSON *hl_events_push_happenings(void)
+{
+    if (s_listener < 0) {
+        return NULL;
+    }
+    lock();
+    events_take(s_listener);        /* a resource's changes don't fit a frame */
+    const bool push = s_push;
+    unlock();
+    if (!push) {
+        return NULL;
+    }
+    cJSON *o = hl_events_ungiven(true);
+    cJSON *events = cJSON_DetachItemFromObject(o, "events");
+    cJSON_Delete(o);
+    if (cJSON_GetArraySize(events) == 0) {
+        cJSON_Delete(events);
+        return NULL;
+    }
+    return events;
 }
 
 char *hl_events_push_lines(size_t *len)

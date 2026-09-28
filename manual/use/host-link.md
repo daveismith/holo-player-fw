@@ -1,8 +1,8 @@
 # The host link
 
 !!! note "What's in the firmware so far"
-    UART and RS485 with JSON lines, and events. Native frames and I2C are described here ahead of
-    the firmware. RS485 has been tried through a plain UART, not yet with a transceiver.
+    UART and RS485, with JSON lines, native frames and events. I2C is described here ahead of the
+    firmware. RS485 has been tried through a plain UART, not yet with a transceiver.
 
 The host link lets another controller run the board over a wire: an Arduino or MarcDuino, a dome
 controller, another ESP32, or a Raspberry Pi. It plays scenes, shows clips, sets the LEDs and moves

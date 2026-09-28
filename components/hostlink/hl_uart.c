@@ -1,8 +1,11 @@
 /*
  * The host link on a UART (UART1), or on RS485 through a transceiver whose DE/RE the UART drives
- * from pin C. One task owns both directions: it reads a line, answers it, and between requests
- * sends the events the host asked to have pushed -- so an event never lands in the middle of a
- * reply, and there is nothing to lock.
+ * from pin C. One task owns both directions: it reads a line or a frame, answers it, and between
+ * requests sends the events the host asked to have pushed -- so an event never lands in the
+ * middle of a reply, and there is nothing to lock.
+ *
+ * A JSON line starts with a printable character; a native frame with 0x00, and ends at the next
+ * 0x00. With `auto`, both are taken; events go to the host in the form it last used.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +31,7 @@ static const char *TAG = "hostlink";
 static TaskHandle_t s_task;
 static QueueHandle_t s_uart_events;
 static hl_settings_t s_run;
+static bool s_native;               /* the host's last request was a native frame */
 
 static void wake(void)
 {
@@ -110,12 +114,51 @@ static bool drain_uart_events(void)
     return damaged;
 }
 
+static void handle_frame(const uint8_t *enc, size_t n)
+{
+    uint8_t body[64];
+    const int len = hl_cobs_decode(enc, n, body, sizeof(body));
+    if (len < 0) {
+        hl_counters()->crc_errors++;
+        return;
+    }
+    if (hl_logging()) {
+        printf("link < frame");
+        for (int i = 0; i < len; i++) {
+            printf(" %02x", body[i]);
+        }
+        printf("\n");
+    }
+    s_native = true;
+    size_t out_n;
+    uint8_t *reply = hl_native_handle(body, (size_t)len, &s_run, &out_n);
+    if (reply != NULL) {
+        if (hl_logging()) {
+            printf("link > frame of %u bytes\n", (unsigned)out_n);
+        }
+        put((const char *)reply, out_n);
+        free(reply);
+    }
+}
+
 static void push_events(void)
 {
     if (s_run.mode != HL_UART) {
         return;                     /* RS485: nobody speaks unasked */
     }
     size_t len;
+    if (s_native) {
+        uint8_t *frames = hl_native_event_frames(&s_run, &len);
+        if (frames != NULL) {
+            put((const char *)frames, len);
+            hl_counters()->events++;
+            free(frames);
+        }
+        if (s_run.attn && s_run.pin_c >= 0) {
+            gpio_set_level(s_run.pin_c, hl_events_pending() > 0 ? 0 : 1);
+        }
+        return;
+    }
     char *lines = hl_events_push_lines(&len);
     if (lines != NULL) {
         if (hl_logging()) {
@@ -136,11 +179,21 @@ static void link_task(void *arg)
 {
     (void)arg;
     static char line[HL_LINE_MAX + 1];
-    size_t n = 0;
+    static uint8_t frame[96];
+    size_t n = 0, fn = 0;
     bool too_long = false;
+    bool in_frame = false;
     uint8_t buf[128];
 
-    if (s_run.mode == HL_UART) {
+    if (s_run.mode == HL_UART && s_run.protocol == HL_NATIVE) {
+        size_t len;
+        uint8_t *ready = hl_native_ready(&s_run, &len);
+        if (ready != NULL) {
+            put((const char *)ready, len);
+            free(ready);
+        }
+        s_native = true;
+    } else if (s_run.mode == HL_UART) {
         char ready[128];
         snprintf(ready, sizeof(ready), "! {\"event\":\"ready\",\"firmware\":\"%s\",\"protocol\":%d,\"address\":%d}",
                  esp_app_get_description()->version, HOSTLINK_PROTOCOL_VERSION, s_run.address);
@@ -150,32 +203,50 @@ static void link_task(void *arg)
         const int got = uart_read_bytes(PORT, buf, sizeof(buf), pdMS_TO_TICKS(POLL_MS));
         for (int i = 0; i < got; i++) {
             const char ch = (char)buf[i];
+            if (in_frame) {
+                if (ch != '\0') {
+                    if (fn < sizeof(frame)) {
+                        frame[fn++] = (uint8_t)ch;
+                    }
+                } else if (fn > 0) {
+                    if (s_run.protocol != HL_JSON) {
+                        handle_frame(frame, fn);
+                    }
+                    in_frame = false;
+                    fn = 0;
+                }
+                continue;               /* a zero with nothing before it: the opening one, again */
+            }
+            if (n == 0 && ch == '\0') {
+                in_frame = true;
+                fn = 0;
+                continue;
+            }
             if (ch == '\n') {
                 if (too_long) {
                     hl_counters()->bad_lines++;
                     if (s_run.mode == HL_UART) {
                         put_line("413 {\"error\":\"too_large\",\"message\":\"a line is at most 1024 bytes\"}");
                     }
-                } else {
+                } else if (s_run.protocol != HL_NATIVE) {
                     line[n] = '\0';
+                    s_native = false;
                     handle(line);
                 }
                 n = 0;
                 too_long = false;
             } else if (ch == '\r') {
                 continue;
-            } else if (n == 0 && ch == '\0') {
-                continue;               /* between native frames: not this protocol's */
             } else if (n < HL_LINE_MAX - 1) {
                 line[n++] = ch;
             } else {
                 too_long = true;
             }
         }
-        if (drain_uart_events() && n > 0) {
+        if (drain_uart_events() && (n > 0 || in_frame)) {
             hl_counters()->bad_lines++;
-            n = 0;                      /* what came garbled isn't a request */
-            too_long = false;
+            n = fn = 0;                 /* what came garbled isn't a request */
+            too_long = in_frame = false;
         }
         ulTaskNotifyTake(pdTRUE, 0);
         push_events();

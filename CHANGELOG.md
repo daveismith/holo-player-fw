@@ -45,7 +45,9 @@ so the release tag is the version baked into the image and reported by `version`
   speaks the HTTP API one request a line (`POST /scenes/apply {"name":"cantina"}`, answered
   `200 {...}`), and pushes the board's events to the host as `!` lines, or keeps them to be
   fetched; on RS485 every request names a board, and groups act together. Set up with `link` on
-  the console, `PATCH /api/v1/link`, or the Settings page. Native frames and I2C are to come.
+  the console, `PATCH /api/v1/link`, or the Settings page. Small hosts can use native frames instead: a few
+  bytes with a CRC (`SCENE 3`, `LEDS`, `HOLO`, `STATUS`). `tools/hostlink.py` talks to it from a
+  computer. I2C is to come.
   Documented in [The host link](manual/use/host-link.md) and the
   [protocol](manual/reference/host-protocol.md).
 - **Scene slots**: a number from 1 to 255 a scene can be applied by (`slot`, `scene slot`).
