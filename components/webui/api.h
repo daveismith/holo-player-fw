@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "esp_err.h"
 #include "esp_http_server.h"
+#include "scenes.h"
 
 /* /api/v1/screen and /api/v1/media */
 esp_err_t api_screen_register(void);
@@ -27,3 +28,8 @@ cJSON *api_holo_json(void);
 
 /* /api/v1/scenes and /api/v1/settings */
 esp_err_t api_scenes_register(void);
+cJSON *api_active_scene_json(void);     /* SceneList.active: the scene watched, or null */
+cJSON *api_settings_json(const settings_t *s);
+
+/* The screen, LEDs, holo, scenes and settings as events (the kit's `events`) */
+esp_err_t api_events_start(void);

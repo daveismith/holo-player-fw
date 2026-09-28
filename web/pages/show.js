@@ -1,7 +1,6 @@
 // Show: what the screen shows now, the clips and images there are to show, a colour or the
 // crosshair, and the LEDs beside it -- what the board shows, in one place.
 
-import { poll } from "../api.js";
 import { h, chip, notice, formatBytes, slider, segmented, toggle, colourOf, icon } from "../ui.js";
 
 const ICON = "M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12zm-5-6l-7 4V7z";
@@ -46,6 +45,7 @@ export default {
 
     // --- now --------------------------------------------------------------------------------
     let screen = null;
+    let screenAt = 0;           // when `screen` was read: a clip's progress runs on from there
     const backlight = slider({ label: "Backlight", value: 100, unit: "%", onchange: (v) => ctx.api.patch("/screen", { backlight: v }).catch(fail) });
     const nowText = h("p");
     const nowExtra = h("div");
@@ -59,11 +59,16 @@ export default {
       const extra = [];
       if (screen.showing === "clip" && screen.clip) {
         const c = screen.clip;
-        const frame = c.frames ? c.shown % c.frames : 0;
+        // Where it has got to since it was read, by its frame rate: events say when it starts
+        // and ends, not every frame
+        const since = c.fps ? Math.floor((performance.now() - screenAt) * c.fps / 1000) : 0;
+        const shown = c.shown + since;
+        const frame = c.frames ? shown % c.frames : 0;
+        const loops = c.frames ? Math.max(c.loops, Math.floor(shown / c.frames)) : c.loops;
         extra.push(h("div", { class: "chips" }, chip(screen.loop ? "looping" : "once"), chip(`${c.width}×${c.height}`), c.fps ? chip(`${Math.round(c.fps)} fps`) : null,
           c.late ? chip(`${c.late} late`, "warn") : null),
           h("progress", { max: c.frames || 1, value: frame }),
-          h("div", { class: "progress-line" }, h("span", {}, `frame ${frame} of ${c.frames}`), h("span", {}, c.loops ? `${c.loops} loop${c.loops > 1 ? "s" : ""}` : "")));
+          h("div", { class: "progress-line" }, h("span", {}, `frame ${frame} of ${c.frames}`), h("span", {}, loops ? `${loops} loop${loops > 1 ? "s" : ""}` : "")));
       }
       if (screen.showing === "colour") {
         extra.push(h("div", { class: "swatch", style: `background:${screen.colour};cursor:default`, "aria-hidden": "true" }));
@@ -129,13 +134,10 @@ export default {
     }
 
     let lastPath;       // undefined until the first refresh, so the list loads then
-    async function refresh() {
-      screen = await ctx.api.get("/screen");
+    async function showScreen(s) {
+      screen = s;
+      screenAt = performance.now();
       renderNow();
-      if (hasLeds) {
-        leds = await ctx.api.get("/leds");
-        renderLeds();
-      }
       const path = screen.path ?? null;
       if (path !== lastPath) {         // the highlighted row follows what is showing
         lastPath = path;
@@ -143,6 +145,24 @@ export default {
       }
     }
 
-    return poll(refresh, () => (screen?.showing === "clip" ? 1000 : 4000), fail);
+    async function refresh() {
+      if (hasLeds) {
+        leds = await ctx.api.get("/leds");
+        renderLeds();
+      }
+      await showScreen(await ctx.api.get("/screen"));
+    }
+
+    const tick = setInterval(() => { if (screen?.showing === "clip") renderNow(); }, 500);
+    const stopFollowing = ctx.events.follow({
+      on: {
+        screen: (s) => showScreen(s).catch(fail),
+        ...(hasLeds ? { leds: (l) => { leds = l; renderLeds(); } } : {}),
+      },
+      refresh,
+      fallback: () => (screen?.showing === "clip" ? 1000 : 4000),
+      onError: fail,
+    });
+    return () => { clearInterval(tick); stopFollowing(); };
   },
 };

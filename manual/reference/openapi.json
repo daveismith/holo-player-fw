@@ -4,7 +4,7 @@
     "title": "Holo Player HTTP API",
     "version": "1.0.0",
     "summary": "Everything a Holo Player board does, over Wi-Fi: its files, screen, lights, holoprojector, scenes, settings, network and firmware.",
-    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `PATCH`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` or `PATCH` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests -- and downloading a file, and reading the web settings -- also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.\n\n**Now, and from now on.** Some resources are what the board is doing *now* -- `/screen`, `/leds`, `/holo`, the servos' positions -- and change nothing that survives a restart. Others are *saved*: `/settings`, `/scenes`, a servo's calibration and drive policy, `/network`'s known networks and access point, and `/web`. What the board does when it starts is `settings.boot_scene`: a scene, applied after the saved backlight and LED brightness.\n\n**Shapes.** What the board is doing now is read with `GET` and changed with `PATCH`: send only the fields that change; the reply is the whole new state. Actions are `POST` with a JSON body. Saved, named things -- a scene, a servo's calibration, a known network -- are `PUT` and `DELETE`, named in the query (`?name=`, `?id=`, `?ssid=`).\n\n**Files** are named by a `path` query parameter, from the root of the board's storage: `/clips/intro.mov`. `/` is the root; `..`, `.` and empty segments are refused, as are names over 63 bytes and paths over 159. Moving, replacing or deleting the file on the screen stops it first.\n\n**Long operations** -- an upload or pull of firmware, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run one at a time; another gets `409 busy`. The server answers other requests meanwhile.",
+    "description": "The board serves this API on port 80 of every interface it has: its address on your network, `<hostname>.local` (mDNS, by default `holo-xxxx.local`), and `192.168.4.1` on its own access point (`wifi ap on`). The same file is served by the board at `/api/v1/openapi.json`, and always describes the firmware serving it.\n\nThis document's `version` is the API's, not the firmware's: `/api/v1/info` reports the firmware version, and the path's `v1` changes only when an existing client would break.\n\n**Protection.** Reading is always open. A request that changes something (`PUT`, `POST`, `PATCH`, `DELETE`) must carry the board's address or name in its `Host` header, and a `POST` or `PATCH` must be `Content-Type: application/json`; together these stop a web page elsewhere from driving the board. Pages from a short list of trusted sites -- Swagger Editor, `astromech.co` and `davidiansmith.ca` with their subdomains, changed with `web cors` on the console -- may call the API from a browser: the board answers their CORS preflights. When a password is set on the board (`web password <password>` on its console), those requests -- and downloading a file, and reading the web settings -- also need it, as `Authorization: Bearer <password>` or HTTP Basic with any user name.\n\n**Updates** are a session: an image is received (uploaded or pulled) into the slot that is not running, checked by the board, and *staged*. Activating makes it the boot image; it runs from the next restart, on trial until it is up, when it confirms itself. Until an image is activated, nothing changes what the board boots.\n\n**Now, and from now on.** Some resources are what the board is doing *now* -- `/screen`, `/leds`, `/holo`, the servos' positions -- and change nothing that survives a restart. Others are *saved*: `/settings`, `/scenes`, a servo's calibration and drive policy, `/network`'s known networks and access point, and `/web`. What the board does when it starts is `settings.boot_scene`: a scene, applied after the saved backlight and LED brightness.\n\n**Shapes.** What the board is doing now is read with `GET` and changed with `PATCH`: send only the fields that change; the reply is the whole new state. Actions are `POST` with a JSON body. Saved, named things -- a scene, a servo's calibration, a known network -- are `PUT` and `DELETE`, named in the query (`?name=`, `?id=`, `?ssid=`).\n\n**Files** are named by a `path` query parameter, from the root of the board's storage: `/clips/intro.mov`. `/` is the root; `..`, `.` and empty segments are refused, as are names over 63 bytes and paths over 159. Moving, replacing or deleting the file on the screen stops it first.\n\n**Long operations** -- an upload or pull of firmware, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run one at a time; another gets `409 busy`. The server answers other requests meanwhile.\n\n**Events.** Rather than polling, a client can follow `GET /api/v1/events`, a stream of Server-Sent Events: each resource (`screen`, `leds`, `holo`, the running `scene`, ...) as it changes, and what happens (`clip_ended`, `scene_ended`, `touch`). A browser's `EventSource` reconnects by itself and replays what it missed.",
     "license": {
       "name": "See the repository",
       "url": "https://github.com/daveismith/holo-player-fw"
@@ -29,6 +29,10 @@
     {
       "name": "device",
       "description": "What the board is, and restarting it"
+    },
+    {
+      "name": "events",
+      "description": "What changes on the board, as it happens: a stream of Server-Sent Events, instead of polling"
     },
     {
       "name": "ota",
@@ -4160,6 +4164,117 @@
           }
         }
       }
+    },
+    "/api/v1/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "operationId": "getEvents",
+        "summary": "Follow what changes: a stream of Server-Sent Events",
+        "description": "With `Accept: text/event-stream` (what a browser's `EventSource` sends), the reply is a stream that stays open: each event is an SSE `event:` line naming it, and a `data:` line holding it as JSON, a StateEvent or a Happening. A happening's `seq` is also its `id:`, so a reconnecting `EventSource` sends `Last-Event-ID` and gets what it missed, if the board still has it. States are not replayed: read them again with their GETs after a reconnect. Every 15 s a stream gets `system` or, if it didn't ask for that, a comment line, so a client that went away is noticed.\n\nWithout `Accept: text/event-stream`, or with `format=json`, the reply is the kept happenings as JSON, for a client that polls.\n\nA few streams can be open at once (3 unless the firmware is built otherwise); one more gets `503` `busy`.",
+        "parameters": [
+          {
+            "name": "kinds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "screen,leds,scene,scene_ended",
+            "description": "Comma-separated: only these kinds. Every kind without it. An unknown kind is `400`"
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "example": 40,
+            "description": "Start with the kept happenings after this `seq` (0: every kept one). The `Last-Event-ID` header does the same"
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Sent by a reconnecting `EventSource`: as `after`"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json"
+              ]
+            },
+            "description": "The kept happenings as JSON, whatever `Accept` says"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stream, or the kept happenings",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "retry: 3000\n\nevent: leds\ndata: {\"event\":\"leds\",\"state\":{\"mode\":\"flicker\",\"colour\":\"#4da6ff\",\"loop\":false,\"brightness\":30,\"count\":16,\"gpio\":16}}\n\nevent: scene\ndata: {\"event\":\"scene\",\"state\":{\"name\":\"message\",\"then\":\"restore\",\"until_clip_ends\":true,\"remaining_s\":null}}\n\nevent: clip_ended\nid: 41\ndata: {\"event\":\"clip_ended\",\"seq\":41,\"t_ms\":812340,\"path\":\"/clips/leia.mov\",\"finished\":true}\n\nevent: scene_ended\nid: 42\ndata: {\"event\":\"scene_ended\",\"seq\":42,\"t_ms\":812345,\"name\":\"message\",\"then\":\"restore\",\"by\":\"clip\"}\n\n"
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventHistory"
+                },
+                "example": {
+                  "seq": 42,
+                  "lost": 0,
+                  "events": [
+                    {
+                      "event": "clip_ended",
+                      "seq": 41,
+                      "t_ms": 812340,
+                      "path": "/clips/leia.mov",
+                      "finished": true
+                    },
+                    {
+                      "event": "scene_ended",
+                      "seq": 42,
+                      "t_ms": 812345,
+                      "name": "message",
+                      "then": "restore",
+                      "by": "clip"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "503": {
+            "description": "Every stream is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "busy",
+                  "message": "3 event streams are open already"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4612,7 +4727,8 @@
                 "holo",
                 "scenes",
                 "settings",
-                "network"
+                "network",
+                "events"
               ]
             },
             "description": "What the web app offers on this firmware"
@@ -6458,6 +6574,207 @@
               "null"
             ],
             "description": "Until its `duration_s` is up; null without one"
+          }
+        }
+      },
+      "Happening": {
+        "type": "object",
+        "required": [
+          "event",
+          "seq",
+          "t_ms"
+        ],
+        "description": "Something that happened. `seq` numbers happenings from 1, going back to 1 after 65535, so a gap is a missed one; the board keeps the last 32. Its other fields depend on `event` (ClipEnded, SceneEnded, Touch). A client ignores events and fields it doesn't know.",
+        "properties": {
+          "event": {
+            "type": "string",
+            "examples": [
+              "clip_ended",
+              "scene_ended",
+              "touch"
+            ]
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "t_ms": {
+            "type": "integer",
+            "description": "The board's uptime when it happened, in milliseconds"
+          }
+        }
+      },
+      "ClipEnded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Happening"
+          },
+          {
+            "type": "object",
+            "required": [
+              "path",
+              "finished"
+            ],
+            "properties": {
+              "event": {
+                "const": "clip_ended"
+              },
+              "path": {
+                "type": "string",
+                "description": "From the root of the volume"
+              },
+              "finished": {
+                "type": "boolean",
+                "description": "It played to its end; false when something replaced or stopped it"
+              }
+            }
+          }
+        ],
+        "description": "A clip or animation stopped"
+      },
+      "SceneEnded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Happening"
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "then",
+              "by"
+            ],
+            "properties": {
+              "event": {
+                "const": "scene_ended"
+              },
+              "name": {
+                "type": "string"
+              },
+              "then": {
+                "type": "string",
+                "enum": [
+                  "restore",
+                  "off"
+                ],
+                "description": "What it does at its end"
+              },
+              "by": {
+                "type": "string",
+                "enum": [
+                  "clip",
+                  "time",
+                  "end",
+                  "replaced"
+                ],
+                "description": "`clip`: its clip played; `time`: its `duration_s` was up; `end`: `POST /scenes/end`; `replaced`: another scene or clip took over, and its `then` was not done"
+              }
+            }
+          }
+        ],
+        "description": "A scene running to its end (one with a `then`) ended"
+      },
+      "Touch": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Happening"
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "x",
+              "y"
+            ],
+            "properties": {
+              "event": {
+                "const": "touch"
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "down",
+                  "up"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 239
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 239
+              }
+            }
+          }
+        ],
+        "description": "The screen was touched, or let go; only while touch reporting is on (`touch on`)"
+      },
+      "StateEvent": {
+        "type": "object",
+        "required": [
+          "event",
+          "state"
+        ],
+        "description": "A resource changed: `state` is what its GET returns now. `screen`: ScreenState; `leds`: LedState; `holo`: HoloState, four times a second at most while it moves; `scene`: the running scene (SceneList.active), or null; `scenes`: the saved scenes (SceneList.scenes); `settings`: Settings; `network`: Network; `ota`: the update session (Ota.session), each second at most while an image arrives; `system`: {uptime_s, heap_free, rssi}, every 15 s. Changes close together are sent as one, the latest; states are not kept, so a client that reconnects reads them again.",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "screen",
+              "leds",
+              "holo",
+              "scene",
+              "scenes",
+              "settings",
+              "network",
+              "ota",
+              "system"
+            ]
+          },
+          "state": {
+            "description": "What the resource's GET returns"
+          }
+        }
+      },
+      "EventHistory": {
+        "type": "object",
+        "required": [
+          "seq",
+          "lost",
+          "events"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "The latest happening's number; 0 for none yet"
+          },
+          "lost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Happenings after `after` no longer kept"
+          },
+          "events": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ClipEnded"
+                },
+                {
+                  "$ref": "#/components/schemas/SceneEnded"
+                },
+                {
+                  "$ref": "#/components/schemas/Touch"
+                }
+              ]
+            }
           }
         }
       }

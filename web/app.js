@@ -5,6 +5,7 @@
 // the side bar lists them all.
 
 import { createApi } from "./api.js";
+import { createEvents } from "./events.js";
 import { h, icon, notice, code, store, sheet } from "./ui.js";
 import status from "./pages/status.js";
 import show from "./pages/show.js";
@@ -44,6 +45,7 @@ const api = createApi({ askPassword });
 
 const ctx = {
   api,
+  events: null,
   info: null,
   async refreshInfo() {
     ctx.info = await api.get("/info");
@@ -52,6 +54,7 @@ const ctx = {
   },
   navigate(id) { location.hash = `#/${id}`; },
 };
+ctx.events = createEvents(ctx);
 
 function linkLabel(info) {
   if (info.via === "ap") return `Access point · ${info.ap?.ip ?? ""}`;

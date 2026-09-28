@@ -1,3 +1,3 @@
 idf_component_register(SRCS "gif_image.cpp" "image.cpp" "png_image.c" "quicktime.cpp" "video_player.cpp"
                        INCLUDE_DIRS "include"
-                       PRIV_REQUIRES console esp_timer heap board_ws128 animatedgif)
+                       PRIV_REQUIRES console esp_timer heap board_ws128 animatedgif events)

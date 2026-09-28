@@ -29,6 +29,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "board.h"
+#include "events.h"
 #include "gif_image.h"
 #include "image.h"
 #include "jpeg_decode.h"
@@ -445,6 +446,7 @@ void player_task(void *arg)
     }
     delete req;
     s_task = nullptr;
+    events_changed("screen");
     vTaskDelete(nullptr);
 }
 
@@ -823,6 +825,7 @@ extern "C" void screen_set_image(const char *path, uint32_t w, uint32_t h)
     s_image_w = w;
     s_image_h = h;
     s_showing = Showing::Image;
+    events_changed("screen");
 }
 
 extern "C" void screen_resolve_path(const char *in, char *out, size_t len)
@@ -842,6 +845,7 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
         s_colour_rgb[1] = (uint8_t)(((rgb >> 5) & 0x3F) * 255 / 63);
         s_colour_rgb[2] = (uint8_t)((rgb & 0x1F) * 255 / 31);
     }
+    events_changed("screen");
     return err;
 }
 
@@ -862,6 +866,7 @@ extern "C" esp_err_t screen_show_calibration(void)
     screen_take_panel();
     const esp_err_t err = draw_calibration();
     s_showing = err == ESP_OK ? Showing::Calibration : Showing::Nothing;
+    events_changed("screen");
     return err;
 }
 
@@ -870,7 +875,9 @@ extern "C" esp_err_t screen_clear(void)
     Lock lock;
     video_stop();
     s_showing = Showing::Nothing;
-    return board_lcd_power_off();
+    const esp_err_t err = board_lcd_power_off();
+    events_changed("screen");
+    return err;
 }
 
 extern "C" bool screen_release(const char *path)
@@ -888,7 +895,9 @@ extern "C" bool screen_release(const char *path)
 extern "C" esp_err_t screen_set_backlight(int percent)
 {
     Lock lock;
-    return board_lcd_set_backlight(percent);
+    const esp_err_t err = board_lcd_set_backlight(percent);
+    events_changed("screen");
+    return err;
 }
 
 extern "C" void screen_get_state(screen_state_t *out)
@@ -998,6 +1007,7 @@ extern "C" esp_err_t video_play_n(const char *path, int plays, bool whole_frame)
         printf("video: cannot start the playback task\n");
         return ESP_ERR_NO_MEM;
     }
+    events_changed("screen");
     return ESP_OK;
 }
 
@@ -1022,6 +1032,7 @@ esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int
         printf("image: cannot start the playback task\n");
         return ESP_ERR_NO_MEM;
     }
+    events_changed("screen");
     return ESP_OK;
 }
 

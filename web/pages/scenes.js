@@ -82,18 +82,19 @@ export default {
       render();
     }
 
+    let activeAt = 0;           // when `active` was read: its time left counts down from there
     function renderActive(a) {
+      if (a !== active) activeAt = performance.now();
       active = a;
+      const left = a?.remaining_s !== null && a ? Math.max(0, a.remaining_s - (performance.now() - activeAt) / 1000) : null;
       activeBox.replaceChildren(...(a ? [h("section", { class: "card", style: "margin-bottom:16px" },
         h("h2", {}, `${a.name} is running`, chip(a.then === "restore" ? "then back as it was" : "then all off", "primary")),
-        h("p", { class: "muted" }, a.remaining_s !== null ? `${Math.ceil(a.remaining_s)} s to go${a.until_clip_ends ? ", or until its clip is done" : ""}.` : "Until its clip is done."),
+        h("p", { class: "muted" }, left !== null ? `${Math.ceil(left)} s to go${a.until_clip_ends ? ", or until its clip is done" : ""}.` : "Until its clip is done."),
         h("div", { class: "actions" }, h("button", { class: "button", onclick: () => ctx.api.post("/scenes/end", {}).then(() => { say(`Ended ${a.name}.`); return load(); }).catch(fail) }, "End it now")))] : []));
     }
 
-    // While a scene runs to its end, follow it
-    const follow = setInterval(() => {
-      if (active) ctx.api.get("/scenes").then((r) => renderActive(r.active)).catch(() => {});
-    }, 2000);
+    // While a scene runs to its end, count its time down here: the board says when it ends
+    const tick = setInterval(() => { if (active?.remaining_s != null) renderActive(active); }, 1000);
 
     function render() {
       const newBtn = h("div", { class: "actions" }, h("button", { class: "button primary", onclick: () => edit(null) }, "New scene"));
@@ -243,7 +244,16 @@ export default {
       } catch (e) { fail(e); }
     }
 
-    load().catch(fail);
-    return () => clearInterval(follow);
+    const stopFollowing = ctx.events.follow({
+      on: {
+        scene: (a) => renderActive(a),
+        scenes: (list) => { scenes = list; render(); },
+        settings: (s) => { settings = s; render(); },
+      },
+      refresh: load,
+      fallback: () => (active ? 2000 : 10000),
+      onError: fail,
+    });
+    return () => { clearInterval(tick); stopFollowing(); };
   },
 };

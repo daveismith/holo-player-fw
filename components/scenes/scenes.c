@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "esp_console.h"
+#include "events.h"
 #include "nvs.h"
 #include "scenes.h"
 
@@ -239,6 +240,7 @@ scene_err_t scene_store(const cJSON *scene, bool *replaced, char *why, size_t wh
         snprintf(why, why_len, "not saved: %s", esp_err_to_name(e));
         return SCENE_FAILED;
     }
+    events_changed("scenes");
     return SCENE_OK;
 }
 
@@ -259,6 +261,7 @@ scene_err_t scene_remove(const char *name)
     if (slot < 0) {
         return SCENE_MISSING;
     }
+    events_changed("scenes");
     settings_t s;
     settings_get(&s);
     if (strcmp(s.boot_scene, name) == 0) {

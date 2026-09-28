@@ -73,7 +73,7 @@ access point, which is WPA2.
 - `sta` and `ap`: the station link (SSID, address, signal) and the access point;
 - `via`: `ap` when the request came in on the board's access point;
 - `features`: what the web app offers on this firmware: `ota`, `files`, `screen`, `leds`, `holo`,
-  `scenes`, `settings`, `network`.
+  `scenes`, `settings`, `network`, `events`.
 
 ```sh
 curl http://holo-2db0.local/api/v1/info
@@ -307,6 +307,59 @@ curl -X PATCH -H "$J" -d '{"password":"hunter22"}' "$B/web"
 curl -u any:hunter22 -X PATCH -H "$J" -d '{"hostname":"holo-dome"}' "$B/web"
 ```
 
+## Events
+
+Rather than asking again and again, a client can follow `GET /api/v1/events`: a stream of
+[Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) that
+stays open, and carries each change as it happens. The web app follows it; `curl -N` shows it:
+
+```sh
+curl -N -H "Accept: text/event-stream" "$B/events?kinds=screen,scene,scene_ended"
+```
+
+```text
+retry: 3000
+
+event: scene
+data: {"event":"scene","state":{"name":"message","then":"restore","until_clip_ends":true,"remaining_s":null}}
+
+event: screen
+data: {"event":"screen","state":{"powered":true,"backlight":100,"showing":"clip","path":"/clips/leia.mov",...}}
+
+event: scene_ended
+id: 42
+data: {"event":"scene_ended","seq":42,"t_ms":812345,"name":"message","then":"restore","by":"clip"}
+```
+
+Two sorts of event come down it:
+
+| Sort | Kinds | `data` |
+|---|---|---|
+| **A resource changed** | `screen`, `leds`, `holo`, `scene` (the one running to its end, or null), `scenes`, `settings`, `network`, `ota` (the update session), `system` (uptime, free memory, signal; every 15 s) | `{"event": kind, "state": ...}`: what the resource's `GET` returns now |
+| **Something happened** | `clip_ended`, `scene_ended`, `touch` | The event's own fields, with `seq` and `t_ms` |
+
+- **`?kinds=`** takes only those kinds; without it, every kind.
+- **Changes close together are sent as one**, the latest, and the holo's position at most four
+  times a second while it moves. Only the change is sent: a page counts a scene's time down, or a
+  clip's frames on, itself.
+- **Happenings are numbered** (`seq`, which is also the SSE `id:`) and the board keeps the last 32.
+  A browser's `EventSource` reconnects by itself and sends `Last-Event-ID`, and the board replays
+  what it missed; `?after=40` does the same by hand. States aren't kept: after a reconnect, read
+  them again with their `GET`s.
+- **Without `Accept: text/event-stream`**, `GET /api/v1/events` is the kept happenings as JSON,
+  `{"seq", "lost", "events"}`, for a client that would rather poll.
+- **A few streams at once**: 3 unless the firmware is built with more. One more gets `503` `busy`,
+  and the web app polls instead.
+
+The stream needs no password: like `/screen` and `/leds`, which it mirrors, it's for reading. In a
+browser:
+
+```js
+const events = new EventSource("http://holo-2db0.local/api/v1/events?kinds=scene_ended,leds");
+events.addEventListener("scene_ended", (m) => console.log("ended", JSON.parse(m.data)));
+events.addEventListener("leds", (m) => console.log("LEDs now", JSON.parse(m.data).state));
+```
+
 ## A show, scripted
 
 Upload a clip, check it can play, save it as a scene with warm LEDs and a restless holo, and have the
@@ -493,6 +546,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 422 | `invalid_image`, `sha256_mismatch` | Not a usable firmware image (the running firmware still boots), or a file that didn't arrive intact |
 | 422 | `not_playable` | A file the screen can't show; the message says why |
 | 503 | `offline`, `unreachable` | The board can't reach the internet, or the release site |
+| 503 | `busy` | Every event stream is taken |
 | 507 | `no_space` | The storage volume is too full |
 
 ## Every endpoint
@@ -502,6 +556,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | GET | `/api/v1/info` | The board, its firmware, its network, its features |
 | POST | `/api/v1/restart` | Restart |
 | GET | `/api/v1/openapi.json` | The OpenAPI description of this firmware's API |
+| GET | `/api/v1/events` | What changes, as it happens (Server-Sent Events), or the latest happenings |
 | GET | `/api/v1/ota` | The slots, the session, and whether the board can pull |
 | GET | `/api/v1/ota/image` | The session |
 | PUT | `/api/v1/ota/image` | Upload an image |
