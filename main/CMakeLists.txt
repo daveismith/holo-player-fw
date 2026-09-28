@@ -5,5 +5,5 @@ idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c" "h
                                      esp_timer vfs espcoredump esp_driver_gpio
                                      cmd_system cmd_wifi cmd_network cmd_nvs cmd_i2c cmd_fs
                                      board_ws128 video leds servo holo
-                                     web_server webui scenes
+                                     web_server webui scenes hostlink
                        INCLUDE_DIRS ".")

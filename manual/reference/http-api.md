@@ -73,7 +73,7 @@ access point, which is WPA2.
 - `sta` and `ap`: the station link (SSID, address, signal) and the access point;
 - `via`: `ap` when the request came in on the board's access point;
 - `features`: what the web app offers on this firmware: `ota`, `files`, `screen`, `leds`, `holo`,
-  `scenes`, `settings`, `network`, `events`.
+  `scenes`, `settings`, `network`, `events`, `link`.
 
 ```sh
 curl http://holo-2db0.local/api/v1/info
@@ -218,6 +218,10 @@ curl "$B/scenes"
 curl -X DELETE "$B/scenes/scene?name=cantina"
 ```
 
+A scene can have a `slot`, a number from 1 to 255, which small controllers on the
+[host link](../use/host-link.md) apply it by instead of its name: `"slot": 3` in the scene. Two
+scenes can't share one: saving a slot another scene has is `409` `slot_taken`.
+
 `POST /api/v1/scenes/apply` also takes a scene that isn't saved, as `{"scene": {...}}`. It applies
 the screen, then the LEDs, then the holo, and a part that fails stops the rest, with an error
 naming it. The files a scene names are checked when it is applied, not when it is saved.
@@ -361,6 +365,30 @@ browser:
 const events = new EventSource("http://holo-2db0.local/api/v1/events?kinds=scene_ended,leds");
 events.addEventListener("scene_ended", (m) => console.log("ended", JSON.parse(m.data)));
 events.addEventListener("leds", (m) => console.log("LEDs now", JSON.parse(m.data).state));
+```
+
+## The host link
+
+The [host link](../use/host-link.md) runs the board from a controller on a wire rather than over
+Wi-Fi. Over its UART and RS485, it speaks this API one request a line, and the
+[host link protocol](host-protocol.md) has the details. Its settings are here too:
+
+```sh
+curl "$B/link"
+curl -X PATCH -H "$J" -d '{"mode":"rs485","address":3,"groups":[2]}' "$B/link"
+```
+
+`GET /api/v1/link` is the saved settings, what is running (which differs from them until a
+restart), and the counters. A new transport or pins wait for a restart, and the reply says so with
+`"restart_required": true`. A pin the board uses for something else is `409` `pin_in_use`.
+
+`PATCH /api/v1/link/events` says which [events](#events) the link reports to its host, until the
+next restart, and `GET /api/v1/link/events` shows the happenings it hasn't given the host yet
+(looking over HTTP gives nothing away):
+
+```sh
+curl -X PATCH -H "$J" -d '{"kinds":["scene_ended","leds"],"push":true}' "$B/link/events"
+curl "$B/link/events"
 ```
 
 ## A show, scripted
@@ -541,8 +569,9 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, network, slot, scene, or firmware on that channel |
 | 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another long operation is running, or the update session isn't in the state asked of it |
 | 409 | `not_running` | No scene is running to its end |
-| 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
+| 409 | `exists`, `not_empty`, `full`, `slot_taken` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), the list of scenes or networks, or another scene's slot |
 | 409 | `not_ready` | The holo can't move now; the message says why |
+| 409 | `pin_in_use` | The host link can't have that pin: the board uses it for something else |
 | 411 | `length_required` | An upload without a `Content-Length` |
 | 413 | `too_large` | The image won't fit the slot |
 | 415 | `content_type` | A `POST` or `PATCH` that isn't `application/json` |
@@ -609,6 +638,10 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | PATCH | `/api/v1/network/ap` | The access point: on or off, name, passphrase |
 | GET | `/api/v1/web` | The web server's settings |
 | PATCH | `/api/v1/web` | Change them (saved) |
+| GET | `/api/v1/link` | The host link: settings, what's running, counters |
+| PATCH | `/api/v1/link` | Change its settings (saved) |
+| GET | `/api/v1/link/events` | The happenings it hasn't given its host yet |
+| PATCH | `/api/v1/link/events` | Which events it reports |
 
 `v1` changes only when an existing client would break; new endpoints and new fields arrive without
 it changing.

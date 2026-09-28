@@ -1,7 +1,7 @@
-// Settings: what the board starts with, and the web app's own settings -- its name, password,
-// and the sites that may call it.
+// Settings: what the board starts with, the web app's own settings -- its name, password, and
+// the sites that may call it -- and the host link: a controller on a wire.
 
-import { h, notice, field, slider, confirmAsk, code } from "../ui.js";
+import { h, notice, field, slider, confirmAsk, code, facts, chip } from "../ui.js";
 
 const ICON = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
 
@@ -16,7 +16,9 @@ export default {
     const alert = h("div");
     const startBox = h("section", { class: "card" });
     const webBox = h("section", { class: "card" });
-    el.append(h("h1", {}, "Settings"), alert, h("div", { class: "grid" }, startBox, webBox));
+    const linkBox = h("section", { class: "card" });
+    const hasLink = ctx.info.features.includes("link");
+    el.append(h("h1", {}, "Settings"), alert, h("div", { class: "grid" }, startBox, webBox, hasLink ? linkBox : null));
     const fail = (e) => alert.replaceChildren(notice("bad", h("p", {}, e.message)));
     const say = (text, kind = "ok") => alert.replaceChildren(notice(kind, h("p", {}, text)));
 
@@ -90,7 +92,51 @@ export default {
           h("button", { class: "button", onclick: () => save({ cors: null }, "The default list is back.") }, "Default list")));
     }
 
+    // --- the host link -------------------------------------------------------------------------
+    async function loadLink() {
+      const l = await ctx.api.get("/link");
+      const s = l.settings;
+      const mode = h("select", {}, [["off", "Off"], ["uart", "UART"], ["rs485", "RS485"]].map(([v, t]) => h("option", { value: v }, t)));
+      mode.value = s.mode;
+      const protocol = h("select", {}, [["auto", "JSON lines or native frames"], ["json", "JSON lines"], ["native", "Native frames"]]
+        .map(([v, t]) => h("option", { value: v }, t)));
+      protocol.value = s.protocol;
+      const baud = h("select", {}, [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600].map((b) => h("option", { value: b }, String(b))));
+      baud.value = String(s.baud);
+      const address = h("input", { type: "number", min: 1, max: 223, value: s.address });
+      const groups = h("input", { type: "text", value: s.groups.join(" "), placeholder: "none", autocomplete: "off" });
+      const delay = h("input", { type: "number", min: 0, max: 50, value: s.reply_delay_ms });
+      const running = l.running.mode === "off" ? "off"
+        : `${l.running.mode.toUpperCase()} on GPIO${l.running.pins.a} and GPIO${l.running.pins.b}${l.running.pins.c != null ? `, GPIO${l.running.pins.c}` : ""}`;
+      const c = l.counters;
+      linkBox.replaceChildren(h("h2", {}, "Host link", l.restart_required ? chip("restart to apply", "warn") : null),
+        h("p", { class: "muted hint" }, "A controller on a wire, on P2's spare pins: see ",
+          h("a", { href: "https://davidiansmith.ca/holo-player-fw/latest/use/host-link/", target: "_blank" }, "the host link"), "."),
+        facts([
+          ["Now", running],
+          ["Requests", `${c.requests}${l.last_request_s != null ? `, the last ${Math.round(l.last_request_s)} s ago` : ""}`],
+          c.bad_lines || c.framing_errors || c.overruns ? ["Trouble", `${c.bad_lines} bad lines, ${c.framing_errors} framing errors, ${c.overruns} overruns`] : null,
+          ["Events", l.events.kinds.length ? `${l.events.kinds.join(", ")} (${l.events.push ? "pushed" : "kept"})` : "none asked for"],
+        ].filter(Boolean)),
+        h("div", { class: "fields", style: "margin-top:12px" },
+          field("Transport", mode, "From the next restart"), field("Speaks", protocol),
+          field("Baud rate", baud), field("Address", address, "1-223"),
+          field("Groups", groups, "RS485: up to 8 of 1-31"), field("Reply delay (ms)", delay, "RS485: 0-50")),
+        h("div", { class: "actions" },
+          h("button", { class: "button primary", onclick: () => {
+            const body = {
+              mode: mode.value, protocol: protocol.value, baud: Number(baud.value), address: Number(address.value),
+              groups: groups.value.split(/[\s,]+/).filter(Boolean).map(Number), reply_delay_ms: Number(delay.value),
+            };
+            ctx.api.patch("/link", body).then((r) => {
+              say(r.restart_required ? "Saved. The transport changes when the board next restarts." : "Saved.", r.restart_required ? "warn" : "ok");
+              return loadLink();
+            }).catch(fail);
+          } }, "Save")));
+    }
+
     loadStart().catch(fail);
+    if (hasLink) loadLink().catch(fail);
     loadWeb().catch((e) => {
       webBox.replaceChildren(h("h2", {}, "The web app"), notice(e.status === 401 ? "warn" : "bad",
         h("p", {}, e.status === 401 ? "These settings need the board's password." : e.message)),

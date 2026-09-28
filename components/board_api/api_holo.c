@@ -1,14 +1,12 @@
 /*
  * The holoprojector over the API: /api/v1/holo, for this board's one holo (the holo engine's
- * first), and the servos behind it (the kit's web_servo).
+ * first). The servos behind it are the kit's (web_servo).
  */
 #include <math.h>
 #include <string.h>
 #include "holo.h"
 #include "scenes.h"
-#include "web_server.h"
-#include "web_servo.h"
-#include "api.h"
+#include "board_api.h"
 
 cJSON *api_holo_json(void)
 {
@@ -37,37 +35,28 @@ cJSON *api_holo_json(void)
     return o;
 }
 
-static esp_err_t holo_get(httpd_req_t *req)
+static api_reply_t holo_get(const api_req_t *req)
 {
-    return web_send_json(req, 200, api_holo_json());
+    (void)req;
+    return api_json(200, api_holo_json());
 }
 
-static esp_err_t motion_post(httpd_req_t *req)
+static api_reply_t motion_post(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 512);
-    if (body == NULL) {
-        return ESP_OK;
-    }
     char why[128];
-    const scene_err_t err = scene_do_holo(body, false, why, sizeof(why));
-    cJSON_Delete(body);
-    return err == SCENE_OK ? web_send_json(req, 202, api_holo_json()) : api_send_scene_error(req, err, why);
+    const scene_err_t err = scene_do_holo(req->body, false, why, sizeof(why));
+    return err == SCENE_OK ? api_json(202, api_holo_json()) : api_scene_error(err, why);
 }
 
-/* A servo driven directly: the holo's own motion would fight it, so it stops. */
-static void stop_holo(void)
+void board_api_stop_holo(void)
 {
     const holo_motion_t stop = { .kind = HOLO_STOP };
     char why[64];
     holo_motion(0, &stop, why, sizeof(why));
 }
 
-esp_err_t api_holo_register(void)
-{
-    web_server_add_feature("holo");
-    esp_err_t err = ESP_OK;
-    err |= web_register("/api/v1/holo", HTTP_GET, holo_get, 0);
-    err |= web_register("/api/v1/holo/motion", HTTP_POST, motion_post, WEB_AUTH);
-    err |= web_servo_register(stop_holo);
-    return err == ESP_OK ? ESP_OK : ESP_FAIL;
-}
+const api_route_t API_HOLO_ROUTES[] = {
+    API_ROUTE(API_GET, "/api/v1/holo", holo_get, 0, API_LINK),
+    API_ROUTE(API_POST, "/api/v1/holo/motion", motion_post, 512, API_LINK),
+};
+const size_t API_HOLO_ROUTES_N = sizeof(API_HOLO_ROUTES) / sizeof(API_HOLO_ROUTES[0]);

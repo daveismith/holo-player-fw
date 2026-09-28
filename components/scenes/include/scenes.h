@@ -9,10 +9,11 @@
  *              | {"calibration": true} | {"clear": true},
  *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30},
  *    "holo":   {"motion": "twitch", "range": 50, ...},
- *    "then": "stay" | "restore" | "off", "duration_s": 30}
+ *    "then": "stay" | "restore" | "off", "duration_s": 30, "slot": 3}
  * Each part is optional; a part left out leaves that alone. A scene ends when its clip has played
  * (once, or its `loops`; not with `loop`), or after `duration_s`, whichever is first; `then` is what happens then: nothing
- * (stay), the screen, LEDs and holo back to what they did before it (restore), or all off.
+ * (stay), the screen, LEDs and holo back to what they did before it (restore), or all off. A
+ * `slot` (1..255, one scene each) is a number a small host applies it by, over the host link.
  */
 #pragma once
 
@@ -25,7 +26,7 @@
 extern "C" {
 #endif
 
-/* What went wrong, for an API to turn into a status: 400, 400, 404, 422, 409, 409, 500. */
+/* What went wrong, for an API to turn into a status: 400, 400, 404, 422, 409, 409, 409, 500. */
 typedef enum {
     SCENE_OK,
     SCENE_BAD,          /* not what the part takes */
@@ -34,12 +35,14 @@ typedef enum {
     SCENE_UNPLAYABLE,   /* a file the screen cannot show */
     SCENE_NOT_READY,    /* the holo cannot move */
     SCENE_FULL,         /* SCENE_MAX saved already */
+    SCENE_TAKEN,        /* another scene has that slot */
     SCENE_FAILED,
 } scene_err_t;
 
 #define SCENE_MAX       16
 #define SCENE_NAME_MAX  32
 #define SCENE_JSON_MAX  1024    /* a saved scene, as text */
+#define SCENE_SLOT_MAX  255
 
 /*
  * The parts: each checked, then done -- or, with `dry`, only checked (a file is not looked
@@ -67,6 +70,7 @@ int scene_then_of(const cJSON *then);      /* a scene_then_t, or -1 for none of 
 /* The scene being watched to its end, if one is. */
 typedef struct {
     char name[SCENE_NAME_MAX + 1];
+    int slot;                   /* 0 for none */
     scene_then_t then;
     bool clip;                  /* ends when its clip is done */
     double remaining_s;         /* until its time is up; -1 when it has no duration */
@@ -81,9 +85,11 @@ esp_err_t scenes_start(void);
 
 /* The saved scenes. Each returns a new cJSON the caller deletes; NULL for none. */
 cJSON *scene_load(const char *name);
+cJSON *scene_load_slot(int slot);   /* the scene with that slot */
 cJSON *scene_load_all(void);        /* an array, in the order they were first saved */
 
-/* Save (checked first); SCENE_FULL when SCENE_MAX are saved and this is a new one. */
+/* Save (checked first); SCENE_FULL when SCENE_MAX are saved and this is a new one, SCENE_TAKEN
+ * when another scene has its slot. */
 scene_err_t scene_store(const cJSON *scene, bool *replaced, char *why, size_t why_len);
 /* SCENE_MISSING for none by that name. Clears the boot scene if it was this one. */
 scene_err_t scene_remove(const char *name);

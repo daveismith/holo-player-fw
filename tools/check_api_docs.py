@@ -9,8 +9,9 @@ as check_command_docs.py does for the console commands. It fails when:
   * the document is not OpenAPI 3.1 as this project writes it: every operation has an
     operationId (unique), a tag, and a 2xx response; every mutating operation (PUT, POST,
     DELETE) declares its security; every $ref resolves;
-  * a route the firmware registers -- web_register("/api/v1/...", HTTP_GET, ...) in
-    components/ or the esp-console-kit submodule -- is missing from the document, or the
+  * a route the firmware registers -- web_register("/api/v1/...", HTTP_GET, ...), or an entry
+    API_ROUTE(API_GET, "/api/v1/...", ...) in an api_core table, in components/ or the
+    esp-console-kit submodule -- is missing from the document, or the
     document describes one the firmware does not register;
   * an operation is marked `x-planned: true` (described ahead of the firmware, for review)
     but the firmware registers it -- the mark is stale -- or, with --final, any is marked;
@@ -36,6 +37,9 @@ SUBMODULE = Path("external/esp-console-kit")
 SOURCE_DIRS = [Path("main"), Path("components"), SUBMODULE]
 
 ROUTE_RE = re.compile(r'web_register\(\s*"([^"]+)"\s*,\s*HTTP_([A-Z]+)')
+# An api_core table's entry: API_ROUTE(API_GET, "/api/v1/...", fn, body_max, flags). A route marked
+# API_NO_HTTP is the host link's only, and still described (the link serves the same paths).
+TABLE_RE = re.compile(r'API_ROUTE\(\s*API_([A-Z]+)\s*,\s*"([^"]+)"')
 METHODS = {"get", "put", "post", "delete", "patch", "head", "options"}
 MUTATING = {"put", "post", "delete", "patch"}
 
@@ -53,6 +57,11 @@ def registered_routes() -> tuple[dict[tuple[str, str], str], bool]:
             for m in ROUTE_RE.finditer(text):
                 line = text.count("\n", 0, m.start()) + 1
                 found[(m.group(1), m.group(2).lower())] = f"{path.relative_to(ROOT)}:{line}"
+            for m in TABLE_RE.finditer(text):
+                if "#define" in text[text.rfind("\n", 0, m.start()) + 1:m.start()]:
+                    continue        # the macro itself
+                line = text.count("\n", 0, m.start()) + 1
+                found[(m.group(2), m.group(1).lower())] = f"{path.relative_to(ROOT)}:{line}"
     return found, present
 
 

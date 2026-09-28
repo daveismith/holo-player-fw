@@ -155,7 +155,7 @@ class Checker:
 def reads(c: Checker) -> None:
     print("reading")
     for path in ("/info", "/ota", "/fs", "/screen", "/leds", "/holo", "/servos", "/scenes", "/settings",
-                 "/network", "/web", "/events"):
+                 "/network", "/web", "/events", "/link", "/link/events"):
         c.check("GET", path, 200)
     c.check("GET", "/fs/list", 200, {"path": "/"})
     media = c.check("GET", "/media", 200)

@@ -13,6 +13,7 @@ export const GROUPS = [
   ["LEDs", ["leds"]],
   ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
   ["Scenes and settings", ["scene", "settings"]],
+  ["Host link", ["link"]],
   ["Touch and motion", ["touch", "imu"]],
   ["Files", ["fs"]],
   ["Firmware", ["version", "ota", "restart"]],

@@ -40,6 +40,17 @@ so the release tag is the version baked into the image and reported by `version`
   (GPIO0) with the board off the network rejoins it, and if that fails, turns the access point on
   for 5 minutes. `wifi ap`, the Network page and `ap.off_in_s` in the API say how long it has
   left; turning it on yourself keeps it on. Under "Wi-Fi fallback" in menuconfig.
+- **The host link**: a controller on a wire -- an Arduino, an ESP32, a Pi, a dome controller --
+  runs the board over UART, or RS485 through a transceiver, on P2's spare pins (21, 33, 15). It
+  speaks the HTTP API one request a line (`POST /scenes/apply {"name":"cantina"}`, answered
+  `200 {...}`), and pushes the board's events to the host as `!` lines, or keeps them to be
+  fetched; on RS485 every request names a board, and groups act together. Set up with `link` on
+  the console, `PATCH /api/v1/link`, or the Settings page. Small hosts can use native frames instead: a few
+  bytes with a CRC (`SCENE 3`, `LEDS`, `HOLO`, `STATUS`). `tools/hostlink.py` talks to it from a
+  computer. I2C is to come.
+  Documented in [The host link](manual/use/host-link.md) and the
+  [protocol](manual/reference/host-protocol.md).
+- **Scene slots**: a number from 1 to 255 a scene can be applied by (`slot`, `scene slot`).
 - **Events, not polling**: `GET /api/v1/events` is a stream of Server-Sent Events: the screen,
   LEDs, holo, running scene, scenes, settings, network and update session as each changes, and
   `clip_ended`, `scene_ended` and `touch` as they happen, numbered, with the last 32 kept and

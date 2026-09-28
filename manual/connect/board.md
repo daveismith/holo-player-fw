@@ -81,7 +81,8 @@ connect anything.
 
 Six GPIOs are free for your own use: **15, 16, 17, 18, 21 and 33**. This firmware already claims
 three of them — GPIO16 for the [LED ring](leds.md), GPIO17 and GPIO18 for the
-[servos](servos.md).
+[servos](servos.md). The other three, 15, 21 and 33, are where the planned
+[host link](../use/host-link.md) goes.
 
 **VSYS is not a regulated 5 V rail.** With USB plugged in it is USB 5 V through a Schottky diode
 (D1), so about 4.6–4.7 V. On battery it is the cell itself, 3.0–4.2 V, through a P-FET (Q2). Both

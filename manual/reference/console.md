@@ -93,6 +93,7 @@ Full detail in [The holoprojector](../use/holo.md).
 | `scene end` | End the scene running to its end now, doing what it does then (go back, or all off) |
 | `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
 | `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
+| `scene slot <name> [<1-255>\|--clear]` | The number a host on the host link applies it by; alone, which it is |
 | `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |
 | `settings backlight <1-100>` | The backlight at start, and now |
 | `settings brightness <1-100>` | The LEDs' brightness at start, and now |
@@ -139,6 +140,22 @@ The host side of `fs put`, `fs get` and `ota put` is `tools/fs_xfer.py` in esp-c
 
 `tasks` and `top` need the FreeRTOS trace and run-time-stats options, and `flash-stats` needs the
 flash counters; all are enabled in `sdkconfig.defaults`.
+
+## The host link
+
+See [the host link](../use/host-link.md).
+
+| Command | Does |
+|---|---|
+| `link` | The transport, its pins and settings, the counters, and the events asked for |
+| `link mode <off\|uart\|rs485> [-b <baud>] [-a <address>]` | The transport, from the next restart; `-b` the baud rate, `-a` the address, 1–223 |
+| `link proto <auto\|json\|native>` | What UART and RS485 accept |
+| `link address <1-223>` | The board's address on UART and RS485 |
+| `link groups [<group>…\|--clear]` | The groups it acts for, 1–31, up to 8 |
+| `link pins <a> <b> <c>` | The GPIOs for roles A, B and C, from the next restart |
+| `link events [<kind>…\|--none] [--push\|--keep]` | The events it reports from the start: `clip_ended`, `scene_ended`, `touch`, or a resource's changes (`screen`, `leds`, `scene`, …) |
+| `link log [on\|off]` | Print everything the link sends and receives |
+| `link reset` | Back to the firmware's defaults |
 
 ## Networking
 
