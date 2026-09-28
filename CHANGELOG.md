@@ -51,6 +51,9 @@ so the release tag is the version baked into the image and reported by `version`
   Documented in [The host link](manual/use/host-link.md) and the
   [protocol](manual/reference/host-protocol.md).
 - **Scene slots**: a number from 1 to 255 a scene can be applied by (`slot`, `scene slot`).
+- **`clip_started` and `scene_started` events**, beside the ends: every clip or animation that
+  starts, whoever started it (path, loop, plays, frames, fps), and every scene applied (name,
+  slot, then, how it ends), on the event stream and the host link, JSON and native.
 - **Events, not polling**: `GET /api/v1/events` is a stream of Server-Sent Events: the screen,
   LEDs, holo, running scene, scenes, settings, network and update session as each changes, and
   `clip_ended`, `scene_ended` and `touch` as they happen, numbered, with the last 32 kept and

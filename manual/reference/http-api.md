@@ -340,9 +340,14 @@ Two sorts of event come down it:
 | Sort | Kinds | `data` |
 |---|---|---|
 | **A resource changed** | `screen`, `leds`, `holo`, `scene` (the one running to its end, or null), `scenes`, `settings`, `network`, `ota` (the update session), `system` (uptime, free memory, signal; every 15 s) | `{"event": kind, "state": ...}`: what the resource's `GET` returns now |
-| **Something happened** | `clip_ended`, `scene_ended`, `touch` | The event's own fields, with `seq` and `t_ms` |
+| **Something happened** | `clip_started`, `clip_ended`, `scene_started`, `scene_ended`, `touch` | The event's own fields, with `seq` and `t_ms` |
 
 - **`?kinds=`** takes only those kinds; without it, every kind.
+- **Starts and ends.** `clip_started` comes for every clip or animation, whoever started it:
+  `path`, `loop`, `plays`, `frames`, `fps`. `scene_started` comes for every scene applied: `name`,
+  `slot`, `then`, `until_clip_ends`, `duration_s`. A scene's clip starts just before the scene
+  does; at its end, `scene_ended` comes before what its `then` does. Only a scene with a `then`
+  other than `stay` has a `scene_ended`.
 - **Changes close together are sent as one**, the latest, and the holo's position at most four
   times a second while it moves. Between changes, a page counts a scene's time down, or a clip's
   frames on, itself.

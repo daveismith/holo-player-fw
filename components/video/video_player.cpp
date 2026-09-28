@@ -91,6 +91,17 @@ esp_timer_handle_t s_timer;
 Stats s_stats;               /* the current playback, or the last */
 screen_end_hook_t s_end_hook;
 void *s_end_ctx;
+screen_start_hook_t s_start_hook;
+void *s_start_ctx;
+
+/* The start hook, once a clip's task is running */
+void started(const char *path, int plays, uint32_t frames, double fps)
+{
+    const screen_start_hook_t hook = s_start_hook;
+    if (hook != nullptr) {
+        hook(path, plays, frames, fps, s_start_ctx);
+    }
+}
 
 /*
  * Everything that draws, or says what is drawn, holds this: the console and the API run on
@@ -982,6 +993,12 @@ extern "C" void screen_set_end_hook(screen_end_hook_t hook, void *ctx)
     s_end_hook = hook;
 }
 
+extern "C" void screen_set_start_hook(screen_start_hook_t hook, void *ctx)
+{
+    s_start_ctx = ctx;
+    s_start_hook = hook;
+}
+
 extern "C" esp_err_t video_play_n(const char *path, int plays, bool whole_frame)
 {
     Lock lock;
@@ -1007,6 +1024,7 @@ extern "C" esp_err_t video_play_n(const char *path, int plays, bool whole_frame)
         printf("video: cannot start the playback task\n");
         return ESP_ERR_NO_MEM;
     }
+    started(path, plays < 0 ? 1 : plays, info.frames, info.fps);
     events_changed("screen");
     return ESP_OK;
 }
@@ -1032,6 +1050,8 @@ esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int
         printf("image: cannot start the playback task\n");
         return ESP_ERR_NO_MEM;
     }
+    started(path, plays >= 0 ? plays : file_plays, (uint32_t)hdr.frames,
+            hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
     events_changed("screen");
     return ESP_OK;
 }

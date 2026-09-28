@@ -255,6 +255,29 @@ static bool record_of(const cJSON *e, uint8_t r[8])
         const int by = index_in(BY, 4, cJSON_GetObjectItem(e, "by"));
         r[4] = then < 0 ? 0 : (uint8_t)then;
         r[5] = by < 0 ? 0 : (uint8_t)by;
+    } else if (strcmp(name->valuestring, "clip_started") == 0) {
+        r[0] = 4;
+        r[3] = cJSON_IsTrue(cJSON_GetObjectItem(e, "loop"));
+        const double plays = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "plays"));
+        r[4] = (uint8_t)(plays > 255 ? 255 : plays);
+        const double frames = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "frames"));
+        const uint16_t f = (uint16_t)(frames > 65535 ? 65535 : frames);
+        r[5] = (uint8_t)(f & 0xFF);
+        r[6] = (uint8_t)(f >> 8);
+        const double fps = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "fps"));
+        r[7] = (uint8_t)(fps > 255 ? 255 : fps + 0.5);
+    } else if (strcmp(name->valuestring, "scene_started") == 0) {
+        r[0] = 5;
+        const cJSON *slot = cJSON_GetObjectItem(e, "slot");
+        r[3] = cJSON_IsNumber(slot) ? (uint8_t)slot->valueint : 0;
+        const int then = index_in(THEN, 3, cJSON_GetObjectItem(e, "then"));
+        r[4] = then < 0 ? 0 : (uint8_t)then;
+        r[5] = cJSON_IsTrue(cJSON_GetObjectItem(e, "until_clip_ends"));
+        const cJSON *dur = cJSON_GetObjectItem(e, "duration_s");
+        const double d = cJSON_IsNumber(dur) ? dur->valuedouble + 0.999 : 0;
+        const uint16_t secs = (uint16_t)(d > 65535 ? 65535 : d);
+        r[6] = (uint8_t)(secs & 0xFF);
+        r[7] = (uint8_t)(secs >> 8);
     } else if (strcmp(name->valuestring, "touch") == 0) {
         r[0] = 3;
         r[3] = strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(e, "action")) ?: "", "up") == 0;
@@ -426,13 +449,13 @@ uint8_t *hl_native_handle(const uint8_t *f, size_t len, const hl_settings_t *run
         break;
     }
     case T_EVENTS_SET: {
-        static const char *const KINDS[] = { "clip_ended", "scene_ended", "touch" };
+        static const char *const KINDS[] = { "clip_ended", "scene_ended", "touch", "clip_started", "scene_started" };
         if (n < 2) {
             st = ST_BAD;
             break;
         }
         events_mask_t mask = 0;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             if (p[0] & (1u << i)) {
                 mask |= events_bit(KINDS[i]);
             }

@@ -32,6 +32,14 @@ esp_err_t video_play_n(const char *path, int plays, bool whole_frame);
  */
 typedef void (*screen_end_hook_t)(const char *path, bool finished, void *ctx);
 void screen_set_end_hook(screen_end_hook_t hook, void *ctx);
+
+/*
+ * Told when a clip or animation starts: its path (absolute), `plays` (0 forever), and its frames
+ * and frame rate from its header. Called on the task that started it, holding the screen: it may
+ * read the screen's state, but not start or stop anything. One hook.
+ */
+typedef void (*screen_start_hook_t)(const char *path, int plays, uint32_t frames, double fps, void *ctx);
+void screen_set_start_hook(screen_start_hook_t hook, void *ctx);
 /* Stop playback and wait for it to end. */
 void video_stop(void);
 bool video_playing(void);
