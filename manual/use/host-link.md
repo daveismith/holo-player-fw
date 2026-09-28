@@ -113,7 +113,8 @@ the screen, the LEDs and the holo are all doing.
 A host can hear about things as they happen, rather than asking. They are the board's own events,
 the same ones the web app follows:
 
-- what happened: `clip_ended`, `scene_ended`, and `touch` (when touch reporting is on);
+- what happened: `clip_started`, `clip_ended`, `scene_started`, `scene_ended`, and `touch`
+  (when touch reporting is on);
 - what changed: `screen`, `leds`, `holo`, `scene`, `scenes`, `settings`, `network`, `ota` and
   `system`, each with the resource as its `GET` returns it;
 - `ready`: the link has started (always sent once on UART, after a restart).

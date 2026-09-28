@@ -4196,7 +4196,7 @@
             "schema": {
               "type": "string"
             },
-            "example": "screen,leds,scene,scene_ended",
+            "example": "scene_started,scene_ended,clip_started",
             "description": "Comma-separated: only these kinds. Every kind without it. An unknown kind is `400`"
           },
           {
@@ -4241,7 +4241,7 @@
                 "schema": {
                   "type": "string"
                 },
-                "example": "retry: 3000\n\nevent: leds\ndata: {\"event\":\"leds\",\"state\":{\"mode\":\"flicker\",\"colour\":\"#4da6ff\",\"loop\":false,\"brightness\":30,\"count\":16,\"gpio\":16}}\n\nevent: scene\ndata: {\"event\":\"scene\",\"state\":{\"name\":\"message\",\"then\":\"restore\",\"until_clip_ends\":true,\"remaining_s\":null}}\n\nevent: clip_ended\nid: 41\ndata: {\"event\":\"clip_ended\",\"seq\":41,\"t_ms\":812340,\"path\":\"/clips/leia.mov\",\"finished\":true}\n\nevent: scene_ended\nid: 42\ndata: {\"event\":\"scene_ended\",\"seq\":42,\"t_ms\":812345,\"name\":\"message\",\"then\":\"restore\",\"by\":\"clip\"}\n\n"
+                "example": "retry: 3000\n\nevent: leds\ndata: {\"event\":\"leds\",\"state\":{\"mode\":\"flicker\",\"colour\":\"#4da6ff\",\"loop\":false,\"brightness\":30,\"count\":16,\"gpio\":16}}\n\nevent: scene\ndata: {\"event\":\"scene\",\"state\":{\"name\":\"message\",\"then\":\"restore\",\"until_clip_ends\":true,\"remaining_s\":null}}\n\nevent: clip_started\nid: 40\ndata: {\"event\":\"clip_started\",\"seq\":40,\"t_ms\":801200,\"path\":\"/clips/leia.mov\",\"loop\":false,\"plays\":1,\"frames\":330,\"fps\":30}\n\nevent: clip_ended\nid: 41\ndata: {\"event\":\"clip_ended\",\"seq\":41,\"t_ms\":812340,\"path\":\"/clips/leia.mov\",\"finished\":true}\n\nevent: scene_ended\nid: 42\ndata: {\"event\":\"scene_ended\",\"seq\":42,\"t_ms\":812345,\"name\":\"message\",\"then\":\"restore\",\"by\":\"clip\"}\n\n"
               },
               "application/json": {
                 "schema": {
@@ -4251,6 +4251,16 @@
                   "seq": 42,
                   "lost": 0,
                   "events": [
+                    {
+                      "event": "clip_started",
+                      "seq": 40,
+                      "t_ms": 801200,
+                      "path": "/clips/leia.mov",
+                      "loop": false,
+                      "plays": 1,
+                      "frames": 330,
+                      "fps": 30
+                    },
                     {
                       "event": "clip_ended",
                       "seq": 41,
@@ -6946,12 +6956,14 @@
           "seq",
           "t_ms"
         ],
-        "description": "Something that happened. `seq` numbers happenings from 1, going back to 1 after 65535, so a gap is a missed one (among the kinds a client follows, a gap means one of another kind, or a missed one: `?after=` with its `kinds` says which); the board keeps the last 32. Its other fields depend on `event` (ClipEnded, SceneEnded, Touch). A client ignores events and fields it doesn't know.",
+        "description": "Something that happened. `seq` numbers happenings from 1, going back to 1 after 65535, so a gap is a missed one (among the kinds a client follows, a gap means one of another kind, or a missed one: `?after=` with its `kinds` says which); the board keeps the last 32. Its other fields depend on `event` (ClipStarted, ClipEnded, SceneStarted, SceneEnded, Touch). A client ignores events and fields it doesn't know.",
         "properties": {
           "event": {
             "type": "string",
             "examples": [
+              "clip_started",
               "clip_ended",
+              "scene_started",
               "scene_ended",
               "touch"
             ]
@@ -7041,7 +7053,7 @@
             }
           }
         ],
-        "description": "A scene running to its end (one with a `then`) ended"
+        "description": "A scene running to its end (one with a `then`) ended. It comes before what its `then` does"
       },
       "Touch": {
         "allOf": [
@@ -7133,7 +7145,13 @@
             "items": {
               "oneOf": [
                 {
+                  "$ref": "#/components/schemas/ClipStarted"
+                },
+                {
                   "$ref": "#/components/schemas/ClipEnded"
+                },
+                {
+                  "$ref": "#/components/schemas/SceneStarted"
                 },
                 {
                   "$ref": "#/components/schemas/SceneEnded"
@@ -7158,6 +7176,8 @@
                 "clip_ended",
                 "scene_ended",
                 "touch",
+                "clip_started",
+                "scene_started",
                 "screen",
                 "leds",
                 "holo",
@@ -7453,6 +7473,8 @@
                 "clip_ended",
                 "scene_ended",
                 "touch",
+                "clip_started",
+                "scene_started",
                 "screen",
                 "leds",
                 "holo",
@@ -7575,6 +7597,8 @@
                 "clip_ended",
                 "scene_ended",
                 "touch",
+                "clip_started",
+                "scene_started",
                 "screen",
                 "leds",
                 "holo",
@@ -7595,6 +7619,96 @@
           }
         },
         "minProperties": 1
+      },
+      "ClipStarted": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Happening"
+          },
+          {
+            "type": "object",
+            "required": [
+              "path",
+              "loop",
+              "plays",
+              "frames",
+              "fps"
+            ],
+            "properties": {
+              "event": {
+                "const": "clip_started"
+              },
+              "path": {
+                "type": "string",
+                "description": "From the root of the volume"
+              },
+              "loop": {
+                "type": "boolean",
+                "description": "It plays forever"
+              },
+              "plays": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Times through in all; 0 forever"
+              },
+              "frames": {
+                "type": "integer",
+                "description": "In one pass, from its header"
+              },
+              "fps": {
+                "type": "number"
+              }
+            }
+          }
+        ],
+        "description": "A clip or animation started, whoever started it: the API, the console, the host link, or a scene (whose clip starts just before its `scene_started`)"
+      },
+      "SceneStarted": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Happening"
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "then",
+              "until_clip_ends"
+            ],
+            "properties": {
+              "event": {
+                "const": "scene_started"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 255,
+                "description": "Its slot, when it has one"
+              },
+              "then": {
+                "type": "string",
+                "enum": [
+                  "stay",
+                  "restore",
+                  "off"
+                ],
+                "description": "What it does at its end. Only a scene other than `stay` is watched to its end, and has a `scene_ended`"
+              },
+              "until_clip_ends": {
+                "type": "boolean",
+                "description": "It ends when its clip has played"
+              },
+              "duration_s": {
+                "type": "number",
+                "description": "It ends after this long, when it has one"
+              }
+            }
+          }
+        ],
+        "description": "A scene was applied, saved or given whole"
       }
     }
   }

@@ -47,7 +47,7 @@ LED_MODES = ["off", "solid", "wipe", "rainbow", "flicker"]
 MOTIONS = ["center", "move", "nudge", "twitch", "wag", "nod", "scan", "circle", "stop", "off"]
 SHOWING = ["nothing", "colour", "calibration", "image", "clip"]
 HOLO = ["hold", "move", "twitch", "wag", "nod", "scan", "circle"]
-KINDS = {1: "clip_ended", 2: "scene_ended", 3: "touch", 15: "ready"}
+KINDS = {1: "clip_ended", 2: "scene_ended", 3: "touch", 4: "clip_started", 5: "scene_started", 15: "ready"}
 
 
 def crc16(data: bytes) -> int:
@@ -101,6 +101,11 @@ def event_record(r: bytes) -> dict:
     elif kind == "scene_ended":
         e.update(slot=r[3] or None, then=["stay", "restore", "off"][r[4]] if r[4] < 3 else r[4],
                  by=["clip", "time", "end", "replaced"][r[5]] if r[5] < 4 else r[5])
+    elif kind == "clip_started":
+        e.update(loop=bool(r[3]), plays=r[4], frames=r[5] | r[6] << 8, fps=r[7])
+    elif kind == "scene_started":
+        e.update(slot=r[3] or None, then=["stay", "restore", "off"][r[4]] if r[4] < 3 else r[4],
+                 until_clip_ends=bool(r[5]), duration_s=(r[6] | r[7] << 8) or None)
     elif kind == "touch":
         e.update(action="up" if r[3] else "down", x=r[4], y=r[5])
     elif kind == "ready":
@@ -161,7 +166,7 @@ def native_payload(words: list[str]) -> tuple[int, bytes]:
         return t, struct.pack("<BbbHBB", m, x, y, num[2] if len(num) > 2 else 0,
                               num[3] if len(num) > 3 else 0, num[4] if len(num) > 4 else 0)
     if name == "events-set":
-        # events-set <mask> [push]
+        # events-set <mask> [push]: bit 0 clip_ended, 1 scene_ended, 2 touch, 3 clip_started, 4 scene_started
         return t, bytes([num[0], 1 if "push" in args else 0])
     if name == "events-get":
         return t, struct.pack("<H", num[0] if num else 0)

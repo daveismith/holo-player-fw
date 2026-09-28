@@ -6,9 +6,12 @@
  * A task of its own does the ending: the player tells of a clip's end from its own task, which
  * may not call back into the player, and putting things back can mean decoding an image.
  *
- * Events (components `events`): `clip_ended` for every clip that stops, `scene_ended` for a
- * watched scene that ends -- its clip done, its time up, ended, or replaced -- and `scene` (the
- * state: which one is watched) whenever that changes.
+ * Events (components `events`): `clip_started` and `clip_ended` for every clip or animation that
+ * starts and stops, whoever started it; `scene_started` for every scene applied, and
+ * `scene_ended` for a watched scene that ends -- its clip done, its time up, ended, or replaced;
+ * and `scene` (the state: which one is watched) whenever that changes. A scene's own clip starts
+ * as its screen part is applied, so its `clip_started` comes before its `scene_started`; at its
+ * end, `scene_ended` comes before what its `then` starts.
  */
 #include <math.h>
 #include <stdio.h>
@@ -214,13 +217,45 @@ static void runner_task(void *arg)
             }
         }
         xSemaphoreGive(s_lock);
-        if (end) {
-            finish(then, &snap, name);
-        }
+        /* The end first, then what it does: the restored clip's clip_started after scene_ended */
         if (by != NULL) {
             publish_end(name, slot, then, by);
         }
+        if (end) {
+            finish(then, &snap, name);
+        }
     }
+}
+
+static void on_clip_start(const char *path, int plays, uint32_t frames, double fps, void *ctx)
+{
+    (void)ctx;
+    char rel[FS_ABS_MAX];
+    fs_rel(path, rel, sizeof(rel));
+    cJSON *f = cJSON_CreateObject();
+    cJSON_AddStringToObject(f, "path", rel);
+    cJSON_AddBoolToObject(f, "loop", plays == 0);
+    cJSON_AddNumberToObject(f, "plays", plays);
+    cJSON_AddNumberToObject(f, "frames", frames);
+    cJSON_AddNumberToObject(f, "fps", (double)(int)(fps * 100 + 0.5) / 100);
+    events_happened("clip_started", f);
+}
+
+/* A scene applied: every one, whether it is watched to an end or not */
+static void publish_start(const cJSON *scene, scene_then_t then, bool until_clip, const cJSON *dur)
+{
+    cJSON *f = cJSON_CreateObject();
+    cJSON_AddStringToObject(f, "name", cJSON_GetObjectItem(scene, "name")->valuestring);
+    const cJSON *slot = cJSON_GetObjectItem(scene, "slot");
+    if (cJSON_IsNumber(slot)) {
+        cJSON_AddNumberToObject(f, "slot", slot->valueint);
+    }
+    cJSON_AddStringToObject(f, "then", SCENE_THEN_NAMES[then]);
+    cJSON_AddBoolToObject(f, "until_clip_ends", then != SCENE_THEN_STAY && until_clip);
+    if (cJSON_IsNumber(dur) && then != SCENE_THEN_STAY) {
+        cJSON_AddNumberToObject(f, "duration_s", dur->valuedouble);
+    }
+    events_happened("scene_started", f);
 }
 
 static void on_clip_end(const char *path, bool finished, void *ctx)
@@ -249,8 +284,11 @@ esp_err_t scenes_start(void)
         xTaskCreate(runner_task, "scene", STACK, NULL, 4, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+    events_declare("clip_started", NULL);
     events_declare("clip_ended", NULL);
+    events_declare("scene_started", NULL);
     events_declare("scene_ended", NULL);
+    screen_set_start_hook(on_clip_start, NULL);
     screen_set_end_hook(on_clip_end, NULL);
     return ESP_OK;
 }
@@ -325,6 +363,9 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     }
 
     err = scene_apply_parts(scene, why, why_len);
+    if (err == SCENE_OK) {
+        publish_start(scene, then, clip[0] != '\0', dur);
+    }
     if (err != SCENE_OK || then == SCENE_THEN_STAY) {
         cJSON_Delete(once);
         return err;
@@ -382,8 +423,8 @@ scene_err_t scene_end(char *why, size_t why_len)
     }
     xSemaphoreGive(s_lock);
     if (on) {
-        finish(then, &snap, name);
         publish_end(name, slot, then, "end");
+        finish(then, &snap, name);
     } else {
         snprintf(why, why_len, "no scene is running to its end");
     }

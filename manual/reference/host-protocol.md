@@ -135,7 +135,9 @@ milliseconds):
 
 | Event | When | Fields |
 |---|---|---|
+| `clip_started` | A clip or animation has started, whoever started it | `path`, from the root of the storage volume; `loop`; `plays`: times through, 0 for forever; `frames` and `fps`, from its header |
 | `clip_ended` | A clip or animation has stopped | `path`, from the root of the storage volume; `finished`: `true` when it played to its end, `false` when something replaced or stopped it |
+| `scene_started` | A scene has been applied, saved or given whole | `name`; `slot`, when it has one; `then`: `stay`, `restore` or `off`; `until_clip_ends`: it ends when its clip has played; `duration_s`, when it has one |
 | `scene_ended` | A scene running to its end has ended | `name`; `slot`, when it has one; `then`: what it does at its end; `by`: `clip` (its clip played), `time` (its `duration_s` was up), `end` (`POST /scenes/end`), or `replaced` (another scene or clip took over, and its `then` wasn't done) |
 | `touch` | The screen was touched, or let go. Only while touch reporting is on (`touch on`) | `action`: `down` or `up`; `x`, `y`: 0–239 |
 
@@ -152,6 +154,12 @@ In JSON lines an event is a line that starts with `!` and a space:
 ! {"event":"scene_ended","seq":41,"t_ms":812345,"name":"message","slot":3,"then":"restore","by":"clip"}
 ! {"event":"leds","state":{"mode":"solid","colour":"#ffa500","loop":false,"brightness":30,"count":16,"gpio":16}}
 ```
+
+**In what order.** A scene's clip starts as the scene is applied, so its `clip_started` comes
+just before its `scene_started`. At its end, `scene_ended` comes first, then whatever its `then`
+does: with `restore`, the scene's `clip_ended` and the earlier clip's `clip_started`. A scene
+with `then: stay` (the default) has a `scene_started` but never a `scene_ended`: nothing watches
+for its end.
 
 A host reading line by line can sort every line by its first character: `!` is an event, `@` or
 `#` or a digit is a reply.
@@ -306,7 +314,8 @@ only on UART, where it's the only board on the wire.
   The motion's other settings take their defaults. `POST /holo/motion` over JSON lines has them
   all.
 - **`EVENTS_SET`**:
-  - `kinds`: a bit for each event, bit 0 `clip_ended`, bit 1 `scene_ended`, bit 2 `touch`;
+  - `kinds`: a bit for each event, bit 0 `clip_ended`, bit 1 `scene_ended`, bit 2 `touch`,
+    bit 3 `clip_started`, bit 4 `scene_started`;
   - `push`: 1 to send events as they happen (UART only), 0 to keep them.
 
   The reply's `seq` is the latest event's number.
@@ -339,7 +348,7 @@ bytes:
 
 | Bytes | Field |
 |---|---|
-| 0 | `kind`: 1 `clip_ended`, 2 `scene_ended`, 3 `touch`, 15 `ready` |
+| 0 | `kind`: 1 `clip_ended`, 2 `scene_ended`, 3 `touch`, 4 `clip_started`, 5 `scene_started`, 15 `ready` |
 | 1–2 | `seq` (0 for `ready`, which isn't numbered) |
 | 3–7 | By kind, below. Unused bytes are 0 |
 
@@ -347,6 +356,8 @@ bytes:
 |---|---|
 | 1 `clip_ended` | `finished` u8 (the path is only in JSON) |
 | 2 `scene_ended` | `slot` u8 (0 for none), `then` u8 (0 stay, 1 restore, 2 off), `by` u8 (0 clip, 1 time, 2 end, 3 replaced) |
+| 4 `clip_started` | `loop` u8, `plays` u8 (0 forever; at most 255), `frames` u16, `fps` u8 (rounded; the path is only in JSON) |
+| 5 `scene_started` | `slot` u8 (0 for none), `then` u8 (0 stay, 1 restore, 2 off), `until_clip_ends` u8, `duration_s` u16 (whole seconds, rounded up; 0 for none) |
 | 3 `touch` | `action` u8 (0 down, 1 up), `x` u8, `y` u8 |
 | 15 `ready` | `protocol` u8, `address` u8 |
 
