@@ -57,6 +57,7 @@ static QueueHandle_t s_queue;
 static struct {
     bool on;
     char name[SCENE_NAME_MAX + 1];
+    int slot;                   /* 0 for none */
     scene_then_t then;
     char clip[FS_ABS_MAX];      /* ends when this finishes; "" for none */
     int64_t until_us;           /* or at this time; 0 for none */
@@ -155,10 +156,13 @@ static void finish(scene_then_t then, const snapshot_t *snap, const char *name)
 }
 
 /* A watched scene is over: `by` is clip, time, end or replaced (when its `then` was not done). */
-static void publish_end(const char *name, scene_then_t then, const char *by)
+static void publish_end(const char *name, int slot, scene_then_t then, const char *by)
 {
     cJSON *f = cJSON_CreateObject();
     cJSON_AddStringToObject(f, "name", name);
+    if (slot > 0) {
+        cJSON_AddNumberToObject(f, "slot", slot);
+    }
     cJSON_AddStringToObject(f, "then", SCENE_THEN_NAMES[then]);
     cJSON_AddStringToObject(f, "by", by);
     events_happened("scene_ended", f);
@@ -181,6 +185,7 @@ static void runner_task(void *arg)
         clip_end_t ev;
         const bool got = xQueueReceive(s_queue, &ev, wait) == pdTRUE;
         char name[SCENE_NAME_MAX + 1];
+        int slot = 0;
         scene_then_t then = SCENE_THEN_STAY;
         bool end = false;
         const char *by = NULL;
@@ -205,6 +210,7 @@ static void runner_task(void *arg)
                 then = s_run.then;
                 snap = s_run.snap;
                 strlcpy(name, s_run.name, sizeof(name));
+                slot = s_run.slot;
             }
         }
         xSemaphoreGive(s_lock);
@@ -212,7 +218,7 @@ static void runner_task(void *arg)
             finish(then, &snap, name);
         }
         if (by != NULL) {
-            publish_end(name, then, by);
+            publish_end(name, slot, then, by);
         }
     }
 }
@@ -298,6 +304,7 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     static snapshot_t snap;
     char before[SCENE_NAME_MAX + 1] = "";
     scene_then_t before_then = SCENE_THEN_STAY;
+    int before_slot = 0;
     xSemaphoreTake(s_lock, portMAX_DELAY);
     const bool inherit = s_run.on && s_run.then == SCENE_THEN_RESTORE && then == SCENE_THEN_RESTORE;
     if (inherit) {
@@ -306,11 +313,12 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     if (s_run.on) {
         strlcpy(before, s_run.name, sizeof(before));
         before_then = s_run.then;
+        before_slot = s_run.slot;
     }
     s_run.on = false;               /* any scene before this one is over */
     xSemaphoreGive(s_lock);
     if (before[0] != '\0') {
-        publish_end(before, before_then, "replaced");
+        publish_end(before, before_slot, before_then, "replaced");
     }
     if (then == SCENE_THEN_RESTORE && !inherit) {
         take_snapshot(&snap);
@@ -326,6 +334,8 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     s_run.on = true;
     strlcpy(s_run.name, cJSON_GetObjectItem(scene, "name")->valuestring, sizeof(s_run.name));
     s_run.then = then;
+    const cJSON *slot = cJSON_GetObjectItem(scene, "slot");
+    s_run.slot = cJSON_IsNumber(slot) ? slot->valueint : 0;
     strlcpy(s_run.clip, clip, sizeof(s_run.clip));
     s_run.until_us = dur != NULL ? esp_timer_get_time() + (int64_t)(dur->valuedouble * 1e6) : 0;
     s_run.snap = snap;
@@ -343,6 +353,7 @@ bool scene_active(scene_active_t *out)
     const bool on = s_run.on;
     if (on) {
         strlcpy(out->name, s_run.name, sizeof(out->name));
+        out->slot = s_run.slot;
         out->then = s_run.then;
         out->clip = s_run.clip[0] != '\0';
         out->remaining_s = s_run.until_us != 0 ? (double)(s_run.until_us - esp_timer_get_time()) / 1e6 : -1;
@@ -358,6 +369,7 @@ scene_err_t scene_end(char *why, size_t why_len)
 {
     static snapshot_t snap;
     char name[SCENE_NAME_MAX + 1];
+    int slot = 0;
     xSemaphoreTake(s_apply, portMAX_DELAY);
     xSemaphoreTake(s_lock, portMAX_DELAY);
     const bool on = s_run.on;
@@ -366,11 +378,12 @@ scene_err_t scene_end(char *why, size_t why_len)
         s_run.on = false;
         snap = s_run.snap;
         strlcpy(name, s_run.name, sizeof(name));
+        slot = s_run.slot;
     }
     xSemaphoreGive(s_lock);
     if (on) {
         finish(then, &snap, name);
-        publish_end(name, then, "end");
+        publish_end(name, slot, then, "end");
     } else {
         snprintf(why, why_len, "no scene is running to its end");
     }

@@ -37,7 +37,7 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
     for (const cJSON *k = scene->child; k != NULL; k = k->next) {
         if (strcmp(k->string, "name") && strcmp(k->string, "description") && strcmp(k->string, "screen") &&
             strcmp(k->string, "leds") && strcmp(k->string, "holo") && strcmp(k->string, "then") &&
-            strcmp(k->string, "duration_s")) {
+            strcmp(k->string, "duration_s") && strcmp(k->string, "slot")) {
             snprintf(why, why_len, "unknown field `%s`", k->string);
             return SCENE_BAD;
         }
@@ -55,6 +55,12 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len)
     const cJSON *then = cJSON_GetObjectItem(scene, "then");
     if (then != NULL && scene_then_of(then) < 0) {
         snprintf(why, why_len, "`then` is stay, restore or off");
+        return SCENE_BAD;
+    }
+    const cJSON *slot = cJSON_GetObjectItem(scene, "slot");
+    if (slot != NULL && !(cJSON_IsNumber(slot) && slot->valuedouble >= 1 && slot->valuedouble <= SCENE_SLOT_MAX &&
+                          slot->valuedouble == (int)slot->valuedouble)) {
+        snprintf(why, why_len, "`slot` is a whole number, 1..%d", SCENE_SLOT_MAX);
         return SCENE_BAD;
     }
     const cJSON *dur = cJSON_GetObjectItem(scene, "duration_s");
@@ -119,16 +125,16 @@ scene_err_t scene_apply_parts(const cJSON *scene, char *why, size_t why_len)
 
 /* ------------------------------------------------------------------ storage */
 
-static void slot_key(int i, char key[8])
+static void idx_key(int i, char key[8])
 {
     snprintf(key, 8, "scn%d", i);
 }
 
 /* Slot i's scene, or NULL. */
-static cJSON *load_slot(nvs_handle_t h, int i)
+static cJSON *load_idx(nvs_handle_t h, int i)
 {
     char key[8];
-    slot_key(i, key);
+    idx_key(i, key);
     size_t len = 0;
     if (nvs_get_str(h, key, NULL, &len) != ESP_OK || len == 0 || len > SCENE_JSON_MAX + 1) {
         return NULL;
@@ -146,11 +152,11 @@ static cJSON *load_slot(nvs_handle_t h, int i)
     return scene;
 }
 
-/* The slot holding `name` (and its scene, if `out`), or -1. */
+/* The NVS entry holding `name` (and its scene, if `out`), or -1. */
 static int find(nvs_handle_t h, const char *name, cJSON **out)
 {
     for (int i = 0; i < SCENE_MAX; i++) {
-        cJSON *s = load_slot(h, i);
+        cJSON *s = load_idx(h, i);
         if (s != NULL && strcmp(cJSON_GetObjectItem(s, "name")->valuestring, name) == 0) {
             if (out != NULL) {
                 *out = s;
@@ -176,6 +182,21 @@ cJSON *scene_load(const char *name)
     return scene;
 }
 
+cJSON *scene_load_slot(int slot)
+{
+    cJSON *all = scene_load_all();
+    cJSON *found = NULL;
+    const cJSON *s;
+    cJSON_ArrayForEach(s, all) {
+        const cJSON *n = cJSON_GetObjectItem(s, "slot");
+        if (found == NULL && cJSON_IsNumber(n) && n->valueint == slot) {
+            found = cJSON_Duplicate(s, true);
+        }
+    }
+    cJSON_Delete(all);
+    return found;
+}
+
 cJSON *scene_load_all(void)
 {
     cJSON *all = cJSON_CreateArray();
@@ -184,7 +205,7 @@ cJSON *scene_load_all(void)
         return all;
     }
     for (int i = 0; i < SCENE_MAX; i++) {
-        cJSON *s = load_slot(h, i);
+        cJSON *s = load_idx(h, i);
         if (s != NULL) {
             cJSON_AddItemToArray(all, s);
         }
@@ -212,24 +233,42 @@ scene_err_t scene_store(const cJSON *scene, bool *replaced, char *why, size_t wh
         snprintf(why, why_len, "cannot open the settings: %s", esp_err_to_name(e));
         return SCENE_FAILED;
     }
-    int slot = find(h, cJSON_GetObjectItem(scene, "name")->valuestring, NULL);
-    *replaced = slot >= 0;
-    for (int i = 0; slot < 0 && i < SCENE_MAX; i++) {
-        char key[8];
-        size_t len = 0;
-        slot_key(i, key);
-        if (nvs_get_str(h, key, NULL, &len) != ESP_OK) {
-            slot = i;
+    const char *name = cJSON_GetObjectItem(scene, "name")->valuestring;
+    const cJSON *slot = cJSON_GetObjectItem(scene, "slot");
+    for (int i = 0; slot != NULL && i < SCENE_MAX; i++) {
+        cJSON *other = load_idx(h, i);
+        const cJSON *on = cJSON_GetObjectItem(other, "name");
+        const cJSON *os = cJSON_GetObjectItem(other, "slot");
+        const bool taken = cJSON_IsNumber(os) && os->valueint == slot->valueint && cJSON_IsString(on) &&
+                           strcmp(on->valuestring, name) != 0;
+        if (taken) {
+            snprintf(why, why_len, "slot %d is taken by '%s'", slot->valueint, on->valuestring);
+        }
+        cJSON_Delete(other);
+        if (taken) {
+            nvs_close(h);
+            cJSON_free(text);
+            return SCENE_TAKEN;
         }
     }
-    if (slot < 0) {
+    int idx = find(h, name, NULL);
+    *replaced = idx >= 0;
+    for (int i = 0; idx < 0 && i < SCENE_MAX; i++) {
+        char key[8];
+        size_t len = 0;
+        idx_key(i, key);
+        if (nvs_get_str(h, key, NULL, &len) != ESP_OK) {
+            idx = i;
+        }
+    }
+    if (idx < 0) {
         nvs_close(h);
         cJSON_free(text);
         snprintf(why, why_len, "%d scenes are saved; delete one first", SCENE_MAX);
         return SCENE_FULL;
     }
     char key[8];
-    slot_key(slot, key);
+    idx_key(idx, key);
     e = nvs_set_str(h, key, text);
     if (e == ESP_OK) {
         e = nvs_commit(h);
@@ -250,15 +289,15 @@ scene_err_t scene_remove(const char *name)
     if (nvs_open(NVS_NS, NVS_READWRITE, &h) != ESP_OK) {
         return SCENE_MISSING;
     }
-    const int slot = find(h, name, NULL);
-    if (slot >= 0) {
+    const int idx = find(h, name, NULL);
+    if (idx >= 0) {
         char key[8];
-        slot_key(slot, key);
+        idx_key(idx, key);
         nvs_erase_key(h, key);
         nvs_commit(h);
     }
     nvs_close(h);
-    if (slot < 0) {
+    if (idx < 0) {
         return SCENE_MISSING;
     }
     events_changed("scenes");
@@ -282,6 +321,56 @@ static void join(int argc, char **argv, int from, char *out, size_t len)
     }
 }
 
+/* scene slot <name> [<1-255>|--clear]: a name may have spaces, so the number is the last word */
+static int cmd_slot(int argc, char **argv)
+{
+    const char *last = argv[argc - 1];
+    char *end = NULL;
+    const long n = strtol(last, &end, 10);
+    const bool clear = strcmp(last, "--clear") == 0;
+    const bool set = clear || (*end == '\0' && end != last);
+    char name[64];
+    join(set ? argc - 1 : argc, argv, 2, name, sizeof(name));
+    cJSON *scene = scene_load(name);
+    if (scene == NULL) {
+        printf("scene: no scene '%s'\n", name);
+        return 1;
+    }
+    if (!set) {
+        const cJSON *sl = cJSON_GetObjectItem(scene, "slot");
+        if (cJSON_IsNumber(sl)) {
+            printf("'%s' is slot %d\n", name, sl->valueint);
+        } else {
+            printf("'%s' has no slot\n", name);
+        }
+        cJSON_Delete(scene);
+        return 0;
+    }
+    if (!clear && (n < 1 || n > SCENE_SLOT_MAX)) {
+        printf("scene: a slot is 1..%d\n", SCENE_SLOT_MAX);
+        cJSON_Delete(scene);
+        return 1;
+    }
+    cJSON_DeleteItemFromObject(scene, "slot");
+    if (!clear) {
+        cJSON_AddNumberToObject(scene, "slot", n);
+    }
+    bool replaced;
+    char why[128];
+    const scene_err_t err = scene_store(scene, &replaced, why, sizeof(why));
+    cJSON_Delete(scene);
+    if (err != SCENE_OK) {
+        printf("scene: %s\n", why);
+        return 1;
+    }
+    if (clear) {
+        printf("'%s' has no slot\n", name);
+    } else {
+        printf("'%s' is slot %ld\n", name, n);
+    }
+    return 0;
+}
+
 static int cmd_scene(int argc, char **argv)
 {
     const char *sub = argc > 1 ? argv[1] : "list";
@@ -297,7 +386,12 @@ static int cmd_scene(int argc, char **argv)
         cJSON_ArrayForEach(s, all) {
             const char *nm = cJSON_GetObjectItem(s, "name")->valuestring;
             const cJSON *d = cJSON_GetObjectItem(s, "description");
-            printf("%s%s%s%s\n", nm, strcmp(nm, st.boot_scene) == 0 ? " (at start)" : "",
+            const cJSON *sl = cJSON_GetObjectItem(s, "slot");
+            char num[8] = "";
+            if (cJSON_IsNumber(sl)) {
+                snprintf(num, sizeof(num), "[%d] ", sl->valueint);
+            }
+            printf("%s%s%s%s%s\n", num, nm, strcmp(nm, st.boot_scene) == 0 ? " (at start)" : "",
                    cJSON_IsString(d) ? ": " : "", cJSON_IsString(d) ? d->valuestring : "");
             n++;
         }
@@ -341,8 +435,12 @@ static int cmd_scene(int argc, char **argv)
         printf(clear ? "the board starts with nothing\n" : "the board starts with '%s'\n", name);
         return 0;
     }
+    if (strcmp(sub, "slot") == 0 && argc >= 3) {
+        return cmd_slot(argc, argv);
+    }
     if (argc < 3 || (strcmp(sub, "show") && strcmp(sub, "apply") && strcmp(sub, "delete"))) {
-        printf("usage: scene [list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear]\n");
+        printf("usage: scene [list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear] | "
+               "slot <name> [<1-255>|--clear]\n");
         return 1;
     }
     if (strcmp(sub, "delete") == 0) {
@@ -381,9 +479,11 @@ void scene_register_commands(void)
     const esp_console_cmd_t cmd = {
         .command = "scene",
         .help = "Saved scenes -- what the screen, the LEDs and the holo do together: list them, show one, apply "
-                "it, end the one running (doing what it does when it ends), delete one, or choose the one the "
-                "board starts with. They are made with the HTTP API or the web app.",
-        .hint = "[list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear]",
+                "it, end the one running (doing what it does when it ends), delete one, choose the one the "
+                "board starts with, or give one the slot number a host applies it by. They are made with the "
+                "HTTP API or the web app.",
+        .hint = "[list] | show <name> | apply <name> | end | delete <name> | boot [<name>|--clear] | "
+                "slot <name> [<1-255>|--clear]",
         .func = cmd_scene,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));

@@ -2927,7 +2927,8 @@
                     "holo": {
                       "motion": "twitch",
                       "range": 50
-                    }
+                    },
+                    "slot": 1
                   }
                 },
                 "message": {
@@ -3055,15 +3056,25 @@
             "$ref": "#/components/responses/ForbiddenHost"
           },
           "409": {
-            "description": "Sixteen scenes are saved already",
+            "description": "Sixteen scenes are saved already, or another scene has its slot",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "error": "full",
-                  "message": "16 scenes are saved; delete one first"
+                "examples": {
+                  "full": {
+                    "value": {
+                      "error": "full",
+                      "message": "16 scenes are saved; delete one first"
+                    }
+                  },
+                  "slot": {
+                    "value": {
+                      "error": "slot_taken",
+                      "message": "slot 3 is taken by 'cantina'"
+                    }
+                  }
                 }
               }
             }
@@ -6405,7 +6416,7 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 255,
-            "description": "A number for the scene, for the host link's native frames and small controllers, which apply it by number instead of by name. Unique: two scenes can't share one. *Planned: not in the firmware yet.*"
+            "description": "A number for the scene, 1..255, that small controllers on the host link apply it by instead of its name. Unique: saving a slot another scene has is `409 slot_taken`."
           }
         },
         "description": "Each part is optional: a part left out leaves that alone. A scene with only `leds` is an LED preset. A scene ends when its clip has played (once, or its `loops`), or after `duration_s`; `then` is what happens next. Applying another scene, or showing something else in place of its clip, ends it without `then`."
@@ -6928,7 +6939,7 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 255,
-            "description": "Its slot, when it has one. *Planned: not in the firmware yet.*"
+            "description": "Its slot, when it has one"
           }
         }
       },
@@ -7029,7 +7040,7 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 255,
-                "description": "The scene's slot, when it has one. *Planned: not in the firmware yet.*"
+                "description": "The scene's slot, when it has one"
               }
             }
           }

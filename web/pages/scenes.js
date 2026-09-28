@@ -24,6 +24,7 @@ function summary(scene) {
 function sceneOf(form) {
   const scene = { name: form.name.value.trim() };
   if (form.description.value.trim()) scene.description = form.description.value.trim();
+  if (form.slot.value) scene.slot = Number(form.slot.value);
   if (form.useScreen.checked) {
     const kind = form.screenKind.value;
     if (kind === "file") {
@@ -105,7 +106,7 @@ export default {
       listBox.replaceChildren(newBtn, ...scenes.map((scene) => {
         const boot = settings?.boot_scene === scene.name;
         return h("section", { class: "card" },
-          h("h2", {}, scene.name, boot ? chip("at start", "primary") : null),
+          h("h2", {}, scene.name, scene.slot ? chip(`slot ${scene.slot}`) : null, boot ? chip("at start", "primary") : null),
           scene.description ? h("p", {}, scene.description) : null,
           h("div", { class: "chips" }, summary(scene).map((p) => chip(p))),
           h("div", { class: "actions" },
@@ -129,6 +130,7 @@ export default {
       const f = {};
       f.name = h("input", { type: "text", value: s.name, maxlength: 32, required: true, disabled: Boolean(scene), autocomplete: "off" });
       f.description = h("input", { type: "text", value: s.description ?? "", maxlength: 120 });
+      f.slot = h("input", { type: "number", min: 1, max: 255, step: 1, value: s.slot ?? "", placeholder: "none" });
 
       // screen
       f.useScreen = h("input", { type: "checkbox", checked: Boolean(s.screen) });
@@ -209,7 +211,8 @@ export default {
 
       const card = h("section", { class: "card" },
         h("h2", {}, scene ? `Edit ${scene.name}` : "New scene"),
-        h("div", { class: "fields" }, field("Name", f.name, scene ? null : "Letters, digits, spaces, _ . and -"), field("Description", f.description)),
+        h("div", { class: "fields" }, field("Name", f.name, scene ? null : "Letters, digits, spaces, _ . and -"), field("Description", f.description),
+          field("Slot", f.slot, "1-255: the number a controller on the host link applies it by")),
         h("div", { class: "actions" }, fill),
         part("The screen", f.useScreen, field("Show", f.screenKind), screenFields),
         part("The LEDs", f.useLeds, h("div", { class: "fields" }, field("Pattern", f.ledMode), field("Colour", f.ledColour), field("Brightness (%)", f.ledBright)),

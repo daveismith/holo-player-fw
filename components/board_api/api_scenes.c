@@ -18,6 +18,7 @@ api_reply_t api_scene_error(int err, const char *why)
     case SCENE_UNPLAYABLE: return api_error(422, "not_playable", "%s", why);
     case SCENE_NOT_READY:  return api_error(409, "not_ready", "%s", why);
     case SCENE_FULL:       return api_error(409, "full", "%s", why);
+    case SCENE_TAKEN:      return api_error(409, "slot_taken", "%s", why);
     default:               return api_error(500, "failed", "%s", why);
     }
 }
@@ -42,6 +43,9 @@ cJSON *api_active_scene_json(void)
     }
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "name", a.name);
+    if (a.slot > 0) {
+        cJSON_AddNumberToObject(o, "slot", a.slot);
+    }
     cJSON_AddStringToObject(o, "then", SCENE_THEN_NAMES[a.then]);
     cJSON_AddBoolToObject(o, "until_clip_ends", a.clip);
     if (a.remaining_s >= 0) {

@@ -93,7 +93,7 @@ Full detail in [The holoprojector](../use/holo.md).
 | `scene end` | End the scene running to its end now, doing what it does then (go back, or all off) |
 | `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
 | `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
-| `scene slot <name> [<1-255>\|--clear]` | The number the host link applies it by (planned) |
+| `scene slot <name> [<1-255>\|--clear]` | The number a host on the host link applies it by; alone, which it is |
 | `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |
 | `settings backlight <1-100>` | The backlight at start, and now |
 | `settings brightness <1-100>` | The LEDs' brightness at start, and now |

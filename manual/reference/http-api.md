@@ -218,6 +218,10 @@ curl "$B/scenes"
 curl -X DELETE "$B/scenes/scene?name=cantina"
 ```
 
+A scene can have a `slot`, a number from 1 to 255, which small controllers on the
+[host link](../use/host-link.md) apply it by instead of its name: `"slot": 3` in the scene. Two
+scenes can't share one: saving a slot another scene has is `409` `slot_taken`.
+
 `POST /api/v1/scenes/apply` also takes a scene that isn't saved, as `{"scene": {...}}`. It applies
 the screen, then the LEDs, then the holo, and a part that fails stops the rest, with an error
 naming it. The files a scene names are checked when it is applied, not when it is saved.
@@ -389,9 +393,6 @@ next restart, and `GET /api/v1/link/events` shows the happenings it hasn't given
 curl -X PATCH -H "$J" -d '{"kinds":["scene_ended","leds"],"push":true}' "$B/link/events"
 curl "$B/link/events"
 ```
-
-A scene can have a `slot`, a number from 1 to 255 that small controllers apply it by:
-`"slot": 3` in the scene.
 
 ## A show, scripted
 
@@ -571,7 +572,7 @@ until curl -fsS -m 2 "$B/info" 2>/dev/null; do sleep 2; done; echo
 | 404 | `not_found`, `no_such_slot`, `no_firmware`, `unknown_scene` | No such endpoint, file, servo, network, slot, scene, or firmware on that channel |
 | 409 | `busy`, `nothing_staged`, `cannot_discard`, `cancelled` | Another long operation is running, or the update session isn't in the state asked of it |
 | 409 | `not_running` | No scene is running to its end |
-| 409 | `exists`, `not_empty`, `full` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), or the list of scenes or networks |
+| 409 | `exists`, `not_empty`, `full`, `slot_taken` | Something is in the way: a file (`overwrite=true`), a directory's contents (`recursive=true`), the list of scenes or networks, or another scene's slot |
 | 409 | `not_ready` | The holo can't move now; the message says why |
 | 409 | `pin_in_use` | The host link can't have that pin: the board uses it for something else |
 | 411 | `length_required` | An upload without a `Content-Length` |
