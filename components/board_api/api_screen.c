@@ -6,11 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "fs_ops.h"
 #include "scenes.h"
 #include "video_player.h"
-#include "web_fs.h"
-#include "web_server.h"
-#include "api.h"
+#include "board_api.h"
 
 #define REL_MAX (FS_PATH_MAX + 8)
 
@@ -66,47 +65,38 @@ cJSON *api_screen_json(void)
 
 /* ------------------------------------------------------------------ /screen */
 
-static esp_err_t screen_get(httpd_req_t *req)
+static api_reply_t screen_get(const api_req_t *req)
 {
-    return web_send_json(req, 200, api_screen_json());
+    (void)req;
+    return api_json(200, api_screen_json());
 }
 
-static esp_err_t screen_patch(httpd_req_t *req)
+static api_reply_t screen_patch(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 256);
-    if (body == NULL) {
-        return ESP_OK;
-    }
+    const cJSON *body = req->body;
     const cJSON *bl = cJSON_GetObjectItem(body, "backlight");
     const bool only = body->child != NULL && body->child->next == NULL && bl != NULL;
-    const bool ok = only && cJSON_IsNumber(bl) && bl->valuedouble >= 0 && bl->valuedouble <= 100;
-    const int pct = ok ? (int)bl->valuedouble : 0;
-    cJSON_Delete(body);
-    if (!ok) {
-        return web_send_error(req, 400, "bad_request", "send {\"backlight\": 0-100}");
+    if (!(only && cJSON_IsNumber(bl) && bl->valuedouble >= 0 && bl->valuedouble <= 100)) {
+        return api_error(400, "bad_request", "send {\"backlight\": 0-100}");
     }
-    screen_set_backlight(pct);
-    return web_send_json(req, 200, api_screen_json());
+    screen_set_backlight((int)bl->valuedouble);
+    return api_json(200, api_screen_json());
 }
 
-static esp_err_t screen_delete(httpd_req_t *req)
+static api_reply_t screen_delete(const api_req_t *req)
 {
+    (void)req;
     screen_clear();
-    return web_send_json(req, 200, api_screen_json());
+    return api_json(200, api_screen_json());
 }
 
-static esp_err_t show_post(httpd_req_t *req)
+static api_reply_t show_post(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 512);
-    if (body == NULL) {
-        return ESP_OK;
-    }
     char why[128];
-    const scene_err_t err = cJSON_GetObjectItem(body, "clear") != NULL
+    const scene_err_t err = cJSON_GetObjectItem(req->body, "clear") != NULL
                                 ? (snprintf(why, sizeof(why), "DELETE /api/v1/screen shows nothing"), SCENE_BAD)
-                                : scene_do_screen(body, false, false, why, sizeof(why));
-    cJSON_Delete(body);
-    return err == SCENE_OK ? web_send_json(req, 200, api_screen_json()) : api_send_scene_error(req, err, why);
+                                : scene_do_screen(req->body, false, false, why, sizeof(why));
+    return err == SCENE_OK ? api_json(200, api_screen_json()) : api_scene_error(err, why);
 }
 
 /* ------------------------------------------------------------------ /media */
@@ -189,45 +179,47 @@ static int walk(const char *abs, cJSON *items, int depth)
     return err;
 }
 
-static esp_err_t media_get(httpd_req_t *req)
+static api_reply_t media_get(const api_req_t *req)
 {
     char rel[256];
-    if (!web_query(req, "path", rel, sizeof(rel)) || rel[0] == '\0') {
+    if (!api_query(req, "path", rel, sizeof(rel)) || rel[0] == '\0') {
         strlcpy(rel, "/", sizeof(rel));
     }
     char abs[FS_ABS_MAX];
-    if (!web_fs_resolve(req, rel, abs, sizeof(abs))) {
-        return ESP_OK;
+    api_reply_t bad;
+    if (!api_fs_path(rel, abs, sizeof(abs), &bad)) {
+        return bad;
     }
     cJSON *root = cJSON_CreateObject();
     cJSON *items = cJSON_AddArrayToObject(root, "items");
     const int err = walk(abs, items, 0);
     if (err != 0) {
         cJSON_Delete(root);
-        return web_fs_send_errno(req, err, abs);
+        return api_fs_errno(err, abs);
     }
-    return web_send_json(req, 200, root);
+    return api_json(200, root);
 }
 
-static esp_err_t media_info_get(httpd_req_t *req)
+static api_reply_t media_info_get(const api_req_t *req)
 {
     char rel[256];
-    web_query(req, "path", rel, sizeof(rel));
+    api_query(req, "path", rel, sizeof(rel));
     char abs[FS_ABS_MAX];
     if (rel[0] == '\0') {
-        return web_send_error(req, 400, "bad_request", "give `path`, from the root of the volume: /clips/intro.mov");
+        return api_error(400, "bad_request", "give `path`, from the root of the volume: /clips/intro.mov");
     }
-    if (!web_fs_resolve(req, rel, abs, sizeof(abs))) {
-        return ESP_OK;
+    api_reply_t bad;
+    if (!api_fs_path(rel, abs, sizeof(abs), &bad)) {
+        return bad;
     }
     fs_rel(abs, rel, sizeof(rel));
     media_info_t m;
     const esp_err_t err = media_probe(abs, &m);
     if (err == ESP_ERR_NOT_FOUND) {
-        return web_send_error(req, 404, "not_found", "no such file or directory: %s", rel);
+        return api_error(404, "not_found", "no such file or directory: %s", rel);
     }
     if (err != ESP_OK) {
-        return web_send_error(req, 422, "not_playable", "%s: %s", rel, m.why);
+        return api_error(422, "not_playable", "%s: %s", rel, m.why);
     }
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "path", rel);
@@ -247,20 +239,17 @@ static esp_err_t media_info_get(httpd_req_t *req)
     if (!m.playable) {
         cJSON_AddStringToObject(o, "why", m.why);
     }
-    return web_send_json(req, 200, o);
+    return api_json(200, o);
 }
 
 /* ------------------------------------------------------------------ */
 
-esp_err_t api_screen_register(void)
-{
-    web_server_add_feature("screen");
-    esp_err_t err = ESP_OK;
-    err |= web_register("/api/v1/screen", HTTP_GET, screen_get, 0);
-    err |= web_register("/api/v1/screen", HTTP_PATCH, screen_patch, WEB_AUTH);
-    err |= web_register("/api/v1/screen", HTTP_DELETE, screen_delete, WEB_AUTH);
-    err |= web_register("/api/v1/screen/show", HTTP_POST, show_post, WEB_AUTH);
-    err |= web_register("/api/v1/media", HTTP_GET, media_get, 0);
-    err |= web_register("/api/v1/media/info", HTTP_GET, media_info_get, 0);
-    return err == ESP_OK ? ESP_OK : ESP_FAIL;
-}
+const api_route_t API_SCREEN_ROUTES[] = {
+    API_ROUTE(API_GET, "/api/v1/screen", screen_get, 0, API_LINK),
+    API_ROUTE(API_PATCH, "/api/v1/screen", screen_patch, 256, API_LINK),
+    API_ROUTE(API_DELETE, "/api/v1/screen", screen_delete, 0, API_LINK),
+    API_ROUTE(API_POST, "/api/v1/screen/show", show_post, 512, API_LINK),
+    API_ROUTE(API_GET, "/api/v1/media", media_get, 0, API_LINK),
+    API_ROUTE(API_GET, "/api/v1/media/info", media_info_get, 0, API_LINK),
+};
+const size_t API_SCREEN_ROUTES_N = sizeof(API_SCREEN_ROUTES) / sizeof(API_SCREEN_ROUTES[0]);

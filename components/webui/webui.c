@@ -1,14 +1,16 @@
 /*
  * webui: Holo Player's web app. The pages are web/ (embedded by embed_assets.py); the API is
- * esp-console-kit's web_server and web_ota; this ties them together and adds release channels.
+ * esp-console-kit's web_server and web_ota, and board_api's routes (which the web server serves
+ * with every api_core route); this ties them together and adds release channels.
  */
 #include "ota_pull.h"
+#include "board_api.h"
 #include "web_fs.h"
 #include "web_net.h"
 #include "web_ota.h"
 #include "web_server.h"
+#include "web_servo.h"
 #include "webui.h"
-#include "api.h"
 
 extern const web_asset_t webui_assets[];
 extern const size_t webui_asset_count;
@@ -22,11 +24,12 @@ esp_err_t webui_start(void)
     esp_err_t err = web_ota_register();
     err |= web_fs_register();
     err |= web_net_register();
-    err |= api_screen_register();
-    err |= api_leds_register();
-    err |= api_holo_register();
-    err |= api_scenes_register();
-    err |= api_events_start();
+    err |= web_servo_register(board_api_stop_holo);
+    err |= board_api_start();
+    static const char *const FEATURES[] = { "screen", "leds", "holo", "scenes", "settings" };
+    for (size_t i = 0; i < sizeof(FEATURES) / sizeof(FEATURES[0]); i++) {
+        web_server_add_feature(FEATURES[i]);
+    }
     const web_server_config_t cfg = {
         .name_prefix = "holo",
         .product = "Holo Player",

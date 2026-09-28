@@ -5,8 +5,7 @@
 #include <string.h>
 #include "leds.h"
 #include "scenes.h"
-#include "web_server.h"
-#include "api.h"
+#include "board_api.h"
 
 static const char *const MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
 
@@ -27,28 +26,21 @@ cJSON *api_leds_json(void)
     return o;
 }
 
-static esp_err_t leds_get(httpd_req_t *req)
+static api_reply_t leds_get(const api_req_t *req)
 {
-    return web_send_json(req, 200, api_leds_json());
+    (void)req;
+    return api_json(200, api_leds_json());
 }
 
-static esp_err_t leds_patch(httpd_req_t *req)
+static api_reply_t leds_patch(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 256);
-    if (body == NULL) {
-        return ESP_OK;
-    }
     char why[128];
-    const scene_err_t err = scene_do_leds(body, false, why, sizeof(why));
-    cJSON_Delete(body);
-    return err == SCENE_OK ? web_send_json(req, 200, api_leds_json()) : api_send_scene_error(req, err, why);
+    const scene_err_t err = scene_do_leds(req->body, false, why, sizeof(why));
+    return err == SCENE_OK ? api_json(200, api_leds_json()) : api_scene_error(err, why);
 }
 
-esp_err_t api_leds_register(void)
-{
-    web_server_add_feature("leds");
-    esp_err_t err = ESP_OK;
-    err |= web_register("/api/v1/leds", HTTP_GET, leds_get, 0);
-    err |= web_register("/api/v1/leds", HTTP_PATCH, leds_patch, WEB_AUTH);
-    return err == ESP_OK ? ESP_OK : ESP_FAIL;
-}
+const api_route_t API_LEDS_ROUTES[] = {
+    API_ROUTE(API_GET, "/api/v1/leds", leds_get, 0, API_LINK),
+    API_ROUTE(API_PATCH, "/api/v1/leds", leds_patch, 256, API_LINK),
+};
+const size_t API_LEDS_ROUTES_N = sizeof(API_LEDS_ROUTES) / sizeof(API_LEDS_ROUTES[0]);

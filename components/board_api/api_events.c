@@ -14,7 +14,7 @@
 #include "scenes.h"
 #include "sdkconfig.h"
 #include "video_player.h"
-#include "api.h"
+#include "board_api.h"
 
 static const char *TAG = "api_events";
 

@@ -7,27 +7,26 @@
 #include "leds.h"
 #include "scenes.h"
 #include "video_player.h"
-#include "web_server.h"
-#include "api.h"
+#include "board_api.h"
 
-esp_err_t api_send_scene_error(httpd_req_t *req, int err, const char *why)
+api_reply_t api_scene_error(int err, const char *why)
 {
     switch ((scene_err_t)err) {
-    case SCENE_BAD:        return web_send_error(req, 400, "bad_request", "%s", why);
-    case SCENE_BAD_PATH:   return web_send_error(req, 400, "bad_path", "%s", why);
-    case SCENE_MISSING:    return web_send_error(req, 404, "not_found", "%s", why);
-    case SCENE_UNPLAYABLE: return web_send_error(req, 422, "not_playable", "%s", why);
-    case SCENE_NOT_READY:  return web_send_error(req, 409, "not_ready", "%s", why);
-    case SCENE_FULL:       return web_send_error(req, 409, "full", "%s", why);
-    default:               return web_send_error(req, 500, "failed", "%s", why);
+    case SCENE_BAD:        return api_error(400, "bad_request", "%s", why);
+    case SCENE_BAD_PATH:   return api_error(400, "bad_path", "%s", why);
+    case SCENE_MISSING:    return api_error(404, "not_found", "%s", why);
+    case SCENE_UNPLAYABLE: return api_error(422, "not_playable", "%s", why);
+    case SCENE_NOT_READY:  return api_error(409, "not_ready", "%s", why);
+    case SCENE_FULL:       return api_error(409, "full", "%s", why);
+    default:               return api_error(500, "failed", "%s", why);
     }
 }
 
-/* The query's scene name: false after replying. */
-static bool query_name(httpd_req_t *req, char *name, size_t len)
+/* The query's scene name: false with the error in `err`. */
+static bool query_name(const api_req_t *req, char *name, size_t len, api_reply_t *err)
 {
-    if (!web_query(req, "name", name, len) || !scene_name_ok(name)) {
-        web_send_error(req, 400, "bad_request", "give `name`: 1-%d letters, digits, spaces, _ . and -", SCENE_NAME_MAX);
+    if (!api_query(req, "name", name, len) || !scene_name_ok(name)) {
+        *err = api_error(400, "bad_request", "give `name`: 1-%d letters, digits, spaces, _ . and -", SCENE_NAME_MAX);
         return false;
     }
     return true;
@@ -53,12 +52,14 @@ cJSON *api_active_scene_json(void)
     return o;
 }
 
-static esp_err_t scenes_get(httpd_req_t *req)
+static api_reply_t scenes_get(const api_req_t *req)
 {
+    (void)req;
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "scenes", scene_load_all());
+    cJSON *all = scene_load_all();
+    cJSON_AddItemToObject(root, "scenes", all != NULL ? all : cJSON_CreateArray());
     cJSON_AddItemToObject(root, "active", api_active_scene_json());
-    return web_send_json(req, 200, root);
+    return api_json(200, root);
 }
 
 static cJSON *now_json(void)
@@ -70,39 +71,30 @@ static cJSON *now_json(void)
     return root;
 }
 
-static esp_err_t end_post(httpd_req_t *req)
+static api_reply_t end_post(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 64);
-    if (body == NULL) {
-        return ESP_OK;
-    }
-    const bool empty = body->child == NULL;
-    cJSON_Delete(body);
-    if (!empty) {
-        return web_send_error(req, 400, "bad_request", "send {}");
+    if (req->body->child != NULL) {
+        return api_error(400, "bad_request", "send {}");
     }
     char why[96];
     if (scene_end(why, sizeof(why)) != SCENE_OK) {
-        return web_send_error(req, 409, "not_running", "%s", why);
+        return api_error(409, "not_running", "%s", why);
     }
-    return web_send_json(req, 200, now_json());
+    return api_json(200, now_json());
 }
 
-static esp_err_t scene_put(httpd_req_t *req)
+static api_reply_t scene_put(const api_req_t *req)
 {
     char name[SCENE_NAME_MAX + 8];
-    if (!query_name(req, name, sizeof(name))) {
-        return ESP_OK;
+    api_reply_t bad;
+    if (!query_name(req, name, sizeof(name), &bad)) {
+        return bad;
     }
-    cJSON *body = web_read_json(req, SCENE_JSON_MAX + 512);
-    if (body == NULL) {
-        return ESP_OK;
-    }
-    const cJSON *given = cJSON_GetObjectItem(body, "name");
+    const cJSON *given = cJSON_GetObjectItem(req->body, "name");
     if (given != NULL && !(cJSON_IsString(given) && strcmp(given->valuestring, name) == 0)) {
-        cJSON_Delete(body);
-        return web_send_error(req, 400, "bad_request", "the body's `name` must be the query's, '%s'", name);
+        return api_error(400, "bad_request", "the body's `name` must be the query's, '%s'", name);
     }
+    cJSON *body = cJSON_Duplicate(req->body, true);
     if (given == NULL) {
         /* First, where a reader looks for it */
         cJSON *item = cJSON_CreateString(name);
@@ -115,44 +107,37 @@ static esp_err_t scene_put(httpd_req_t *req)
     const scene_err_t err = scene_store(body, &replaced, why, sizeof(why));
     if (err != SCENE_OK) {
         cJSON_Delete(body);
-        return api_send_scene_error(req, err, why);
+        return api_scene_error(err, why);
     }
-    return web_send_json(req, replaced ? 200 : 201, body);
+    return api_json(replaced ? 200 : 201, body);
 }
 
-static esp_err_t scene_delete(httpd_req_t *req)
+static api_reply_t scene_delete(const api_req_t *req)
 {
     char name[SCENE_NAME_MAX + 8];
-    if (!query_name(req, name, sizeof(name))) {
-        return ESP_OK;
+    api_reply_t bad;
+    if (!query_name(req, name, sizeof(name), &bad)) {
+        return bad;
     }
     if (scene_remove(name) != SCENE_OK) {
-        return web_send_error(req, 404, "unknown_scene", "no scene '%s'", name);
+        return api_error(404, "unknown_scene", "no scene '%s'", name);
     }
-    httpd_resp_set_status(req, "204 No Content");
-    return httpd_resp_send(req, NULL, 0);
+    return api_no_content();
 }
 
-static esp_err_t apply_post(httpd_req_t *req)
+static api_reply_t apply_post(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, SCENE_JSON_MAX + 512);
-    if (body == NULL) {
-        return ESP_OK;
-    }
+    const cJSON *body = req->body;
     const cJSON *name = cJSON_GetObjectItem(body, "name");
     const cJSON *given = cJSON_GetObjectItem(body, "scene");
     if (body->child == NULL || body->child->next != NULL || (name == NULL && given == NULL)) {
-        cJSON_Delete(body);
-        return web_send_error(req, 400, "bad_request", "send {\"name\": ...} or {\"scene\": {...}}");
+        return api_error(400, "bad_request", "send {\"name\": ...} or {\"scene\": {...}}");
     }
     cJSON *scene = NULL;
     if (name != NULL) {
         scene = cJSON_IsString(name) ? scene_load(name->valuestring) : NULL;
         if (scene == NULL) {
-            const esp_err_t sent = web_send_error(req, 404, "unknown_scene", "no scene '%s'",
-                                                  cJSON_IsString(name) ? name->valuestring : "?");
-            cJSON_Delete(body);
-            return sent;
+            return api_error(404, "unknown_scene", "no scene '%s'", cJSON_IsString(name) ? name->valuestring : "?");
         }
     } else {
         scene = cJSON_Duplicate(given, true);
@@ -160,14 +145,13 @@ static esp_err_t apply_post(httpd_req_t *req)
             cJSON_AddStringToObject(scene, "name", "now");     /* a scene given whole needs no name */
         }
     }
-    cJSON_Delete(body);
     char why[128];
     const scene_err_t err = scene_apply(scene, why, sizeof(why));
     cJSON_Delete(scene);
     if (err != SCENE_OK) {
-        return api_send_scene_error(req, err, why);
+        return api_scene_error(err, why);
     }
-    return web_send_json(req, 200, now_json());
+    return api_json(200, now_json());
 }
 
 /* ------------------------------------------------------------------ /settings */
@@ -188,19 +172,20 @@ cJSON *api_settings_json(const settings_t *s)
     return o;
 }
 
-static esp_err_t send_settings_result(httpd_req_t *req, const settings_t *s)
+static api_reply_t settings_result(const settings_t *s)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "settings", api_settings_json(s));
     cJSON_AddBoolToObject(root, "restart_required", s->led_count != leds_count());
-    return web_send_json(req, 200, root);
+    return api_json(200, root);
 }
 
-static esp_err_t settings_get_route(httpd_req_t *req)
+static api_reply_t settings_get_route(const api_req_t *req)
 {
+    (void)req;
     settings_t s;
     settings_get(&s);
-    return web_send_json(req, 200, api_settings_json(&s));
+    return api_json(200, api_settings_json(&s));
 }
 
 /* A number within lo..hi at o[key], if there: false when there and not. */
@@ -227,12 +212,9 @@ static bool only(const cJSON *o, const char *a, const char *b, const char *c)
     return true;
 }
 
-static esp_err_t settings_patch(httpd_req_t *req)
+static api_reply_t settings_patch(const api_req_t *req)
 {
-    cJSON *body = web_read_json(req, 512);
-    if (body == NULL) {
-        return ESP_OK;
-    }
+    const cJSON *body = req->body;
     settings_t s;
     settings_get(&s);
     const cJSON *boot = cJSON_GetObjectItem(body, "boot_scene");
@@ -252,8 +234,7 @@ static esp_err_t settings_patch(httpd_req_t *req)
         bad = "`boot_scene` is a scene's name, or null";
     }
     if (bad != NULL) {
-        cJSON_Delete(body);
-        return web_send_error(req, 400, "bad_request", "%s", bad);
+        return api_error(400, "bad_request", "%s", bad);
     }
     if (boot != NULL) {
         if (cJSON_IsNull(boot)) {
@@ -261,49 +242,43 @@ static esp_err_t settings_patch(httpd_req_t *req)
         } else {
             cJSON *scene = scene_load(boot->valuestring);
             if (scene == NULL) {
-                const esp_err_t sent = web_send_error(req, 404, "unknown_scene", "no scene '%s'", boot->valuestring);
-                cJSON_Delete(body);
-                return sent;
+                return api_error(404, "unknown_scene", "no scene '%s'", boot->valuestring);
             }
             cJSON_Delete(scene);
             strlcpy(s.boot_scene, boot->valuestring, sizeof(s.boot_scene));
         }
     }
-    cJSON_Delete(body);
     const esp_err_t err = settings_save(&s);
     if (err != ESP_OK) {
-        return web_send_error(req, 500, "failed", "not saved: %s", esp_err_to_name(err));
+        return api_error(500, "failed", "not saved: %s", esp_err_to_name(err));
     }
     screen_set_backlight(s.backlight);
     leds_set_brightness(s.led_brightness);
-    return send_settings_result(req, &s);
+    return settings_result(&s);
 }
 
-static esp_err_t settings_delete(httpd_req_t *req)
+static api_reply_t settings_delete(const api_req_t *req)
 {
+    (void)req;
     settings_t s;
     settings_defaults(&s);
     const esp_err_t err = settings_save(&s);
     if (err != ESP_OK) {
-        return web_send_error(req, 500, "failed", "not saved: %s", esp_err_to_name(err));
+        return api_error(500, "failed", "not saved: %s", esp_err_to_name(err));
     }
     screen_set_backlight(s.backlight);
     leds_set_brightness(s.led_brightness);
-    return send_settings_result(req, &s);
+    return settings_result(&s);
 }
 
-esp_err_t api_scenes_register(void)
-{
-    web_server_add_feature("scenes");
-    web_server_add_feature("settings");
-    esp_err_t err = ESP_OK;
-    err |= web_register("/api/v1/scenes", HTTP_GET, scenes_get, 0);
-    err |= web_register("/api/v1/scenes/scene", HTTP_PUT, scene_put, WEB_AUTH);
-    err |= web_register("/api/v1/scenes/scene", HTTP_DELETE, scene_delete, WEB_AUTH);
-    err |= web_register("/api/v1/scenes/apply", HTTP_POST, apply_post, WEB_AUTH);
-    err |= web_register("/api/v1/scenes/end", HTTP_POST, end_post, WEB_AUTH);
-    err |= web_register("/api/v1/settings", HTTP_GET, settings_get_route, 0);
-    err |= web_register("/api/v1/settings", HTTP_PATCH, settings_patch, WEB_AUTH);
-    err |= web_register("/api/v1/settings", HTTP_DELETE, settings_delete, WEB_AUTH);
-    return err == ESP_OK ? ESP_OK : ESP_FAIL;
-}
+const api_route_t API_SCENES_ROUTES[] = {
+    API_ROUTE(API_GET, "/api/v1/scenes", scenes_get, 0, API_LINK),
+    API_ROUTE(API_PUT, "/api/v1/scenes/scene", scene_put, SCENE_JSON_MAX + 512, API_LINK),
+    API_ROUTE(API_DELETE, "/api/v1/scenes/scene", scene_delete, 0, API_LINK),
+    API_ROUTE(API_POST, "/api/v1/scenes/apply", apply_post, SCENE_JSON_MAX + 512, API_LINK),
+    API_ROUTE(API_POST, "/api/v1/scenes/end", end_post, 64, API_LINK),
+    API_ROUTE(API_GET, "/api/v1/settings", settings_get_route, 0, API_LINK),
+    API_ROUTE(API_PATCH, "/api/v1/settings", settings_patch, 512, API_LINK),
+    API_ROUTE(API_DELETE, "/api/v1/settings", settings_delete, 0, API_LINK),
+};
+const size_t API_SCENES_ROUTES_N = sizeof(API_SCENES_ROUTES) / sizeof(API_SCENES_ROUTES[0]);
