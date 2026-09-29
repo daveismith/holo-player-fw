@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../leds/">
+        <link rel="prev" href="../http-api/">
       
       
-        <link rel="next" href="../host-uart/">
+        <link rel="next" href="../host-protocol/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Wiring the servos - Holo Player</title>
+        <title>HTTP API explorer - Holo Player</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wiring-the-servos" class="md-skip">
+        <a href="#http-api-explorer" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wiring the servos
+              HTTP API explorer
             
           </span>
         </div>
@@ -223,15 +223,13 @@
   
   
   
-    
-  
   
     
       
     
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../install/flashing/" class="md-tabs__link">
           
   
@@ -269,14 +267,16 @@
   
   
   
+    
+  
   
     
       
     
     
     
-      <li class="md-tabs__item">
-        <a href="../../reference/console/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../console/" class="md-tabs__link">
           
   
   Reference
@@ -362,31 +362,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -404,7 +399,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_2">
               <span class="md-nav__icon md-icon"></span>
               
@@ -448,7 +443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../connect/board/" class="md-nav__link">
         
   
   
@@ -475,7 +470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../screen/" class="md-nav__link">
+      <a href="../../connect/screen/" class="md-nav__link">
         
   
   
@@ -502,7 +497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../leds/" class="md-nav__link">
+      <a href="../../connect/leds/" class="md-nav__link">
         
   
   
@@ -526,36 +521,10 @@
                   
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Wiring the servos
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
         
   
   
@@ -570,93 +539,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Connections
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Power
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signal level
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Which servo is which
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Travel
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Going limp
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -669,7 +551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../host-uart/" class="md-nav__link">
+      <a href="../../connect/host-uart/" class="md-nav__link">
         
   
   
@@ -696,7 +578,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../host-rs485/" class="md-nav__link">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
         
   
   
@@ -723,7 +605,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../host-i2c/" class="md-nav__link">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
         
   
   
@@ -1084,26 +966,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -1121,7 +1008,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
             <label class="md-nav__title" for="__nav_4">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1138,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/console/" class="md-nav__link">
+      <a href="../console/" class="md-nav__link">
         
   
   
@@ -1165,7 +1052,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/http-api/" class="md-nav__link">
+      <a href="../http-api/" class="md-nav__link">
         
   
   
@@ -1189,10 +1076,19 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../reference/http-api-explorer/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1207,6 +1103,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -1219,7 +1116,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/host-protocol/" class="md-nav__link">
+      <a href="../host-protocol/" class="md-nav__link">
         
   
   
@@ -1246,7 +1143,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/config/" class="md-nav__link">
+      <a href="../config/" class="md-nav__link">
         
   
   
@@ -1273,7 +1170,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/video-internals/" class="md-nav__link">
+      <a href="../video-internals/" class="md-nav__link">
         
   
   
@@ -1345,11 +1242,6 @@
                       
                     
                     
-                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-                      <div class="md-sidebar-button__wrapper">
-                        <label class="md-sidebar-button" for="__toc"></label>
-                      </div>
-                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -1361,80 +1253,6 @@
   
     
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Connections
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Power
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signal level
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Which servo is which
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Travel
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Going limp
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
   
 </nav>
                   </div>
@@ -1452,68 +1270,26 @@
   
 
 
-<h1 id="wiring-the-servos">Wiring the servos<a class="headerlink" href="#wiring-the-servos" title="Permanent link">&para;</a></h1>
-<p>Two hobby servos aim the holoprojector: <strong>pan</strong> (left and right) and <strong>tilt</strong> (up and down). They
-run on the ESP32-S3's MCPWM, one timer each.</p>
-<p>For the motions themselves, and for calibrating each axis, see
-<a href="../../use/holo/">The holoprojector</a>.</p>
-<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
-<p>GPIO17 and GPIO18 are pins 9 and 10 of the <a href="../board/#p2-expansion-header">P2 header</a>.</p>
-<table>
-<thead>
-<tr>
-<th>Wire</th>
-<th>Goes to</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Servo 1 signal (orange, or white)</td>
-<td>P2 pin 9, GPIO17</td>
-</tr>
-<tr>
-<td>Servo 2 signal</td>
-<td>P2 pin 10, GPIO18</td>
-</tr>
-<tr>
-<td>Both servos' power (red)</td>
-<td>A separate 5 V supply</td>
-</tr>
-<tr>
-<td>Both servos' ground (brown, or black)</td>
-<td>That supply's ground, <strong>and</strong> P2 pin 1 or 5</td>
-</tr>
-</tbody>
-</table>
-<h2 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
-<p class="admonition-title">Do not take servo power from P2's VSYS pin</p>
-<p>A small hobby servo draws 0.5–1 A as it starts moving or when it stalls. Two of them at once
-would brown out the board, and a brown-out mid-write is how filesystems get damaged. Give the
-servos their own 5 V supply.</p>
+<h1 id="http-api-explorer">HTTP API explorer<a class="headerlink" href="#http-api-explorer" title="Permanent link">&para;</a></h1>
+<p>Every endpoint of the board's HTTP API, with its parameters, request and reply schemas, and
+examples, rendered from the OpenAPI description, <a href="../openapi.json"><code>openapi.json</code></a>. Each board serves
+its own copy at <code>/api/v1/openapi.json</code>, describing the firmware it runs. Postman, Insomnia, Swagger
+Editor and <code>openapi-generator</code> can import it straight from a board.</p>
+<p>The <a href="../http-api/">HTTP API</a> page explains the ideas behind it (the update session, protection, the
+password) with <code>curl</code> recipes.</p>
+<div class="admonition note">
+<p class="admonition-title">Trying it out</p>
+<p><strong>Try it out</strong> calls a real board. Set <code>host</code> under <strong>Servers</strong> to its name or address, and
+use <strong>Authorize</strong> for its password if one is set. This site is on the board's list of
+<a href="../http-api/#protection">trusted sites</a>, so the board answers it.</p>
+<p>It works in Chrome and Edge, which may first ask to let this site reach devices on your local
+network. Safari and Firefox refuse to call a plain-http address from an https page, so use
+<code>curl</code> there, or the offline documentation served by its <code>serve.py</code>, and
+<code>web cors add http://localhost:8000</code> on the board.</p>
+<p><a href="https://editor.swagger.io">Swagger Editor</a> works the same way. Paste in <code>openapi.json</code>, or
+import it from the board's <code>/api/v1/openapi.json</code>.</p>
 </div>
-<p>Join the servo supply's ground to the board's ground. The pulse the board sends is measured
-against ground, so without a shared reference the servos see noise rather than a signal.</p>
-<h2 id="signal-level">Signal level<a class="headerlink" href="#signal-level" title="Permanent link">&para;</a></h2>
-<p>The signal is 3.3 V, which hobby servos accept — unlike the LED strip, a servo's input is a
-comparator with a low threshold, so no level shifting is needed.</p>
-<h2 id="which-servo-is-which">Which servo is which<a class="headerlink" href="#which-servo-is-which" title="Permanent link">&para;</a></h2>
-<p>By default <strong>servo 1 (GPIO17) pans</strong> and <strong>servo 2 (GPIO18) tilts</strong>.</p>
-<p>The sketch this firmware grew out of never recorded which servo was which, so if <code>holo wag</code> nods
-instead of shaking its head, the two are swapped. Rather than rewiring, change <em>Which servo pans</em>
-in <code>idf.py menuconfig</code> — see <a href="../../reference/config/">Configuration</a>.</p>
-<h2 id="travel">Travel<a class="headerlink" href="#travel" title="Permanent link">&para;</a></h2>
-<p>Each servo has a working range, defaulting to the range the original sketch used: <strong>1150–1900 µs</strong>
-for servo 1 and <strong>1300–1950 µs</strong> for servo 2. Both sit inside an absolute <strong>1000–2000 µs</strong> range
-that no servo is ever driven outside, whatever it is asked for.</p>
-<p>The low end of a range is CLOSED, meaning full left or full down. If an axis runs backwards, or
-its travel needs tuning for the mount you have built, calibrate it with <code>holo endpoints</code> rather
-than rewiring — the values are saved in NVS under the pin, so they follow the wiring. See
-<a href="../../use/holo/#calibrating-the-travel">The holoprojector</a>.</p>
-<h2 id="going-limp">Going limp<a class="headerlink" href="#going-limp" title="Permanent link">&para;</a></h2>
-<p>The servos are not driven at boot, and stay limp until something moves them. <code>holo off</code>, or
-<code>servo_off all</code>, stops driving them again; the next move picks up from wherever they were left.
-This matters mechanically — a servo held against a hard stop for hours will cook itself.</p>
+<div id="swagger-ui"></div>
 
 
 
@@ -1551,7 +1327,7 @@ This matters mechanically — a servo held against a hard stop for hours will co
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the LED ring">
+          <a href="../http-api/" class="md-footer__link md-footer__link--prev" aria-label="Previous: HTTP API">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1561,20 +1337,20 @@ This matters mechanically — a servo held against a hard stop for hours will co
                 Previous
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                HTTP API
               </div>
             </div>
           </a>
         
         
           
-          <a href="../host-uart/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: UART">
+          <a href="../host-protocol/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link protocol">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Host link: UART
+                Host link protocol
               </div>
             </div>
             <div class="md-footer__button md-icon">

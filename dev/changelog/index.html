@@ -58,6 +58,8 @@
     
       <link rel="stylesheet" href="../stylesheets/board.css">
     
+      <link rel="stylesheet" href="../stylesheets/api.css">
+    
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -540,6 +542,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -768,6 +851,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../use/ota/" class="md-nav__link">
         
   
@@ -775,7 +885,34 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
 
     
   </span>
@@ -894,6 +1031,87 @@
     
   
   Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
 
     
   </span>
@@ -1322,6 +1540,98 @@ so the release tag is the version baked into the image and reported by <code>ver
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.0.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>The whole board over the HTTP API, and in the web app.</strong> Everything the console does, the API
+  and the app now do too:</li>
+<li><strong>files</strong>: browse, upload, download, move, rename, copy and delete on the storage volume
+    (<code>/api/v1/fs</code>);</li>
+<li><strong>the screen</strong>: play any clip or show any image, a colour or the crosshair, clear it, and set
+    its backlight, with the reason when a file can't be shown (<code>/api/v1/screen</code>, <code>/api/v1/media</code>);</li>
+<li><strong>the LEDs</strong>: pattern, colour, loop and brightness (<code>/api/v1/leds</code>);</li>
+<li><strong>the holo</strong>: move it, or twitch, scan, wag, nod and circle; and the servos' calibration and
+    drive policy (<code>/api/v1/holo</code>, <code>/api/v1/servos</code>);</li>
+<li><strong>scenes</strong>: the screen, LEDs and holo saved together by name, applied in one call, and one
+    chosen to run at every start (<code>/api/v1/scenes</code>);</li>
+<li><strong>settings</strong>: the backlight, LED brightness and LED count the board starts with
+    (<code>/api/v1/settings</code>);</li>
+<li><strong>the network and the web server</strong>: saved networks, scanning, joining, the access point, and
+    the name, password and trusted sites (<code>/api/v1/network</code>, <code>/api/v1/web</code>).</li>
+</ul>
+<p>The web app has a page for each: Show, Holo, Scenes, Files, Settings and Network, beside Status
+  and Update. On a phone, the first four are tabs and the rest are under More. Documented in
+  <a href="../manual/use/web/">The board over Wi-Fi</a> and <a href="../manual/reference/http-api/">HTTP API</a>.
+- <strong>Scenes that end</strong>: a scene ends when its clip has played (once, or <code>loops</code> times) or after <code>duration_s</code>,
+  and then (<code>then</code>) put the screen, LEDs and holo back to what they were doing before it — a twitch
+  twitches again — or turn everything off, servos limp. <code>POST /api/v1/scenes/end</code> (and
+  <code>scene end</code>) ends one early. Clips and animations also take <code>loops</code> on <code>POST /api/v1/screen/show</code>.
+- <strong>The access point when there is no network</strong>: at start, if the board can't join a network
+  within 20 seconds, its access point comes on for 5 minutes, then goes off. Pressing <strong>BOOT</strong>
+  (GPIO0) with the board off the network rejoins it, and if that fails, turns the access point on
+  for 5 minutes. <code>wifi ap</code>, the Network page and <code>ap.off_in_s</code> in the API say how long it has
+  left; turning it on yourself keeps it on. Under "Wi-Fi fallback" in menuconfig.
+- <strong>The host link</strong>: a controller on a wire -- an Arduino, an ESP32, a Pi, a dome controller --
+  runs the board over UART, or RS485 through a transceiver, on P2's spare pins (21, 33, 15). It
+  speaks the HTTP API one request a line (<code>POST /scenes/apply {"name":"cantina"}</code>, answered
+  <code>200 {...}</code>), and pushes the board's events to the host as <code>!</code> lines, or keeps them to be
+  fetched; on RS485 every request names a board, and groups act together. Set up with <code>link</code> on
+  the console, <code>PATCH /api/v1/link</code>, or the Settings page. Small hosts can use native frames instead: a few
+  bytes with a CRC (<code>SCENE 3</code>, <code>LEDS</code>, <code>HOLO</code>, <code>STATUS</code>). <code>tools/hostlink.py</code> talks to it from a
+  computer. I2C is to come.
+  Documented in <a href="../manual/use/host-link/">The host link</a> and the
+  <a href="../manual/reference/host-protocol/">protocol</a>.
+- <strong>Scene slots</strong>: a number from 1 to 255 a scene can be applied by (<code>slot</code>, <code>scene slot</code>).
+- <strong><code>clip_started</code> and <code>scene_started</code> events</strong>, beside the ends: every clip or animation that
+  starts, whoever started it (path, loop, plays, frames, fps), and every scene applied (name,
+  slot, then, how it ends), on the event stream and the host link, JSON and native.
+- <strong>Events, not polling</strong>: <code>GET /api/v1/events</code> is a stream of Server-Sent Events: the screen,
+  LEDs, holo, running scene, scenes, settings, network and update session as each changes, and
+  <code>clip_ended</code>, <code>scene_ended</code> and <code>touch</code> as they happen, numbered, with the last 32 kept and
+  replayed to a client that reconnects. While a clip plays or a scene runs, their states are sent
+  every 5 seconds besides, for clients to sync to. The web app follows it instead of polling, so a change
+  made anywhere (the console, a script, another browser) shows on every open page at once; it polls
+  as before on a board without it, or when every stream is taken.
+- <strong>An LED flicker</strong>: the colour flickering like a failing hologram (<code>leds flicker [&lt;c&gt;]</code>, mode
+  <code>flicker</code>).
+- <strong>Console commands</strong> to go with them: <code>scene</code> (list, show, apply, delete, and the one the board
+  starts with), <code>settings</code> (the backlight, LED brightness and count at start), and <code>wifi scan</code>.
+- <strong><code>make api-smoke HOST=...</code></strong> calls a board's API and checks every reply against the OpenAPI
+  description, and <code>make api-validate</code> now checks its examples too.</p>
+<ul>
+<li><strong>Updates over Wi-Fi, and a web app to do them from.</strong> The board serves a small web app, for
+  phones and computers, at <code>http://holo-xxxx.local/</code> or its address on your network (<code>web</code> on the
+  console prints both). It has two pages to start with, built to take settings and clips later:</li>
+<li><strong>Status</strong>: the firmware, the network, and whether a newer release is out;</li>
+<li><strong>Update</strong>: both firmware slots, with a switch back to the other one; the latest release, which
+    the board downloads itself from this documentation site, checked against the release's
+    SHA-256; and uploading a <code>.bin</code>. The page reads the file first, and warns about a downgrade or
+    a file for another project. Then it restarts into the new image and reports it running.</li>
+</ul>
+<p>An upload streams straight into the slot that isn't running, and takes about 15 s for 1.6 MB.
+  As over serial, a wrong or broken image never becomes the boot image. Documented in
+  <a href="../manual/use/web/">The board over Wi-Fi</a> and <a href="../manual/use/ota/">Updating the firmware</a>.
+- <strong>An HTTP API</strong>, which the web app uses and scripts can too, under <code>/api/v1</code>:
+  - upload an image;
+  - follow its state;
+  - see which slot runs and boots;
+  - switch slots;
+  - have the board pull an image from a URL, a release manifest, or a release channel (<code>latest</code>);
+  - check for an update without downloading it.</p>
+<p>It is described in OpenAPI 3.1, rendered on the documentation site
+  (<a href="../manual/reference/http-api-explorer/">HTTP API explorer</a>) and served by each board at
+  <code>/api/v1/openapi.json</code>. A guide with <code>curl</code> recipes is at <a href="../manual/reference/http-api/">HTTP API</a>.
+  <code>make docs-check</code> fails if the firmware's routes and the description drift apart.
+- <strong>The board's own access point</strong>, for when there is no network: <code>wifi ap on</code> starts <code>holo-xxxx</code>
+  (WPA2, with a random passphrase it keeps) at <code>192.168.4.1</code>, and a phone that joins is offered the
+  board's page. The access point is off again after every restart.
+- <strong>An optional password</strong> for changes over the web: <code>web password &lt;password&gt;</code>. Even without
+  one, pages on other sites can't drive the board from your browser. Also <code>web on|off</code> and
+  <code>web hostname</code>.
+- <strong>Trusted sites may call the API from a browser (CORS)</strong>: Swagger Editor, and <code>astromech.co</code> and
+  <code>davidiansmith.ca</code> with their subdomains, so the documentation's API explorer and Swagger Editor
+  can try requests on a real board (in Chrome and Edge). Every other site is refused.
+  <code>web cors</code> changes the list.
+- <strong><code>ota pull &lt;url|channel&gt;</code> and <code>ota activate [slot]</code></strong> on the console: the same pull and switch,
+  without a browser.</p>
+<ul>
 <li><strong>The board in the browser.</strong> A new documentation page talks to a board running Holo Player
   over Web Serial (desktop Chrome, Edge or Opera), with no tools to install:</li>
 <li>a file manager for <code>/data</code>: upload by dropping files, download, rename, delete, move by
@@ -1340,6 +1650,10 @@ so the release tag is the version baked into the image and reported by <code>ver
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><code>video play</code> refuses a file it can't play at once, saying why, and leaves the screen alone.
+  Before, it stopped what was showing and printed the reason from the player's task.</li>
+<li>The console takes commands of up to 16 words. <code>holo twitch -r 40 -i 1-3 -t 5</code> lost its last word.</li>
+<li>The web password now also guards downloading files and reading the web settings.</li>
 <li>Board output in the documentation is in <code>text</code> code blocks. Bare code blocks hold only board
   commands, and <code>tools/check_command_docs.py</code> checks that, so every ▶ runs a real command.</li>
 </ul>
@@ -1501,6 +1815,8 @@ you can name, flash and report.</p>
         <script src="../javascripts/installer/ui.js" type="module"></script>
       
         <script src="../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../javascripts/api/ui.js" type="module"></script>
       
     
   </body>

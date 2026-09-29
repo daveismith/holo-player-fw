@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../leds/">
+        <link rel="prev" href="../servos/">
       
       
-        <link rel="next" href="../host-uart/">
+        <link rel="next" href="../host-rs485/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Wiring the servos - Holo Player</title>
+        <title>Host link: UART - Holo Player</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wiring-the-servos" class="md-skip">
+        <a href="#host-link-uart" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wiring the servos
+              Host link: UART
             
           </span>
         </div>
@@ -526,6 +526,33 @@
                   
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
     
   
   
@@ -545,7 +572,7 @@
   <span class="md-ellipsis">
     
   
-  Wiring the servos
+  Host link: UART
 
     
   </span>
@@ -562,7 +589,7 @@
   <span class="md-ellipsis">
     
   
-  Wiring the servos
+  Host link: UART
 
     
   </span>
@@ -588,10 +615,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#three-wires" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        Three wires
       </span>
     </span>
   </a>
@@ -599,10 +626,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#33-v-and-5-v" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        3.3 V and 5 V
       </span>
     </span>
   </a>
@@ -610,10 +637,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#attn-for-a-host-that-sleeps" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        ATTN, for a host that sleeps
       </span>
     </span>
   </a>
@@ -621,10 +648,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        Turning it on
       </span>
     </span>
   </a>
@@ -632,10 +659,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#a-first-test-from-a-computer" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        A first test, from a computer
       </span>
     </span>
   </a>
@@ -643,10 +670,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#from-a-raspberry-pi" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        From a Raspberry Pi
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-an-esp32" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From an ESP32
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-a-5-v-arduino" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From a 5 V Arduino
       </span>
     </span>
   </a>
@@ -657,33 +706,6 @@
   
 </nav>
       
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../host-uart/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Host link: UART
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1369,10 +1391,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#three-wires" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        Three wires
       </span>
     </span>
   </a>
@@ -1380,10 +1402,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#33-v-and-5-v" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        3.3 V and 5 V
       </span>
     </span>
   </a>
@@ -1391,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#attn-for-a-host-that-sleeps" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        ATTN, for a host that sleeps
       </span>
     </span>
   </a>
@@ -1402,10 +1424,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        Turning it on
       </span>
     </span>
   </a>
@@ -1413,10 +1435,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#a-first-test-from-a-computer" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        A first test, from a computer
       </span>
     </span>
   </a>
@@ -1424,10 +1446,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#from-a-raspberry-pi" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        From a Raspberry Pi
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-an-esp32" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From an ESP32
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-a-5-v-arduino" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From a 5 V Arduino
       </span>
     </span>
   </a>
@@ -1452,68 +1496,153 @@
   
 
 
-<h1 id="wiring-the-servos">Wiring the servos<a class="headerlink" href="#wiring-the-servos" title="Permanent link">&para;</a></h1>
-<p>Two hobby servos aim the holoprojector: <strong>pan</strong> (left and right) and <strong>tilt</strong> (up and down). They
-run on the ESP32-S3's MCPWM, one timer each.</p>
-<p>For the motions themselves, and for calibrating each axis, see
-<a href="../../use/holo/">The holoprojector</a>.</p>
-<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
-<p>GPIO17 and GPIO18 are pins 9 and 10 of the <a href="../board/#p2-expansion-header">P2 header</a>.</p>
+<h1 id="host-link-uart">Host link: UART<a class="headerlink" href="#host-link-uart" title="Permanent link">&para;</a></h1>
+<p>A UART is the simplest <a href="../../use/host-link/">host link</a>: three wires to one host close by, such as
+a Raspberry Pi, an ESP32, an Arduino with a spare serial port, or a USB-serial adapter on a
+computer. It carries both <a href="../../reference/host-protocol/">JSON lines and native frames</a>, and the
+board can send events as they happen without an extra wire.</p>
+<p>The board's UART is 8 data bits, no parity, one stop bit (8N1), at 115200 baud unless changed,
+with no flow control.</p>
+<h2 id="three-wires">Three wires<a class="headerlink" href="#three-wires" title="Permanent link">&para;</a></h2>
+<p>The board's TX goes to the host's RX, and the host's TX to the board's RX.</p>
 <table>
 <thead>
 <tr>
-<th>Wire</th>
-<th>Goes to</th>
+<th>Board</th>
+<th>P2 pin</th>
+<th>Host</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Servo 1 signal (orange, or white)</td>
-<td>P2 pin 9, GPIO17</td>
+<td>GPIO21, TX</td>
+<td>11</td>
+<td>RX</td>
 </tr>
 <tr>
-<td>Servo 2 signal</td>
-<td>P2 pin 10, GPIO18</td>
+<td>GPIO33, RX</td>
+<td>12</td>
+<td>TX, through a divider if the host is 5 V (below)</td>
 </tr>
 <tr>
-<td>Both servos' power (red)</td>
-<td>A separate 5 V supply</td>
+<td>GND</td>
+<td>1 or 5</td>
+<td>GND. Always connect it</td>
 </tr>
 <tr>
-<td>Both servos' ground (brown, or black)</td>
-<td>That supply's ground, <strong>and</strong> P2 pin 1 or 5</td>
+<td>GPIO15, ATTN (optional)</td>
+<td>7</td>
+<td>An input that can wake the host</td>
 </tr>
 </tbody>
 </table>
-<h2 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
-<p class="admonition-title">Do not take servo power from P2's VSYS pin</p>
-<p>A small hobby servo draws 0.5–1 A as it starts moving or when it stalls. Two of them at once
-would brown out the board, and a brown-out mid-write is how filesystems get damaged. Give the
-servos their own 5 V supply.</p>
-</div>
-<p>Join the servo supply's ground to the board's ground. The pulse the board sends is measured
-against ground, so without a shared reference the servos see noise rather than a signal.</p>
-<h2 id="signal-level">Signal level<a class="headerlink" href="#signal-level" title="Permanent link">&para;</a></h2>
-<p>The signal is 3.3 V, which hobby servos accept — unlike the LED strip, a servo's input is a
-comparator with a low threshold, so no level shifting is needed.</p>
-<h2 id="which-servo-is-which">Which servo is which<a class="headerlink" href="#which-servo-is-which" title="Permanent link">&para;</a></h2>
-<p>By default <strong>servo 1 (GPIO17) pans</strong> and <strong>servo 2 (GPIO18) tilts</strong>.</p>
-<p>The sketch this firmware grew out of never recorded which servo was which, so if <code>holo wag</code> nods
-instead of shaking its head, the two are swapped. Rather than rewiring, change <em>Which servo pans</em>
-in <code>idf.py menuconfig</code> — see <a href="../../reference/config/">Configuration</a>.</p>
-<h2 id="travel">Travel<a class="headerlink" href="#travel" title="Permanent link">&para;</a></h2>
-<p>Each servo has a working range, defaulting to the range the original sketch used: <strong>1150–1900 µs</strong>
-for servo 1 and <strong>1300–1950 µs</strong> for servo 2. Both sit inside an absolute <strong>1000–2000 µs</strong> range
-that no servo is ever driven outside, whatever it is asked for.</p>
-<p>The low end of a range is CLOSED, meaning full left or full down. If an axis runs backwards, or
-its travel needs tuning for the mount you have built, calibrate it with <code>holo endpoints</code> rather
-than rewiring — the values are saved in NVS under the pin, so they follow the wiring. See
-<a href="../../use/holo/#calibrating-the-travel">The holoprojector</a>.</p>
-<h2 id="going-limp">Going limp<a class="headerlink" href="#going-limp" title="Permanent link">&para;</a></h2>
-<p>The servos are not driven at boot, and stay limp until something moves them. <code>holo off</code>, or
-<code>servo_off all</code>, stops driving them again; the next move picks up from wherever they were left.
-This matters mechanically — a servo held against a hard stop for hours will cook itself.</p>
+<p>Keep the wires under a metre or two. For longer runs, or anything through a slip ring, use
+<a href="../host-rs485/">RS485</a>.</p>
+<h2 id="33-v-and-5-v">3.3 V and 5 V<a class="headerlink" href="#33-v-and-5-v" title="Permanent link">&para;</a></h2>
+<p>The board's pins are 3.3 V, and <strong>5 V on GPIO33 will damage it</strong>.</p>
+<ul>
+<li><strong>A 3.3 V host</strong> (a Pi, an ESP32, a 3.3 V Arduino, a 3.3 V USB-serial adapter): wire it
+  directly.</li>
+<li><strong>A 5 V host</strong> (an Arduino Uno, Mega or Nano, most MarcDuinos): its TX needs bringing down to
+  3.3 V. A divider is enough at 115200 baud: 1 kΩ from the host's TX to GPIO33, and 2 kΩ from
+  GPIO33 to GND. The other direction needs nothing: a 5 V AVR reads the board's 3.3 V as a high.
+  A level-shifter module (BSS138 or TXS0108 style) works in both directions instead.</li>
+</ul>
+<p>Check a USB-serial adapter's voltage before connecting it. Many have a 5 V / 3.3 V jumper, and
+some are 5 V only.</p>
+<h2 id="attn-for-a-host-that-sleeps">ATTN, for a host that sleeps<a class="headerlink" href="#attn-for-a-host-that-sleeps" title="Permanent link">&para;</a></h2>
+<p>The board sends events on its TX line as they happen, so most hosts don't need a third wire.
+A host that sleeps can't be woken by a UART line alone. For that, turn on <code>attn</code> in the link
+settings and wire GPIO15 to an input that wakes it. ATTN goes low while events are waiting, and
+high again once the host has read them.</p>
+<h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
+<p>On the board's USB console:</p>
+<div class="highlight"><pre><span></span><code>link mode uart -b 115200
+restart
+</code></pre></div>
+<h2 id="a-first-test-from-a-computer">A first test, from a computer<a class="headerlink" href="#a-first-test-from-a-computer" title="Permanent link">&para;</a></h2>
+<p>With a 3.3 V USB-serial adapter on the three wires, open it in any terminal program at 115200
+baud, 8N1. After the board restarts, it sends:</p>
+<div class="highlight"><pre><span></span><code>! {"event":"ready","firmware":"v1.1.0","protocol":1,"address":1}
+</code></pre></div>
+<p>Type a request and press Enter. The board doesn't echo it, so turn on local echo in the terminal
+to see what you type:</p>
+<div class="highlight"><pre><span></span><code>GET /leds
+200 {"mode":"off","colour":"#ffffff","loop":false,"brightness":30,"count":16,"gpio":16}
+PATCH /leds {"mode":"solid","colour":"orange"}
+200 {"mode":"solid","colour":"#ffa500","loop":false,"brightness":30,"count":16,"gpio":16}
+</code></pre></div>
+<p>Or use <code>tools/hostlink.py</code> from the repository, which sends a request and prints the reply, sends
+native frames, and follows events (it needs <code>pip install pyserial</code>):</p>
+<div class="highlight"><pre><span></span><code>tools/hostlink.py<span class="w"> </span>/dev/cu.usbserial-X<span class="w"> </span>GET<span class="w"> </span>/leds
+tools/hostlink.py<span class="w"> </span>/dev/cu.usbserial-X<span class="w"> </span>--native<span class="w"> </span>status
+tools/hostlink.py<span class="w"> </span>/dev/cu.usbserial-X<span class="w"> </span>--listen<span class="w"> </span>scene_ended,leds
+</code></pre></div>
+<p>If nothing comes back, run <code>link log on</code> on the USB console and try again. Nothing arriving means
+the wiring (TX and RX swapped is the usual fault). Garbage, or <code>framing_errors</code> climbing in <code>link</code>,
+means the baud rates differ.</p>
+<h2 id="from-a-raspberry-pi">From a Raspberry Pi<a class="headerlink" href="#from-a-raspberry-pi" title="Permanent link">&para;</a></h2>
+<p>The Pi's own UART is on its 40-pin header: TX on pin 8 (GPIO14), RX on pin 10 (GPIO15), and GND on
+pin 6. Both are 3.3 V, so wire them straight to the board. Turn the serial port on and its login
+shell off with <code>sudo raspi-config</code> (Interface Options, Serial Port), then use <code>/dev/serial0</code>.</p>
+<p>In Python, with pyserial:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">serial</span>
+
+<span class="n">port</span> <span class="o">=</span> <span class="n">serial</span><span class="o">.</span><span class="n">Serial</span><span class="p">(</span><span class="s2">"/dev/serial0"</span><span class="p">,</span> <span class="mi">115200</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">request</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Send one request, and return (status, body). Events that arrive first are printed."""</span>
+    <span class="n">port</span><span class="o">.</span><span class="n">write</span><span class="p">((</span><span class="n">line</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">reply</span> <span class="o">=</span> <span class="n">port</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reply</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TimeoutError</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">reply</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"!"</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"event:"</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">reply</span><span class="p">[</span><span class="mi">2</span><span class="p">:]))</span>
+            <span class="k">continue</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">rest</span> <span class="o">=</span> <span class="n">reply</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">" "</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rest</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"+"</span><span class="p">):</span>                   <span class="c1"># events waiting: +&lt;n&gt;</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">rest</span> <span class="o">=</span> <span class="n">rest</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">" "</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">status</span><span class="p">),</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span> <span class="k">if</span> <span class="n">rest</span> <span class="k">else</span> <span class="kc">None</span>
+
+<span class="n">request</span><span class="p">(</span><span class="s1">'PATCH /link/events {"kinds":["scene_ended"],"push":true}'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="p">(</span><span class="s1">'POST /scenes/apply {"name":"cantina"}'</span><span class="p">))</span>
+</code></pre></div>
+<h2 id="from-an-esp32">From an ESP32<a class="headerlink" href="#from-an-esp32" title="Permanent link">&para;</a></h2>
+<p>Any of its spare UARTs, on any two pins, wired straight across. With the Arduino core:</p>
+<div class="highlight"><pre><span></span><code><span class="n">HardwareSerial</span><span class="w"> </span><span class="nf">holo</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">setup</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">holo</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="mi">115200</span><span class="p">,</span><span class="w"> </span><span class="n">SERIAL_8N1</span><span class="p">,</span><span class="w"> </span><span class="cm">/* rx */</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="cm">/* tx */</span><span class="w"> </span><span class="mi">17</span><span class="p">);</span>
+<span class="w">  </span><span class="n">holo</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"POST /scenes/apply {</span><span class="se">\"</span><span class="s">name</span><span class="se">\"</span><span class="s">:</span><span class="se">\"</span><span class="s">cantina</span><span class="se">\"</span><span class="s">}"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">loop</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">holo</span><span class="p">.</span><span class="n">available</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">holo</span><span class="p">.</span><span class="n">readStringUntil</span><span class="p">(</span><span class="sc">'\n'</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">line</span><span class="p">.</span><span class="n">startsWith</span><span class="p">(</span><span class="s">"!"</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// an event: parse line.substring(2) with ArduinoJson</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// a reply: the status is the first three characters</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="from-a-5-v-arduino">From a 5 V Arduino<a class="headerlink" href="#from-a-5-v-arduino" title="Permanent link">&para;</a></h2>
+<p>Through the divider above. An Uno has one hardware serial port, and it's also its USB, so use a
+Mega's <code>Serial1</code>, or SoftwareSerial at 9600 or 19200 baud (<code>link mode uart -b 19200</code>). SoftwareSerial
+can't send and receive at once, so leave events unpushed and use the pending count instead.</p>
+<p>With little memory, <a href="../../reference/host-protocol/#native-frames">native frames</a> are easier than
+JSON. A <code>SCENE</code> request for slot 3 is these bytes before COBS: the board's address (1), a
+sequence number the reply carries back (7), the type (0x10), the slot, and the CRC:</p>
+<div class="highlight"><pre><span></span><code>01 07 10 03 &lt;crc16, low byte first&gt;
+</code></pre></div>
+<p>JSON lines work too, as long as the host only writes them and reads the status:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Serial1</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="mi">115200</span><span class="p">);</span>
+<span class="n">Serial1</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="s">"POST /scenes/apply {</span><span class="se">\"</span><span class="s">name</span><span class="se">\"</span><span class="s">:</span><span class="se">\"</span><span class="s">cantina</span><span class="se">\"</span><span class="s">}"</span><span class="p">);</span>
+<span class="c1">// the reply starts with "200" when it worked</span>
+</code></pre></div>
 
 
 
@@ -1551,7 +1680,7 @@ This matters mechanically — a servo held against a hard stop for hours will co
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the LED ring">
+          <a href="../servos/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the servos">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1561,20 +1690,20 @@ This matters mechanically — a servo held against a hard stop for hours will co
                 Previous
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                Wiring the servos
               </div>
             </div>
           </a>
         
         
           
-          <a href="../host-uart/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: UART">
+          <a href="../host-rs485/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: RS485">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Host link: UART
+                Host link: RS485
               </div>
             </div>
             <div class="md-footer__button md-icon">

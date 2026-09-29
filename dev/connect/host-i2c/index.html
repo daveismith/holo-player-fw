@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../leds/">
+        <link rel="prev" href="../host-rs485/">
       
       
-        <link rel="next" href="../host-uart/">
+        <link rel="next" href="../../use/video/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Wiring the servos - Holo Player</title>
+        <title>Host link: I2C - Holo Player</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wiring-the-servos" class="md-skip">
+        <a href="#host-link-i2c" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wiring the servos
+              Host link: I2C
             
           </span>
         </div>
@@ -526,36 +526,10 @@
                   
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Wiring the servos
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../servos/" class="md-nav__link">
         
   
   
@@ -570,93 +544,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Connections
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Power
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signal level
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Which servo is which
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Travel
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Going limp
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -720,10 +607,36 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../host-i2c/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -738,6 +651,115 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#four-wires" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Four wires
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pull-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pull-ups
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#33-v-and-5-v" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        3.3 V and 5 V
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speed-and-length" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Speed and length
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-interrupt-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The interrupt line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#turning-it-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Turning it on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Registers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-first-test-from-an-arduino" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first test, from an Arduino
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1369,10 +1391,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#four-wires" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        Four wires
       </span>
     </span>
   </a>
@@ -1380,10 +1402,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#pull-ups" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        Pull-ups
       </span>
     </span>
   </a>
@@ -1391,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#33-v-and-5-v" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        3.3 V and 5 V
       </span>
     </span>
   </a>
@@ -1402,10 +1424,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#speed-and-length" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        Speed and length
       </span>
     </span>
   </a>
@@ -1413,10 +1435,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#the-interrupt-line" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        The interrupt line
       </span>
     </span>
   </a>
@@ -1424,10 +1446,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        Turning it on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Registers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-first-test-from-an-arduino" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first test, from an Arduino
       </span>
     </span>
   </a>
@@ -1452,68 +1496,174 @@
   
 
 
-<h1 id="wiring-the-servos">Wiring the servos<a class="headerlink" href="#wiring-the-servos" title="Permanent link">&para;</a></h1>
-<p>Two hobby servos aim the holoprojector: <strong>pan</strong> (left and right) and <strong>tilt</strong> (up and down). They
-run on the ESP32-S3's MCPWM, one timer each.</p>
-<p>For the motions themselves, and for calibrating each axis, see
-<a href="../../use/holo/">The holoprojector</a>.</p>
-<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
-<p>GPIO17 and GPIO18 are pins 9 and 10 of the <a href="../board/#p2-expansion-header">P2 header</a>.</p>
+<h1 id="host-link-i2c">Host link: I2C<a class="headerlink" href="#host-link-i2c" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Not in the firmware yet</p>
+<p>This page describes the I2C link ahead of the firmware, for review. UART and RS485 work now.</p>
+</div>
+<p>On I2C, the board is a target on the host's bus, like a sensor, at an address of its own (0x42
+unless changed). It suits a host that already runs an I2C bus through the dome. It speaks
+<a href="../../reference/host-protocol/#i2c">native frames</a> through a few registers, and pulls an
+interrupt line low when it has an event for the host.</p>
+<p>This bus is separate from the board's own I2C bus, which serves its touch controller and IMU.
+Their addresses don't matter here.</p>
+<h2 id="four-wires">Four wires<a class="headerlink" href="#four-wires" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Wire</th>
-<th>Goes to</th>
+<th>Board</th>
+<th>P2 pin</th>
+<th>Host bus</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Servo 1 signal (orange, or white)</td>
-<td>P2 pin 9, GPIO17</td>
+<td>GPIO21, SDA</td>
+<td>11</td>
+<td>SDA</td>
 </tr>
 <tr>
-<td>Servo 2 signal</td>
-<td>P2 pin 10, GPIO18</td>
+<td>GPIO33, SCL</td>
+<td>12</td>
+<td>SCL</td>
 </tr>
 <tr>
-<td>Both servos' power (red)</td>
-<td>A separate 5 V supply</td>
+<td>GPIO15, IRQ</td>
+<td>7</td>
+<td>An input, with a pull-up (optional)</td>
 </tr>
 <tr>
-<td>Both servos' ground (brown, or black)</td>
-<td>That supply's ground, <strong>and</strong> P2 pin 1 or 5</td>
+<td>GND</td>
+<td>1 or 5</td>
+<td>GND</td>
 </tr>
 </tbody>
 </table>
-<h2 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h2>
+<h2 id="pull-ups">Pull-ups<a class="headerlink" href="#pull-ups" title="Permanent link">&para;</a></h2>
+<p>An I2C bus needs one pull-up resistor on SDA and one on SCL, to the bus voltage. The board has
+none on these pins, so the bus must have them somewhere: on the host, on another device, or added.</p>
+<ul>
+<li><strong>4.7 kΩ</strong> to 3.3 V for 100 kHz on short wires; 2.2 kΩ for longer ones, or 400 kHz.</li>
+<li><strong>Only one set on the bus</strong>, or at least not so many in parallel that the total drops below
+  about 1 kΩ.</li>
+</ul>
+<h2 id="33-v-and-5-v">3.3 V and 5 V<a class="headerlink" href="#33-v-and-5-v" title="Permanent link">&para;</a></h2>
+<p><strong>The board must never see 5 V on SDA or SCL.</strong> On a 5 V bus (an Arduino Uno, most MarcDuinos),
+put a bidirectional I2C level shifter between the bus and the board: a PCA9306, or a BSS138
+module. Its 3.3 V side takes the board and 3.3 V pull-ups, and its 5 V side the host.</p>
 <div class="admonition warning">
-<p class="admonition-title">Do not take servo power from P2's VSYS pin</p>
-<p>A small hobby servo draws 0.5–1 A as it starts moving or when it stalls. Two of them at once
-would brown out the board, and a brown-out mid-write is how filesystems get damaged. Give the
-servos their own 5 V supply.</p>
+<p class="admonition-title">Arduino's Wire library pulls the bus up to 5 V</p>
+<p>On an AVR, <code>Wire.begin()</code> turns on the chip's own pull-ups, to 5 V. They are weak, but enough
+to put 5 V on a board wired straight to the bus. Always use a level shifter with a 5 V host.</p>
 </div>
-<p>Join the servo supply's ground to the board's ground. The pulse the board sends is measured
-against ground, so without a shared reference the servos see noise rather than a signal.</p>
-<h2 id="signal-level">Signal level<a class="headerlink" href="#signal-level" title="Permanent link">&para;</a></h2>
-<p>The signal is 3.3 V, which hobby servos accept — unlike the LED strip, a servo's input is a
-comparator with a low threshold, so no level shifting is needed.</p>
-<h2 id="which-servo-is-which">Which servo is which<a class="headerlink" href="#which-servo-is-which" title="Permanent link">&para;</a></h2>
-<p>By default <strong>servo 1 (GPIO17) pans</strong> and <strong>servo 2 (GPIO18) tilts</strong>.</p>
-<p>The sketch this firmware grew out of never recorded which servo was which, so if <code>holo wag</code> nods
-instead of shaking its head, the two are swapped. Rather than rewiring, change <em>Which servo pans</em>
-in <code>idf.py menuconfig</code> — see <a href="../../reference/config/">Configuration</a>.</p>
-<h2 id="travel">Travel<a class="headerlink" href="#travel" title="Permanent link">&para;</a></h2>
-<p>Each servo has a working range, defaulting to the range the original sketch used: <strong>1150–1900 µs</strong>
-for servo 1 and <strong>1300–1950 µs</strong> for servo 2. Both sit inside an absolute <strong>1000–2000 µs</strong> range
-that no servo is ever driven outside, whatever it is asked for.</p>
-<p>The low end of a range is CLOSED, meaning full left or full down. If an axis runs backwards, or
-its travel needs tuning for the mount you have built, calibrate it with <code>holo endpoints</code> rather
-than rewiring — the values are saved in NVS under the pin, so they follow the wiring. See
-<a href="../../use/holo/#calibrating-the-travel">The holoprojector</a>.</p>
-<h2 id="going-limp">Going limp<a class="headerlink" href="#going-limp" title="Permanent link">&para;</a></h2>
-<p>The servos are not driven at boot, and stay limp until something moves them. <code>holo off</code>, or
-<code>servo_off all</code>, stops driving them again; the next move picks up from wherever they were left.
-This matters mechanically — a servo held against a hard stop for hours will cook itself.</p>
+<h2 id="speed-and-length">Speed and length<a class="headerlink" href="#speed-and-length" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>100 kHz</strong> is the speed to use. 400 kHz should work on short wires, and will be confirmed when
+  the I2C link is built.</li>
+<li><strong>I2C is for short runs</strong>, a metre or so. Through a slip ring or across a whole droid, use
+  <a href="../host-rs485/">RS485</a>.</li>
+<li><strong>Clock stretching.</strong> The board may hold SCL low briefly at the start of a read. Most hosts
+  wait for it. A Raspberry Pi's I2C hardware doesn't handle stretching reliably: on a Pi, use
+  the <code>i2c-gpio</code> overlay, a software bus that does.</li>
+</ul>
+<h2 id="the-interrupt-line">The interrupt line<a class="headerlink" href="#the-interrupt-line" title="Permanent link">&para;</a></h2>
+<p>The board pulls IRQ low while it has events the host hasn't read, and lets it go when there are
+none. It's open drain: the host needs a pull-up on it, which a microcontroller's internal one
+usually covers. The IRQ lines of several boards can share one host input.</p>
+<p>After an interrupt, the host reads each board's <code>STATUS</code> register, and reads <code>EVENT</code> from each
+one with <code>pending</code>. A host that doesn't wire IRQ can read <code>STATUS</code> now and then instead.</p>
+<h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>link mode i2c -a 0x42
+restart
+</code></pre></div>
+<p>Each board on a bus needs its own address, from 0x08 to 0x77, and one no other device on the bus
+uses.</p>
+<h2 id="registers">Registers<a class="headerlink" href="#registers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Register</th>
+<th>Access</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0x00 <code>STATUS</code></td>
+<td>read, 14 bytes</td>
+<td>The protocol version, what the board is doing, and how many events are waiting</td>
+</tr>
+<tr>
+<td>0x10 <code>COMMAND</code></td>
+<td>write</td>
+<td>A command: apply a scene, set the LEDs, move the holo…</td>
+</tr>
+<tr>
+<td>0x11 <code>RESULT</code></td>
+<td>read</td>
+<td>The last command's result</td>
+</tr>
+<tr>
+<td>0x20 <code>EVENT</code></td>
+<td>read, 8 bytes</td>
+<td>The oldest event not yet read</td>
+</tr>
+<tr>
+<td>0x30 <code>VERSION</code></td>
+<td>read, 32 bytes</td>
+<td>The firmware version</td>
+</tr>
+</tbody>
+</table>
+<p><a href="../../reference/host-protocol/#i2c">The protocol reference</a> has their exact contents.</p>
+<h2 id="a-first-test-from-an-arduino">A first test, from an Arduino<a class="headerlink" href="#a-first-test-from-an-arduino" title="Permanent link">&para;</a></h2>
+<p>Apply the scene in slot 3, and read the result:</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;Wire.h&gt;</span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">HOLO</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x42</span><span class="p">;</span>
+
+<span class="kt">uint16_t</span><span class="w"> </span><span class="nf">crc16</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">       </span><span class="c1">// CRC-16/CCITT-FALSE</span>
+<span class="w">  </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xFFFF</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="o">--</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">crc</span><span class="w"> </span><span class="o">^=</span><span class="w"> </span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span><span class="o">*</span><span class="n">p</span><span class="o">++</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0x8000</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span><span class="n">crc</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="mh">0x1021</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">crc</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">setup</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Serial</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="mi">115200</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Wire</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+
+<span class="w">  </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">cmd</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mh">0x10</span><span class="p">,</span><span class="w"> </span><span class="cm">/* seq */</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="cm">/* SCENE */</span><span class="w"> </span><span class="mh">0x10</span><span class="p">,</span><span class="w"> </span><span class="cm">/* slot */</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">};</span>
+<span class="w">  </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc16</span><span class="p">(</span><span class="n">cmd</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="w">  </span><span class="n">cmd</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="mh">0xFF</span><span class="p">;</span>
+<span class="w">  </span><span class="n">cmd</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Wire</span><span class="p">.</span><span class="n">beginTransmission</span><span class="p">(</span><span class="n">HOLO</span><span class="p">);</span>
+<span class="w">  </span><span class="n">Wire</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">cmd</span><span class="p">));</span>
+<span class="w">  </span><span class="n">Wire</span><span class="p">.</span><span class="n">endTransmission</span><span class="p">();</span>
+
+<span class="w">  </span><span class="kt">uint8_t</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xFE</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mh">0xFE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">                         </span><span class="c1">// still working</span>
+<span class="w">    </span><span class="n">delay</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">beginTransmission</span><span class="p">(</span><span class="n">HOLO</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mh">0x11</span><span class="p">);</span><span class="w">                              </span><span class="c1">// RESULT</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">endTransmission</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span><span class="w">                   </span><span class="c1">// repeated start</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">requestFrom</span><span class="p">(</span><span class="n">HOLO</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">)</span><span class="mi">6</span><span class="p">);</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span><span class="w">                                   </span><span class="c1">// seq</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span><span class="w">                                   </span><span class="c1">// type + 0x80</span>
+<span class="w">    </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span><span class="w">                                   </span><span class="c1">// pending</span>
+<span class="w">    </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span><span class="w"> </span><span class="n">Wire</span><span class="p">.</span><span class="n">read</span><span class="p">();</span><span class="w">                      </span><span class="c1">// crc16</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">Serial</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">"scene 3 applied"</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s">"scene 3 failed"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">loop</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span>
+</code></pre></div>
+<p>(The host above is 3.3 V, or behind a level shifter.)</p>
+<p>From a Pi, <code>i2cget -y 1 0x42 0x00</code> reads the first byte of <code>STATUS</code>, the protocol version, which
+is 1. That's a quick way to check the wiring before writing any code.</p>
 
 
 
@@ -1551,7 +1701,7 @@ This matters mechanically — a servo held against a hard stop for hours will co
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the LED ring">
+          <a href="../host-rs485/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Host link: RS485">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1561,20 +1711,20 @@ This matters mechanically — a servo held against a hard stop for hours will co
                 Previous
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                Host link: RS485
               </div>
             </div>
           </a>
         
         
           
-          <a href="../host-uart/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: UART">
+          <a href="../../use/video/" class="md-footer__link md-footer__link--next" aria-label="Next: Video clips">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Host link: UART
+                Video clips
               </div>
             </div>
             <div class="md-footer__button md-icon">

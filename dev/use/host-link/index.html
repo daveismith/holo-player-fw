@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../leds/">
+        <link rel="prev" href="../ota/">
       
       
-        <link rel="next" href="../host-uart/">
+        <link rel="next" href="../../troubleshooting/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Wiring the servos - Holo Player</title>
+        <title>The host link - Holo Player</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wiring-the-servos" class="md-skip">
+        <a href="#the-host-link" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wiring the servos
+              The host link
             
           </span>
         </div>
@@ -223,15 +223,13 @@
   
   
   
-    
-  
   
     
       
     
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../install/flashing/" class="md-tabs__link">
           
   
@@ -247,14 +245,16 @@
   
   
   
+    
+  
   
     
       
     
     
     
-      <li class="md-tabs__item">
-        <a href="../../use/video/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../video/" class="md-tabs__link">
           
   
   Use
@@ -362,31 +362,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -404,7 +399,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_2">
               <span class="md-nav__icon md-icon"></span>
               
@@ -448,7 +443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../connect/board/" class="md-nav__link">
         
   
   
@@ -475,7 +470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../screen/" class="md-nav__link">
+      <a href="../../connect/screen/" class="md-nav__link">
         
   
   
@@ -502,7 +497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../leds/" class="md-nav__link">
+      <a href="../../connect/leds/" class="md-nav__link">
         
   
   
@@ -510,6 +505,394 @@
     
   
   Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating the firmware
 
     
   </span>
@@ -545,7 +928,7 @@
   <span class="md-ellipsis">
     
   
-  Wiring the servos
+  The host link
 
     
   </span>
@@ -562,7 +945,7 @@
   <span class="md-ellipsis">
     
   
-  Wiring the servos
+  The host link
 
     
   </span>
@@ -588,10 +971,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#choosing-a-transport" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        Choosing a transport
       </span>
     </span>
   </a>
@@ -599,10 +982,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#pins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        Pins
       </span>
     </span>
   </a>
@@ -610,10 +993,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        Turning it on
       </span>
     </span>
   </a>
@@ -621,10 +1004,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#the-link-command" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        The <code>link</code> command
       </span>
     </span>
   </a>
@@ -632,10 +1015,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#what-a-host-can-do" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        What a host can do
       </span>
     </span>
   </a>
@@ -643,10 +1026,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#events" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        Events
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Status
       </span>
     </span>
   </a>
@@ -657,389 +1051,6 @@
   
 </nav>
       
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../host-uart/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Host link: UART
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../host-rs485/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Host link: RS485
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../host-i2c/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Host link: I2C
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-            </ul>
-          </nav>
-        
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Use
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_3">
-              <span class="md-nav__icon md-icon"></span>
-              
-  
-  Use
-
-            </label>
-            <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/video/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Video clips
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/images/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Images
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/leds/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  LED patterns
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/holo/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  The holoprojector
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/files/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Files on the board
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/board/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  The board in the browser
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/web/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  The board over Wi-Fi
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/ota/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Updating the firmware
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../use/host-link/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  The host link
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1369,10 +1380,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#choosing-a-transport" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        Choosing a transport
       </span>
     </span>
   </a>
@@ -1380,10 +1391,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#pins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        Pins
       </span>
     </span>
   </a>
@@ -1391,10 +1402,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        Turning it on
       </span>
     </span>
   </a>
@@ -1402,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#the-link-command" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        The <code>link</code> command
       </span>
     </span>
   </a>
@@ -1413,10 +1424,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#what-a-host-can-do" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        What a host can do
       </span>
     </span>
   </a>
@@ -1424,10 +1435,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#events" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        Events
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Status
       </span>
     </span>
   </a>
@@ -1452,68 +1474,237 @@
   
 
 
-<h1 id="wiring-the-servos">Wiring the servos<a class="headerlink" href="#wiring-the-servos" title="Permanent link">&para;</a></h1>
-<p>Two hobby servos aim the holoprojector: <strong>pan</strong> (left and right) and <strong>tilt</strong> (up and down). They
-run on the ESP32-S3's MCPWM, one timer each.</p>
-<p>For the motions themselves, and for calibrating each axis, see
-<a href="../../use/holo/">The holoprojector</a>.</p>
-<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
-<p>GPIO17 and GPIO18 are pins 9 and 10 of the <a href="../board/#p2-expansion-header">P2 header</a>.</p>
+<h1 id="the-host-link">The host link<a class="headerlink" href="#the-host-link" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">What's in the firmware so far</p>
+<p>UART and RS485, with JSON lines, native frames and events. I2C is described here ahead of the
+firmware. RS485 has been tried through a plain UART, not yet with a transceiver.</p>
+</div>
+<p>The host link lets another controller run the board over a wire: an Arduino or MarcDuino, a dome
+controller, another ESP32, or a Raspberry Pi. It plays scenes, shows clips, sets the LEDs and moves
+the holo, and hears back when a clip or scene has ended.</p>
+<p>It uses three spare pins on the <a href="../../connect/board/#p2-expansion-header">P2 header</a>, and doesn't
+touch the USB console or Wi-Fi: all three work at once.</p>
+<h2 id="choosing-a-transport">Choosing a transport<a class="headerlink" href="#choosing-a-transport" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Wire</th>
-<th>Goes to</th>
+<th>Transport</th>
+<th>Wires</th>
+<th>Boards per bus</th>
+<th>Speaks</th>
+<th>Good for</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Servo 1 signal (orange, or white)</td>
-<td>P2 pin 9, GPIO17</td>
+<td><a href="../../connect/host-uart/">UART</a></td>
+<td>TX, RX, GND</td>
+<td>one</td>
+<td>JSON lines and native frames</td>
+<td>One host close by: a Pi, an ESP32, an Arduino with a spare serial port. The simplest to start with</td>
 </tr>
 <tr>
-<td>Servo 2 signal</td>
-<td>P2 pin 10, GPIO18</td>
+<td><a href="../../connect/host-rs485/">RS485</a></td>
+<td>A, B, GND, via a transceiver</td>
+<td>up to 32, or more with low-load transceivers</td>
+<td>JSON lines and native frames</td>
+<td>Long runs through the body and dome, and several boards on one pair of wires</td>
 </tr>
 <tr>
-<td>Both servos' power (red)</td>
-<td>A separate 5 V supply</td>
-</tr>
-<tr>
-<td>Both servos' ground (brown, or black)</td>
-<td>That supply's ground, <strong>and</strong> P2 pin 1 or 5</td>
+<td><a href="../../connect/host-i2c/">I2C</a></td>
+<td>SDA, SCL, IRQ, GND</td>
+<td>many, one address each</td>
+<td>native frames</td>
+<td>A host that already has an I2C bus in the dome</td>
 </tr>
 </tbody>
 </table>
-<h2 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
-<p class="admonition-title">Do not take servo power from P2's VSYS pin</p>
-<p>A small hobby servo draws 0.5–1 A as it starts moving or when it stalls. Two of them at once
-would brown out the board, and a brown-out mid-write is how filesystems get damaged. Give the
-servos their own 5 V supply.</p>
-</div>
-<p>Join the servo supply's ground to the board's ground. The pulse the board sends is measured
-against ground, so without a shared reference the servos see noise rather than a signal.</p>
-<h2 id="signal-level">Signal level<a class="headerlink" href="#signal-level" title="Permanent link">&para;</a></h2>
-<p>The signal is 3.3 V, which hobby servos accept — unlike the LED strip, a servo's input is a
-comparator with a low threshold, so no level shifting is needed.</p>
-<h2 id="which-servo-is-which">Which servo is which<a class="headerlink" href="#which-servo-is-which" title="Permanent link">&para;</a></h2>
-<p>By default <strong>servo 1 (GPIO17) pans</strong> and <strong>servo 2 (GPIO18) tilts</strong>.</p>
-<p>The sketch this firmware grew out of never recorded which servo was which, so if <code>holo wag</code> nods
-instead of shaking its head, the two are swapped. Rather than rewiring, change <em>Which servo pans</em>
-in <code>idf.py menuconfig</code> — see <a href="../../reference/config/">Configuration</a>.</p>
-<h2 id="travel">Travel<a class="headerlink" href="#travel" title="Permanent link">&para;</a></h2>
-<p>Each servo has a working range, defaulting to the range the original sketch used: <strong>1150–1900 µs</strong>
-for servo 1 and <strong>1300–1950 µs</strong> for servo 2. Both sit inside an absolute <strong>1000–2000 µs</strong> range
-that no servo is ever driven outside, whatever it is asked for.</p>
-<p>The low end of a range is CLOSED, meaning full left or full down. If an axis runs backwards, or
-its travel needs tuning for the mount you have built, calibrate it with <code>holo endpoints</code> rather
-than rewiring — the values are saved in NVS under the pin, so they follow the wiring. See
-<a href="../../use/holo/#calibrating-the-travel">The holoprojector</a>.</p>
-<h2 id="going-limp">Going limp<a class="headerlink" href="#going-limp" title="Permanent link">&para;</a></h2>
-<p>The servos are not driven at boot, and stay limp until something moves them. <code>holo off</code>, or
-<code>servo_off all</code>, stops driving them again; the next move picks up from wherever they were left.
-This matters mechanically — a servo held against a hard stop for hours will cook itself.</p>
+<p>CAN (with Cyphal) and plain GPIO triggers are planned for later.</p>
+<p><strong>JSON lines</strong> are the <a href="../../reference/http-api/">HTTP API</a>, one request a line:</p>
+<div class="highlight"><pre><span></span><code>POST /scenes/apply {"name":"cantina"}
+200 {"screen":{...},"leds":{...},"holo":{...}}
+</code></pre></div>
+<p><strong>Native frames</strong> are small binary messages with a CRC, for hosts with little memory. The
+<a href="../../reference/host-protocol/">protocol reference</a> specifies both.</p>
+<h2 id="pins">Pins<a class="headerlink" href="#pins" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Default</th>
+<th>P2 pin</th>
+<th>UART</th>
+<th>RS485</th>
+<th>I2C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>GPIO21</td>
+<td>11</td>
+<td>TX (board → host)</td>
+<td>DI of the transceiver</td>
+<td>SDA</td>
+</tr>
+<tr>
+<td>B</td>
+<td>GPIO33</td>
+<td>12</td>
+<td>RX (host → board)</td>
+<td>RO of the transceiver</td>
+<td>SCL</td>
+</tr>
+<tr>
+<td>C</td>
+<td>GPIO15</td>
+<td>7</td>
+<td>ATTN, if turned on</td>
+<td>DE and /RE of the transceiver</td>
+<td>IRQ (open drain)</td>
+</tr>
+</tbody>
+</table>
+<p>A GND wire, P2 pin 1 or 5, goes with every transport. The pins can be changed in the settings, to
+any of the free GPIOs that the LEDs and servos aren't using. While the link holds a pin, the <code>gpio</code>
+command refuses to drive it.</p>
+<p>Everything is 3.3 V, and <strong>no pin takes 5 V</strong>. Each transport's page says what to put between the
+board and a 5 V host.</p>
+<h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
+<p>The link is off until it's given a transport. The settings are saved, and can be changed from the
+USB console, the HTTP API, or the web app.</p>
+<p><strong>On the console:</strong></p>
+<div class="highlight"><pre><span></span><code>link mode uart -b 115200
+restart
+</code></pre></div>
+<p>After the restart, <code>link</code> shows it running:</p>
+<div class="highlight"><pre><span></span><code>link: uart on GPIO21 (TX), GPIO33 (RX), 115200 baud, protocol auto, address 1
+  requests 0, events given 0, bad lines 0, framing errors 0, overruns 0, ignored 0; last request never
+  events: [], pushed, 0 pending
+</code></pre></div>
+<p><strong>Over the HTTP API:</strong></p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"mode":"uart","baud":115200}'</span><span class="w"> </span>http://holo-2db0.local/api/v1/link
+</code></pre></div>
+<p><strong>In the web app:</strong> the Host link card on the Settings page.</p>
+<p>Changing the transport, the pins, <code>attn</code>, the I2C address or <code>general_call</code> waits for a restart,
+and the reply says so with <code>"restart_required": true</code>. The rest applies at once: the baud rate,
+the address and groups, the protocol, and the events it starts with. A new baud rate takes effect
+after the reply, which is sent at the old one.</p>
+<h2 id="the-link-command">The <code>link</code> command<a class="headerlink" href="#the-link-command" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>link</code></td>
+<td>The transport, its pins and settings, the counters, and the events asked for</td>
+</tr>
+<tr>
+<td><code>link mode &lt;off\|uart\|rs485&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
+<td>The transport, from the next restart. <code>-b</code> is the baud rate, <code>-a</code> the board's address: 1–223</td>
+</tr>
+<tr>
+<td><code>link proto &lt;auto\|json\|native&gt;</code></td>
+<td>What the board accepts on UART and RS485. I2C is always native</td>
+</tr>
+<tr>
+<td><code>link address &lt;1-223&gt;</code></td>
+<td>The board's address on UART and RS485</td>
+</tr>
+<tr>
+<td><code>link groups [&lt;group&gt;…\|--clear]</code></td>
+<td>The groups it belongs to, 1–31, up to 8</td>
+</tr>
+<tr>
+<td><code>link pins &lt;a&gt; &lt;b&gt; &lt;c&gt;</code></td>
+<td>The GPIOs for roles A, B and C</td>
+</tr>
+<tr>
+<td><code>link events [&lt;kind&gt;…\|--none] [--push\|--keep]</code></td>
+<td>The events the link starts with, and whether it pushes them</td>
+</tr>
+<tr>
+<td><code>link log [on\|off]</code></td>
+<td>Print every line and frame, in and out, on the USB console. For wiring up a host</td>
+</tr>
+<tr>
+<td><code>link reset</code></td>
+<td>Back to the firmware's defaults</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-a-host-can-do">What a host can do<a class="headerlink" href="#what-a-host-can-do" title="Permanent link">&para;</a></h2>
+<p>Over JSON lines, most of the HTTP API: the screen, the LEDs, the holo and servos, scenes, settings,
+the board's information, and the link itself. <a href="../../reference/host-protocol/#what-is-served">The protocol reference</a>
+lists the paths. Files, firmware updates, the network and servo calibration stay on the USB
+console and Wi-Fi.</p>
+<p>Over native frames, less, but what a show needs: apply a scene by its slot, end it, the screen's
+colour and backlight, the LEDs, a holo motion, and the board's status.</p>
+<p><strong>Scenes do the heavy lifting.</strong> Set up the scenes on the web app, give each one a
+<a href="../../reference/host-protocol/#scene-slots">slot</a>, and a host needs only "scene 3" to change what
+the screen, the LEDs and the holo are all doing.</p>
+<h2 id="events">Events<a class="headerlink" href="#events" title="Permanent link">&para;</a></h2>
+<p>A host can hear about things as they happen, rather than asking. They are the board's own events,
+the same ones the web app follows:</p>
+<ul>
+<li>what happened: <code>clip_started</code>, <code>clip_ended</code>, <code>scene_started</code>, <code>scene_ended</code>, and <code>touch</code>
+  (when touch reporting is on);</li>
+<li>what changed: <code>screen</code>, <code>leds</code>, <code>holo</code>, <code>scene</code>, <code>scenes</code>, <code>settings</code>, <code>network</code>, <code>ota</code> and
+  <code>system</code>, each with the resource as its <code>GET</code> returns it;</li>
+<li><code>ready</code>: the link has started (always sent once on UART, after a restart).</li>
+</ul>
+<p>Nothing but <code>ready</code> is sent until the host asks, with <code>PATCH /link/events</code> or the native
+<code>EVENTS_SET</code>. On UART, the board sends events as they happen, with no extra wire. On RS485 and
+I2C, the host fetches what happened, and every reply says how many are waiting.
+<a href="../../reference/host-protocol/#events">Events</a> has the details.</p>
+<h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
+<p><code>link</code> on the console, and <code>GET /api/v1/link</code>, count what the link has seen:</p>
+<table>
+<thead>
+<tr>
+<th>Counter</th>
+<th>Counts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>requests</code></td>
+<td>Requests answered</td>
+</tr>
+<tr>
+<td><code>events</code></td>
+<td>Events given to the host</td>
+</tr>
+<tr>
+<td><code>bad_lines</code></td>
+<td>JSON lines that didn't parse, or were too long</td>
+</tr>
+<tr>
+<td><code>crc_errors</code></td>
+<td>Native frames dropped for a bad CRC</td>
+</tr>
+<tr>
+<td><code>framing_errors</code></td>
+<td>Bytes the UART received damaged: usually a wrong baud rate, or noise</td>
+</tr>
+<tr>
+<td><code>overruns</code></td>
+<td>Bytes lost because the host sent faster than the board read</td>
+</tr>
+<tr>
+<td><code>ignored</code></td>
+<td>RS485 lines with no address</td>
+</tr>
+</tbody>
+</table>
+<p>A host that gets no reply at all is usually a wiring or baud-rate problem: <code>link log on</code> shows
+whether anything arrives. Each transport's page has a first test to try.</p>
 
 
 
@@ -1551,7 +1742,7 @@ This matters mechanically — a servo held against a hard stop for hours will co
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the LED ring">
+          <a href="../ota/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Updating the firmware">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1561,20 +1752,20 @@ This matters mechanically — a servo held against a hard stop for hours will co
                 Previous
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                Updating the firmware
               </div>
             </div>
           </a>
         
         
           
-          <a href="../host-uart/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: UART">
+          <a href="../../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Host link: UART
+                Troubleshooting
               </div>
             </div>
             <div class="md-footer__button md-icon">

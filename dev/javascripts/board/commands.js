@@ -12,9 +12,12 @@ export const GROUPS = [
   ["Video", ["video"]],
   ["LEDs", ["leds"]],
   ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
+  ["Scenes and settings", ["scene", "settings"]],
+  ["Host link", ["link"]],
   ["Touch and motion", ["touch", "imu"]],
   ["Files", ["fs"]],
   ["Firmware", ["version", "ota", "restart"]],
+  ["Web app", ["web"]],
   ["System", ["help", "free", "heap", "membench", "flash-stats", "tasks", "top", "log_level", "gpio", "deep_sleep",
     "light_sleep"]],
   ["Wi-Fi", ["wifi", "wifi_save", "wifi_forget", "wifi_known", "join", "wifi_link", "wifi_ps", "wifi_txpower"]],
@@ -90,8 +93,32 @@ export function danger(line) {
       if (sub === "rm" || sub === "rmdir") return `This deletes ${rest[0] ?? "it"} from the board.`;
       if (sub === "mv") return `This renames ${rest[0] ?? "it"} on the board.`;
       return null;
+    case "scene":
+      if (sub === "delete") return `This deletes the scene ${rest.join(" ") || "named"} from the board.`;
+      if (sub === "boot") return rest.length ? "This changes what the board shows when it starts." : null;
+      return null;
+    case "settings":
+      if (sub === "reset") return "This puts the board's start-up settings back to the firmware's defaults.";
+      if (sub === "leds") return "This changes how many LEDs the board drives, from its next start.";
+      return null;
     case "restart":
       return "The board restarts: a clip or pattern stops, and the page reconnects when it is back.";
+    case "ota":
+      if (sub === "activate") {
+        return rest.includes("-n") ? "This changes which firmware the board boots next."
+          : "This changes which firmware the board boots, and restarts it into that.";
+      }
+      if (sub === "pull") {
+        return rest.includes("-s") ? "The board downloads new firmware and stages it; what it boots is unchanged."
+          : "The board downloads new firmware, makes it the boot image, and restarts into it.";
+      }
+      return null;
+    case "web":
+      if (sub === "off") return "This stops the web app and its API until `web on`.";
+      if (sub === "password") return "This changes the password that updates over the web need.";
+      if (sub === "hostname") return "This changes the board's name on the network.";
+      if (sub === "cors" && rest.length) return "This changes which other sites may call the board's API from a browser.";
+      return null;
     case "deep_sleep":
     case "light_sleep":
       return "The board goes to sleep, and the console stops answering until it wakes.";
@@ -104,6 +131,12 @@ export function danger(line) {
     case "wifi_save":
     case "wifi_forget":
       return "This changes the Wi-Fi networks the board remembers.";
+    case "wifi":
+      if (sub === "ap") {
+        return rest.some((w) => w === "--ssid" || w === "--pass") ? "This changes the board's access point name or passphrase."
+          : rest.includes("on") ? "The board starts its own Wi-Fi access point." : null;
+      }
+      return null;
     case "servo_config":
       return "This saves a servo's working range on the board.";
     case "i2cset":

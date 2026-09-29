@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../stylesheets/board.css">
     
+      <link rel="stylesheet" href="../../stylesheets/api.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -542,6 +544,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -756,6 +839,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flicker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flicker
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -866,6 +966,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../ota/" class="md-nav__link">
         
   
@@ -873,7 +1000,34 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
 
     
   </span>
@@ -987,6 +1141,87 @@
     
   
   Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
 
     
   </span>
@@ -1159,6 +1394,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flicker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flicker
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1239,6 +1491,15 @@ leds rainbow loop
 </code></pre></div>
 <p><code>rainbow</code> takes no colour — it is the whole wheel — so <code>leds rainbow green</code> is an error rather
 than a tint.</p>
+<h3 id="flicker">Flicker<a class="headerlink" href="#flicker" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>leds flicker
+leds flicker #4da6ff
+</code></pre></div>
+<p><code>flicker</code> makes the colour flicker like a failing hologram: mostly bright and restless, each LED a
+little apart from the others, with the odd dropout to near dark and a short stutter. White if no
+colour is given. Unlike the other patterns it has no end: it runs until something else takes the
+strip, such as <code>leds off</code>, another pattern, or a scene. Paired with a clip in a scene, it makes the
+ring look like part of the hologram.</p>
 <h2 id="brightness">Brightness<a class="headerlink" href="#brightness" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>leds bright 30
 </code></pre></div>
@@ -1362,6 +1623,8 @@ brightness needs the strip on its own 5 V supply — see
         <script src="../../javascripts/installer/ui.js" type="module"></script>
       
         <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
       
     
   </body>

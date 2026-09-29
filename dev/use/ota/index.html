@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../board/">
+        <link rel="prev" href="../web/">
       
       
-        <link rel="next" href="../../troubleshooting/">
+        <link rel="next" href="../host-link/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Updating over serial - Holo Player</title>
+        <title>Updating the firmware - Holo Player</title>
       
     
     
@@ -60,6 +60,8 @@
     
       <link rel="stylesheet" href="../../stylesheets/board.css">
     
+      <link rel="stylesheet" href="../../stylesheets/api.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -85,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#updating-over-serial" class="md-skip">
+        <a href="#updating-the-firmware" class="md-skip">
           Skip to content
         </a>
       
@@ -123,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Updating over serial
+              Updating the firmware
             
           </span>
         </div>
@@ -542,6 +544,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -772,6 +855,33 @@
                   
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
     
   
   
@@ -791,7 +901,7 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
 
     
   </span>
@@ -808,7 +918,7 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
 
     
   </span>
@@ -834,6 +944,57 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#updating-over-wi-fi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating over Wi-Fi
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating over Wi-Fi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-a-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From a script
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-the-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From the console
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-over-serial" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating over serial
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating over serial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-happens" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -843,8 +1004,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#when-it-goes-wrong" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -854,8 +1015,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#rollback" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -865,8 +1026,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#checking-the-slots" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -876,8 +1037,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -887,8 +1048,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#going-back" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -898,11 +1059,43 @@
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
     </ul>
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1009,6 +1202,87 @@
     
   
   Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
 
     
   </span>
@@ -1151,6 +1425,57 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#updating-over-wi-fi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating over Wi-Fi
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating over Wi-Fi">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-a-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From a script
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-the-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From the console
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-over-serial" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updating over serial
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating over serial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-happens" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1160,8 +1485,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#when-it-goes-wrong" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1171,8 +1496,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#rollback" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1182,8 +1507,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#checking-the-slots" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1193,8 +1518,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1204,8 +1529,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#going-back" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1213,6 +1538,11 @@
       </span>
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1234,7 +1564,82 @@
   
 
 
-<h1 id="updating-over-serial">Updating over serial<a class="headerlink" href="#updating-over-serial" title="Permanent link">&para;</a></h1>
+<h1 id="updating-the-firmware">Updating the firmware<a class="headerlink" href="#updating-the-firmware" title="Permanent link">&para;</a></h1>
+<p>Once the board is installed, a new version of the firmware can go on in two ways, neither of which
+needs the board's buttons or its auto-reset circuit:</p>
+<ul>
+<li><strong><a href="#updating-over-wi-fi">Over Wi-Fi</a></strong>, from a phone or a computer: the easy way once the board is
+  on your network or you have joined its own access point.</li>
+<li><strong><a href="#updating-over-serial">Over serial</a></strong>, through the console on the USB-C port: when there is no
+  Wi-Fi.</li>
+</ul>
+<p>Either way the new image goes into the application slot that is <strong>not</strong> running, and the board
+checks the whole of it before it can boot. <a href="#when-it-goes-wrong">When it goes wrong</a>, the image
+that was running still boots.</p>
+<h2 id="updating-over-wi-fi">Updating over Wi-Fi<a class="headerlink" href="#updating-over-wi-fi" title="Permanent link">&para;</a></h2>
+<p>Open the board's web app (see <a href="../web/">The board over Wi-Fi</a> for how to reach it) and go to
+<strong>Update</strong>. There you can:</p>
+<ul>
+<li><strong>Install the latest release.</strong> The page shows the newest release next to what the board runs.
+  <strong>Download and install</strong> has the board fetch the release from this site itself, checked against
+  the release's SHA-256.</li>
+<li><strong>Upload a file.</strong> Choose <code>holo-player-fw-vX.Y.Z.bin</code> from a release, or <code>build/holo-player-fw.bin</code>
+  from your own build. Before sending, the page reads the file and says which firmware and version
+  it is. It warns about a downgrade, or about a file for another project. The bootloader and
+  partition-table files from a release are not firmware, and the page says so.</li>
+<li><strong>Switch slots.</strong> The other slot still holds the previous firmware. <strong>Switch to this</strong> restarts
+  into it.</li>
+</ul>
+<p>After an upload or download, the new firmware is <strong>staged</strong>: checked and ready, but not yet what
+the board boots. <strong>Restart into it</strong> makes it the boot image and restarts. The page then waits for
+the board to come back and reports what it is running. Leave <strong>Restart into it once the board has
+checked it</strong> ticked, and an upload does all of this in one go.</p>
+<p>A 1.6 MB image uploads in about 15 seconds over Wi-Fi, a third of the time it takes over serial.</p>
+<h3 id="from-a-script">From a script<a class="headerlink" href="#from-a-script" title="Permanent link">&para;</a></h3>
+<p>The web app is a front end for the board's <a href="../../reference/http-api/">HTTP API</a>, so the same steps
+automate. Upload, activate and restart in one call:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-T<span class="w"> </span>build/holo-player-fw.bin<span class="w"> </span><span class="s2">"http://holo-2db0.local/api/v1/ota/image?activate=1&amp;reboot=1"</span>
+</code></pre></div>
+<p>Or have the board fetch the latest release, and install it only once it is staged:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"channel":"latest"}'</span><span class="w"> </span>http://holo-2db0.local/api/v1/ota/pull
+curl<span class="w"> </span>http://holo-2db0.local/api/v1/ota/image<span class="w">          </span><span class="c1"># until "state" is "staged"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{}'</span><span class="w"> </span>http://holo-2db0.local/api/v1/ota/activate
+</code></pre></div>
+<h3 id="from-the-console">From the console<a class="headerlink" href="#from-the-console" title="Permanent link">&para;</a></h3>
+<p>The board can fetch an update from its console too: a release channel, a release's manifest, or an
+image's URL. It downloads the image, checks it, makes it the boot image and restarts, as <code>ota put</code>
+does:</p>
+<div class="highlight"><pre><span></span><code>ota pull latest
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-s</code></td>
+<td>Stage it only; <code>ota activate</code> makes it the boot image later</td>
+</tr>
+<tr>
+<td><code>-n</code></td>
+<td>Make it the boot image, but do not restart</td>
+</tr>
+<tr>
+<td><code>-f</code></td>
+<td>Accept an image built for another project</td>
+</tr>
+<tr>
+<td><code>--sha256 &lt;hex&gt;</code></td>
+<td>Refuse the image unless it has this SHA-256</td>
+</tr>
+</tbody>
+</table>
+<p><code>ota activate</code> makes the staged image the boot image and restarts. <code>ota activate ota_1</code> does the
+same for the image already in a slot, which is how to go back to the firmware before.</p>
+<h2 id="updating-over-serial">Updating over serial<a class="headerlink" href="#updating-over-serial" title="Permanent link">&para;</a></h2>
 <p><a href="../../install/flashing/">Installing over USB</a> needs the USB-C port and its auto-reset circuit. Once the board is mounted inside a
 droid that may not be reachable, so the firmware can also replace itself through the console it is
 already talking on.</p>
@@ -1242,7 +1647,7 @@ already talking on.</p>
 </code></pre></div>
 <p>A 1.26 MB image takes about 44 seconds. As with any host-side tool here, <strong>close <code>idf.py monitor</code>
 first</strong> — only one program can hold the serial port.</p>
-<h2 id="what-happens">What happens<a class="headerlink" href="#what-happens" title="Permanent link">&para;</a></h2>
+<h3 id="what-happens">What happens<a class="headerlink" href="#what-happens" title="Permanent link">&para;</a></h3>
 <p>The flash carries two application slots, <code>ota_0</code> and <code>ota_1</code>, of 2.25 MB each.</p>
 <ol>
 <li>The board erases the slot that <strong>is not</strong> running and receives the image over XMODEM-1K at
@@ -1252,11 +1657,11 @@ first</strong> — only one program can hold the serial port.</p>
 <li>The board makes that slot the boot image and restarts into it.</li>
 <li>The tool waits for the console to come back and confirms that the new slot is the one running.</li>
 </ol>
-<h2 id="when-it-goes-wrong">When it goes wrong<a class="headerlink" href="#when-it-goes-wrong" title="Permanent link">&para;</a></h2>
+<h3 id="when-it-goes-wrong">When it goes wrong<a class="headerlink" href="#when-it-goes-wrong" title="Permanent link">&para;</a></h3>
 <p>A failed transfer, a truncated image, or an image built for something else changes nothing: the
 image that was running still boots. There is no state in which the board is left with no working
 firmware, because the slot being written is never the slot being run.</p>
-<h2 id="rollback">Rollback<a class="headerlink" href="#rollback" title="Permanent link">&para;</a></h2>
+<h3 id="rollback">Rollback<a class="headerlink" href="#rollback" title="Permanent link">&para;</a></h3>
 <p><code>CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE</code> is on, so a newly installed image boots <strong>on trial</strong>. It
 confirms itself once the application is up and the console is running. A reset before that point
 boots the previous image instead.</p>
@@ -1267,7 +1672,7 @@ boots the previous image instead.</p>
 <code>idf.py flash</code>. A board that has never been installed over USB with this firmware does not
 have it.</p>
 </div>
-<h2 id="checking-the-slots">Checking the slots<a class="headerlink" href="#checking-the-slots" title="Permanent link">&para;</a></h2>
+<h3 id="checking-the-slots">Checking the slots<a class="headerlink" href="#checking-the-slots" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>ota
 </code></pre></div>
 <p>lists both application slots: the partition label, where it is, how big it is, which one is
@@ -1279,7 +1684,7 @@ image it holds, plus its state.</p>
 <p>An image built from an untagged tree reports the commit it came from instead of a tag. See
 <a href="https://github.com/daveismith/holo-player-fw/blob/main/RELEASING.md">RELEASING.md</a> for how the
 version gets there.</p>
-<h2 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h2>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <p><code>ota put</code> is the on-board half, and <code>fs_xfer.py ota</code> drives it. Driving it by hand:</p>
 <div class="highlight"><pre><span></span><code>ota put [-b baud] [-n] [-d] &lt;size&gt;
 </code></pre></div>
@@ -1307,7 +1712,7 @@ version gets there.</p>
 </table>
 <p><code>-d</code> is the useful one when a transfer is failing and you want to know whether the problem is the
 link or the flash. <code>fs_xfer.py ota --dry-run</code> does the same from the host.</p>
-<h2 id="going-back">Going back<a class="headerlink" href="#going-back" title="Permanent link">&para;</a></h2>
+<h3 id="going-back">Going back<a class="headerlink" href="#going-back" title="Permanent link">&para;</a></h3>
 <p><a href="../../install/flashing/">Installing over USB</a> always writes to <code>ota_0</code> and boots it, whichever
 slot was running before — whether from the browser, with esptool, or with <code>idf.py flash</code>.
 That is the way back if an update leaves the board in a state you would rather leave behind.</p>
@@ -1348,7 +1753,7 @@ That is the way back if an update leaves the board in a state you would rather l
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../board/" class="md-footer__link md-footer__link--prev" aria-label="Previous: The board in the browser">
+          <a href="../web/" class="md-footer__link md-footer__link--prev" aria-label="Previous: The board over Wi-Fi">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1358,20 +1763,20 @@ That is the way back if an update leaves the board in a state you would rather l
                 Previous
               </span>
               <div class="md-ellipsis">
-                The board in the browser
+                The board over Wi-Fi
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
+          <a href="../host-link/" class="md-footer__link md-footer__link--next" aria-label="Next: The host link">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Troubleshooting
+                The host link
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1420,6 +1825,8 @@ That is the way back if an update leaves the board in a state you would rather l
         <script src="../../javascripts/installer/ui.js" type="module"></script>
       
         <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
       
     
   </body>

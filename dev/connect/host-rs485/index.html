@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../leds/">
+        <link rel="prev" href="../host-uart/">
       
       
-        <link rel="next" href="../host-uart/">
+        <link rel="next" href="../host-i2c/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Wiring the servos - Holo Player</title>
+        <title>Host link: RS485 - Holo Player</title>
       
     
     
@@ -87,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wiring-the-servos" class="md-skip">
+        <a href="#host-link-rs485" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wiring the servos
+              Host link: RS485
             
           </span>
         </div>
@@ -526,36 +526,10 @@
                   
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Wiring the servos
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../servos/" class="md-nav__link">
         
   
   
@@ -570,93 +544,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Connections
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Power
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signal level
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Which servo is which
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Travel
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Going limp
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -693,10 +580,36 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../host-rs485/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -711,6 +624,104 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-need" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What you need
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wiring-a-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wiring a board
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The bus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#turning-it-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Turning it on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#talking-to-a-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Talking to a board
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events-on-a-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Events on a bus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-first-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first test
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1369,10 +1380,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#connections" class="md-nav__link">
+  <a href="#what-you-need" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Connections
+        What you need
       </span>
     </span>
   </a>
@@ -1380,10 +1391,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#power" class="md-nav__link">
+  <a href="#wiring-a-board" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Power
+        Wiring a board
       </span>
     </span>
   </a>
@@ -1391,10 +1402,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signal-level" class="md-nav__link">
+  <a href="#the-bus" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signal level
+        The bus
       </span>
     </span>
   </a>
@@ -1402,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#which-servo-is-which" class="md-nav__link">
+  <a href="#turning-it-on" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Which servo is which
+        Turning it on
       </span>
     </span>
   </a>
@@ -1413,10 +1424,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#travel" class="md-nav__link">
+  <a href="#talking-to-a-board" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Travel
+        Talking to a board
       </span>
     </span>
   </a>
@@ -1424,10 +1435,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#going-limp" class="md-nav__link">
+  <a href="#events-on-a-bus" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Going limp
+        Events on a bus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-first-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first test
       </span>
     </span>
   </a>
@@ -1452,68 +1474,148 @@
   
 
 
-<h1 id="wiring-the-servos">Wiring the servos<a class="headerlink" href="#wiring-the-servos" title="Permanent link">&para;</a></h1>
-<p>Two hobby servos aim the holoprojector: <strong>pan</strong> (left and right) and <strong>tilt</strong> (up and down). They
-run on the ESP32-S3's MCPWM, one timer each.</p>
-<p>For the motions themselves, and for calibrating each axis, see
-<a href="../../use/holo/">The holoprojector</a>.</p>
-<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
-<p>GPIO17 and GPIO18 are pins 9 and 10 of the <a href="../board/#p2-expansion-header">P2 header</a>.</p>
+<h1 id="host-link-rs485">Host link: RS485<a class="headerlink" href="#host-link-rs485" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Not yet tried with a transceiver</p>
+<p>RS485 is in the firmware, and its addressing has been tried through a plain UART adapter, but
+not yet on a bus with a transceiver.</p>
+</div>
+<p>RS485 is the <a href="../../use/host-link/">host link</a> for long runs and for several boards on one bus. It
+is the UART over a twisted pair, through a small transceiver on each board: runs of tens of metres
+work, it shrugs off the noise of motors, and it passes through a slip ring. It carries both
+<a href="../../reference/host-protocol/">JSON lines and native frames</a>, with an address on every request.</p>
+<p>RS485 here is half duplex: one pair of wires, used by one device at a time. The host is in
+charge. It sends a request to one board, and only that board answers. Boards never speak unasked,
+so events are fetched rather than pushed.</p>
+<h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>A 3.3 V RS485 transceiver</strong> for each board: a MAX3485, SP3485 or THVD1410, or a module built
+  on one.</li>
+</ul>
+<p>!!! warning "Not the common blue MAX485 module"
+      The MAX485 is a 5 V part, and its receive output would put 5 V on GPIO33. Use a 3.3 V part,
+      or a module that says it's 3.3 V.</p>
+<ul>
+<li><strong>A transceiver for the host.</strong> A USB-RS485 adapter for a computer or Pi (one with automatic
+  direction control, such as FTDI's USB-RS485-WE), an RS485 HAT, or another transceiver for a
+  microcontroller.</li>
+<li><strong>Twisted pair</strong> for A and B, such as one pair of a Cat5 cable, plus a ground wire.</li>
+<li><strong>Two 120 Ω resistors</strong>, one at each end of the bus.</li>
+</ul>
+<h2 id="wiring-a-board">Wiring a board<a class="headerlink" href="#wiring-a-board" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Wire</th>
-<th>Goes to</th>
+<th>Transceiver</th>
+<th>Board</th>
+<th>P2 pin</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Servo 1 signal (orange, or white)</td>
-<td>P2 pin 9, GPIO17</td>
+<td>DI (driver in)</td>
+<td>GPIO21</td>
+<td>11</td>
 </tr>
 <tr>
-<td>Servo 2 signal</td>
-<td>P2 pin 10, GPIO18</td>
+<td>RO (receiver out)</td>
+<td>GPIO33</td>
+<td>12</td>
 </tr>
 <tr>
-<td>Both servos' power (red)</td>
-<td>A separate 5 V supply</td>
+<td>DE and /RE, joined</td>
+<td>GPIO15</td>
+<td>7</td>
 </tr>
 <tr>
-<td>Both servos' ground (brown, or black)</td>
-<td>That supply's ground, <strong>and</strong> P2 pin 1 or 5</td>
+<td>VCC</td>
+<td>3V3</td>
+<td>6</td>
+</tr>
+<tr>
+<td>GND</td>
+<td>GND</td>
+<td>1 or 5</td>
 </tr>
 </tbody>
 </table>
-<h2 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
-<p class="admonition-title">Do not take servo power from P2's VSYS pin</p>
-<p>A small hobby servo draws 0.5–1 A as it starts moving or when it stalls. Two of them at once
-would brown out the board, and a brown-out mid-write is how filesystems get damaged. Give the
-servos their own 5 V supply.</p>
-</div>
-<p>Join the servo supply's ground to the board's ground. The pulse the board sends is measured
-against ground, so without a shared reference the servos see noise rather than a signal.</p>
-<h2 id="signal-level">Signal level<a class="headerlink" href="#signal-level" title="Permanent link">&para;</a></h2>
-<p>The signal is 3.3 V, which hobby servos accept — unlike the LED strip, a servo's input is a
-comparator with a low threshold, so no level shifting is needed.</p>
-<h2 id="which-servo-is-which">Which servo is which<a class="headerlink" href="#which-servo-is-which" title="Permanent link">&para;</a></h2>
-<p>By default <strong>servo 1 (GPIO17) pans</strong> and <strong>servo 2 (GPIO18) tilts</strong>.</p>
-<p>The sketch this firmware grew out of never recorded which servo was which, so if <code>holo wag</code> nods
-instead of shaking its head, the two are swapped. Rather than rewiring, change <em>Which servo pans</em>
-in <code>idf.py menuconfig</code> — see <a href="../../reference/config/">Configuration</a>.</p>
-<h2 id="travel">Travel<a class="headerlink" href="#travel" title="Permanent link">&para;</a></h2>
-<p>Each servo has a working range, defaulting to the range the original sketch used: <strong>1150–1900 µs</strong>
-for servo 1 and <strong>1300–1950 µs</strong> for servo 2. Both sit inside an absolute <strong>1000–2000 µs</strong> range
-that no servo is ever driven outside, whatever it is asked for.</p>
-<p>The low end of a range is CLOSED, meaning full left or full down. If an axis runs backwards, or
-its travel needs tuning for the mount you have built, calibrate it with <code>holo endpoints</code> rather
-than rewiring — the values are saved in NVS under the pin, so they follow the wiring. See
-<a href="../../use/holo/#calibrating-the-travel">The holoprojector</a>.</p>
-<h2 id="going-limp">Going limp<a class="headerlink" href="#going-limp" title="Permanent link">&para;</a></h2>
-<p>The servos are not driven at boot, and stay limp until something moves them. <code>holo off</code>, or
-<code>servo_off all</code>, stops driving them again; the next move picks up from wherever they were left.
-This matters mechanically — a servo held against a hard stop for hours will cook itself.</p>
+<p>The board drives GPIO15 high while it sends, and low the rest of the time, so it listens unless
+it's answering.</p>
+<p>A module with automatic direction control (no DE or /RE pins) works too: leave GPIO15
+unconnected.</p>
+<h2 id="the-bus">The bus<a class="headerlink" href="#the-bus" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>    host                     board 1                  board 2
+  120 Ω A–B                                           120 Ω A–B
+     A ──────────────────────── A ──────────────────────── A
+     B ──────────────────────── B ──────────────────────── B
+   GND ────────────────────── GND ────────────────────── GND
+</code></pre></div>
+<ul>
+<li><strong>One line, not a star.</strong> Run the pair from board to board, with only a short stub to each.</li>
+<li><strong>120 Ω across A and B at each end</strong>, and nowhere else. Many transceiver modules have one
+  fitted: remove it, or leave its jumper open, on every board but the last.</li>
+<li><strong>Bias, once, at the host.</strong> A pull-up from A to 3.3 V and a pull-down from B to GND (680 Ω each)
+  keep the idle bus in a known state. USB adapters and HATs often have these already.</li>
+<li><strong>Connect the grounds.</strong> RS485 tolerates some difference between them, but not an unlimited
+  one, and the boards may be on separate supplies.</li>
+<li><strong>A and B aren't always labelled the same way.</strong> If nothing is heard, swap them at one end.</li>
+</ul>
+<p>A standard transceiver is one "unit load", and a bus takes 32. Parts rated at 1/8 of a unit load
+(the THVD1410 is one) allow 256.</p>
+<h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
+<p>Give each board its own address, from 1 to 223, on its USB console:</p>
+<div class="highlight"><pre><span></span><code>link mode rs485 -b 115200 -a 3
+restart
+</code></pre></div>
+<p><strong>Groups</strong> let one request reach several boards: a board in groups 2 and 5 answers requests to
+its own address, and acts on requests to <code>@g2</code> and <code>@g5</code>, without answering them.</p>
+<div class="highlight"><pre><span></span><code>link groups 2 5
+</code></pre></div>
+<p>Every board on a bus must use the same baud rate.</p>
+<h2 id="talking-to-a-board">Talking to a board<a class="headerlink" href="#talking-to-a-board" title="Permanent link">&para;</a></h2>
+<p>Every request names a board with <code>@</code>, and the reply carries its address:</p>
+<div class="highlight"><pre><span></span><code>&gt; @3 POST /scenes/apply {"name":"cantina"}
+&lt; @3 200 {"screen":{...},"leds":{...},"holo":{...}}
+&gt; @g2 POST /scenes/end
+                                       (no reply: a group request isn't answered)
+&gt; @* PATCH /leds {"mode":"off"}
+                                       (no reply)
+</code></pre></div>
+<p>A line without <code>@</code> is ignored on RS485, and counted in <code>link</code>.</p>
+<ul>
+<li><strong>Wait for each reply</strong>, or 2 seconds, before the next request.</li>
+<li><strong>After a request to a group or to every board</strong>, leave 10 ms before the next request, so
+  every board has read it.</li>
+<li><strong>The board waits 1 ms before it answers</strong>, for the host's transceiver to stop sending. A host
+  that turns around more slowly can ask for longer: <code>reply_delay_ms</code>, 0–50, in the link settings.</li>
+</ul>
+<h2 id="events-on-a-bus">Events on a bus<a class="headerlink" href="#events-on-a-bus" title="Permanent link">&para;</a></h2>
+<p>Nobody on the bus speaks unasked, so the host polls for what happened (<code>clip_ended</code>,
+<code>scene_ended</code>, <code>touch</code>); a resource's changes are only pushed, on UART, so here the host reads the
+resource when it wants it. It doesn't need to poll hard, because every reply says how many events
+are waiting on the board that sent it:</p>
+<div class="highlight"><pre><span></span><code>&gt; @3 GET /screen
+&lt; @3 200 +1 {"powered":true,"showing":"nothing",...}
+&gt; @3 GET /link/events
+&lt; @3 200 {"seq":7,"lost":0,"events":[{"event":"scene_ended","seq":7,"name":"cantina",...}]}
+</code></pre></div>
+<p>A host that isn't otherwise talking to a board sends it a cheap request now and then, such as
+<code>GET /link</code>, or the native <code>STATUS</code>, and fetches events when the count isn't 0.</p>
+<p>Ask each board for the events it should report first, with
+<code>@3 PATCH /link/events {"kinds":["scene_ended"]}</code>, or once and for all in its saved settings with
+<code>link events scene_ended</code>.</p>
+<h2 id="a-first-test">A first test<a class="headerlink" href="#a-first-test" title="Permanent link">&para;</a></h2>
+<p>With a USB-RS485 adapter on a computer, and one board on the bus, open the adapter in a terminal
+at the board's baud rate and send:</p>
+<div class="highlight"><pre><span></span><code>@3 GET /link
+</code></pre></div>
+<p>If nothing comes back, run <code>link log on</code> on the board's USB console and try again:</p>
+<ul>
+<li><strong>Nothing arrives:</strong> check A and B (swap them), the ground, and that the adapter's direction
+  control is automatic.</li>
+<li><strong>Lines arrive, but no reply:</strong> the address in the line isn't the board's.</li>
+<li><strong>The reply is garbled at the host:</strong> try a longer <code>reply_delay_ms</code>.</li>
+</ul>
 
 
 
@@ -1551,7 +1653,7 @@ This matters mechanically — a servo held against a hard stop for hours will co
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../leds/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wiring the LED ring">
+          <a href="../host-uart/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Host link: UART">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1561,20 +1663,20 @@ This matters mechanically — a servo held against a hard stop for hours will co
                 Previous
               </span>
               <div class="md-ellipsis">
-                Wiring the LED ring
+                Host link: UART
               </div>
             </div>
           </a>
         
         
           
-          <a href="../host-uart/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: UART">
+          <a href="../host-i2c/" class="md-footer__link md-footer__link--next" aria-label="Next: Host link: I2C">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Host link: UART
+                Host link: I2C
               </div>
             </div>
             <div class="md-footer__button md-icon">

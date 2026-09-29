@@ -1,0 +1,2936 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player">
+      
+      
+      
+      
+        <link rel="prev" href="../console/">
+      
+      
+        <link rel="next" href="../http-api-explorer/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+      
+        <title>HTTP API - Holo Player</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/api.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#http-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Holo Player" class="md-header__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Holo Player
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              HTTP API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/flashing/" class="md-tabs__link">
+          
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../use/video/" class="md-tabs__link">
+          
+  
+  Use
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../console/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Holo Player" class="md-nav__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Holo Player
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/flashing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reaching-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reaching the API
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Protection
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The board
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#now-and-from-now-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Now, and from now on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Files
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-leds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The LEDs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-holoprojector-and-its-servos" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holoprojector and its servos
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenes
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scenes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-a-scene-ends" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        When a scene ends
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-and-the-web-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Network and the web server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Events
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The host link
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-show-scripted" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A show, scripted
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updates
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Upload
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pull
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#look-before-you-pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Look before you pull
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Switch
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancel-or-discard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cancel or discard
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-whole-update-scripted" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A whole update, scripted
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#every-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Every endpoint
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video-internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reaching-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reaching the API
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Protection
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The board
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#now-and-from-now-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Now, and from now on
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Files
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-leds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The LEDs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-holoprojector-and-its-servos" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holoprojector and its servos
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenes
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scenes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-a-scene-ends" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        When a scene ends
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-and-the-web-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Network and the web server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Events
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The host link
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-show-scripted" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A show, scripted
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Updates
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Upload
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Pull
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#look-before-you-pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Look before you pull
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Switch
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancel-or-discard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cancel or discard
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-whole-update-scripted" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A whole update, scripted
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#every-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Every endpoint
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="http-api">HTTP API<a class="headerlink" href="#http-api" title="Permanent link">&para;</a></h1>
+<p>The board's <a href="../../use/web/">web app</a> is a front end for a small JSON API, and anything it does, a
+script can do too. This page explains how the API works, with <code>curl</code> recipes. The full description
+is an OpenAPI 3.1 document:</p>
+<ul>
+<li><strong><a href="../http-api-explorer/">Browse it</a></strong> in Swagger UI, on this site;</li>
+<li><strong><a href="../openapi.json">Download it</a></strong>, or fetch it from any board at <code>/api/v1/openapi.json</code>. The board's
+  copy always describes the firmware serving it. Postman, Insomnia, Swagger Editor and
+  <code>openapi-generator</code> import it directly.</li>
+</ul>
+<h2 id="reaching-the-api">Reaching the API<a class="headerlink" href="#reaching-the-api" title="Permanent link">&para;</a></h2>
+<p>Everything is under <code>/api/v1</code> on port 80, on whichever address reaches the board:</p>
+<table>
+<thead>
+<tr>
+<th>Address</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http://holo-xxxx.local</code></td>
+<td>On your network (mDNS). <code>web</code> on the console prints the exact name</td>
+</tr>
+<tr>
+<td><code>http://&lt;its address&gt;</code></td>
+<td>On your network. <code>web</code> or <code>wifi</code> on the console prints it</td>
+</tr>
+<tr>
+<td><code>http://192.168.4.1</code></td>
+<td>On the board's own access point, after <code>wifi ap on</code></td>
+</tr>
+</tbody>
+</table>
+<p>The examples below use <code>holo-2db0.local</code>. Replies are JSON. Errors are JSON too, with a status that
+means something and a stable <code>error</code> code to branch on:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="s2">"busy"</span><span class="p">,</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"another update is in progress"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<h2 id="protection">Protection<a class="headerlink" href="#protection" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Reading is open</strong>: <code>GET</code> needs nothing, except downloading a file and reading the web
+  settings, which need the password once one is set (the console's history is a file, and can hold
+  what was typed).</li>
+<li><strong>Changes are guarded against other web pages.</strong> A <code>PUT</code>, <code>POST</code>, <code>PATCH</code> or <code>DELETE</code> must name
+  the board in its <code>Host</code> header: an IP address, <code>holo-xxxx</code> or <code>holo-xxxx.local</code>. A <code>POST</code> or
+  <code>PATCH</code> must also say <code>Content-Type: application/json</code>. <code>curl</code> and scripts do this naturally. A web page on another site can't, because a browser won't send those requests
+  across sites without the board's consent, and the board gives it only to the trusted sites below.
+  So a page you happen to visit can't update or restart the board, even with no password set.</li>
+<li><strong>The password.</strong> Once one is set -- with <code>web password &lt;password&gt;</code> on the console, or
+  <a href="#network-and-the-web-server"><code>PATCH /api/v1/web</code></a> -- changes also need it, sent either way:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer &lt;password&gt;"</span><span class="w"> </span>...
+curl<span class="w"> </span>-u<span class="w"> </span>any:&lt;password&gt;<span class="w"> </span>...<span class="w">            </span><span class="c1"># HTTP Basic, any user name</span>
+</code></pre></div>
+<p>Without it, the reply is <code>401</code> with <code>WWW-Authenticate: Bearer</code>. <code>GET /api/v1/info</code> reports
+  <code>"auth": true</code> when a password is set.
+- <strong>Trusted sites (CORS).</strong> Pages from a short list of sites may call the API from a browser: the
+  board answers their CORS preflights and lets them read its replies. The list starts as
+  <a href="https://editor.swagger.io">Swagger Editor</a>, <code>astromech.co</code> and <code>davidiansmith.ca</code>, each with its
+  subdomains. <code>web cors</code> on the console shows it and changes it:</p>
+<div class="highlight"><pre><span></span><code>web cors add http://localhost:8080
+</code></pre></div>
+<p>(or <code>PATCH /api/v1/web</code> with the whole list). <code>web cors remove &lt;origin&gt;</code> takes one away, <code>web cors none</code> empties the list, and <code>web cors reset</code>
+  goes back to the default. An origin is <code>scheme://host[:port]</code>; <code>https://*.example.com</code> covers
+  every subdomain of <code>example.com</code> but not <code>example.com</code> itself. The other checks still apply to
+  these sites. <strong>With no password set, a listed site can update and restart the board</strong>, so set a
+  password if you add one you don't control.</p>
+<p>The API is plain HTTP. On a network you don't trust, set a password and prefer the board's own
+access point, which is WPA2.</p>
+<h2 id="the-board">The board<a class="headerlink" href="#the-board" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/info</code> identifies the board:</p>
+<ul>
+<li><code>firmware</code>: project, version, build date, ESP-IDF, and the image's SHA-256;</li>
+<li><code>hostname</code>, <code>uptime_s</code> and <code>heap_free</code>;</li>
+<li><code>sta</code> and <code>ap</code>: the station link (SSID, address, signal) and the access point;</li>
+<li><code>via</code>: <code>ap</code> when the request came in on the board's access point;</li>
+<li><code>features</code>: what the web app offers on this firmware: <code>ota</code>, <code>files</code>, <code>screen</code>, <code>leds</code>, <code>holo</code>,
+  <code>scenes</code>, <code>settings</code>, <code>network</code>, <code>events</code>, <code>link</code>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>http://holo-2db0.local/api/v1/info
+</code></pre></div>
+<p><code>POST /api/v1/restart</code> restarts the board. The optional <code>{"delay_ms": 500}</code> gives the reply time to
+leave first.</p>
+<h2 id="now-and-from-now-on">Now, and from now on<a class="headerlink" href="#now-and-from-now-on" title="Permanent link">&para;</a></h2>
+<p>Two kinds of thing are here, kept apart:</p>
+<ul>
+<li><strong>What the board is doing now</strong>: <code>/screen</code>, <code>/leds</code>, <code>/holo</code>, and the servos' positions. Changing
+  these changes nothing that survives a restart.</li>
+<li><strong>What is saved</strong>: <code>/settings</code>, <code>/scenes</code>, a servo's calibration and drive policy, the known
+  networks and the access point's name, and <code>/web</code>. What the board does when it starts is
+  <code>settings.boot_scene</code>.</li>
+</ul>
+<p>The shapes follow from that:</p>
+<table>
+<thead>
+<tr>
+<th>Shape</th>
+<th>For</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code>, then <code>PATCH</code> with only what changes; the reply is the whole new state</td>
+<td>What it is doing now, and the settings</td>
+<td><code>PATCH /api/v1/leds</code> <code>{"brightness": 20}</code></td>
+</tr>
+<tr>
+<td><code>POST</code> with a JSON body</td>
+<td>An action</td>
+<td><code>POST /api/v1/screen/show</code> <code>{"path": "/clips/intro.mov"}</code></td>
+</tr>
+<tr>
+<td><code>PUT</code> and <code>DELETE</code>, named in the query</td>
+<td>A saved, named thing</td>
+<td><code>PUT /api/v1/scenes/scene?name=cantina</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Long operations</strong> -- an update, a file upload, download or copy, a SHA-256, a Wi-Fi scan -- run
+one at a time: another gets <code>409</code> <code>busy</code>. The server answers everything else meanwhile.</p>
+<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<p>The board's storage volume holds the clips and images, and the console's history. A file is named by
+a <code>path</code> query parameter from the volume's root, such as <code>/clips/intro.mov</code>; <code>/</code> is the root. <code>..</code>,
+<code>.</code> and empty segments are refused (<code>400</code> <code>bad_path</code>), as are names over 63 bytes and paths over
+159.</p>
+<div class="highlight"><pre><span></span><code><span class="nv">B</span><span class="o">=</span>http://holo-2db0.local/api/v1
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs"</span><span class="w">                                            </span><span class="c1"># size and free space</span>
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/list?path=/clips"</span><span class="w">                           </span><span class="c1"># a directory</span>
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/entry?path=/clips/intro.mov&amp;sha256=true"</span><span class="w">    </span><span class="c1"># one file, hashed</span>
+curl<span class="w"> </span>-T<span class="w"> </span>intro.mov<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/file?path=/clips/intro.mov&amp;parents=true"</span>
+curl<span class="w"> </span>-o<span class="w"> </span>intro.mov<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/file?path=/clips/intro.mov"</span>
+<span class="nv">J</span><span class="o">=</span><span class="s1">'Content-Type: application/json'</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"path":"/clips/old"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/mkdir"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"from":"/clips/intro.mov","to":"/clips/old/intro.mov"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/move"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"from":"/clips/old/intro.mov","to":"/clips/intro.mov"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/copy"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/entry?path=/clips/old&amp;recursive=true"</span>
+</code></pre></div>
+<ul>
+<li><strong>An upload</strong> (<code>PUT /api/v1/fs/file</code>) is written beside its destination as <code>&lt;name&gt;.part</code>, and
+  takes its place only once all of it has arrived. An upload that fails or is cut off changes
+  nothing. It refuses to replace a file unless <code>overwrite=true</code>, and a missing directory unless
+  <code>parents=true</code>. <code>sha256=&lt;hex&gt;</code> has the board check what arrived. A full volume is <code>507</code>
+  <code>no_space</code>; the board keeps a 32 KB margin.</li>
+<li><strong>Moving, replacing or deleting the file on the screen</strong> stops it first. A clip playing from the
+  volume otherwise carries on during an upload, though it may stutter while the flash is written.</li>
+</ul>
+<h2 id="the-screen">The screen<a class="headerlink" href="#the-screen" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/screen</code> says what the round screen shows: <code>nothing</code> (the panel asleep), a <code>colour</code>, the
+<code>calibration</code> crosshair, an <code>image</code>, or a <code>clip</code> with its progress. <code>POST /api/v1/screen/show</code>
+shows something else:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"path":"/clips/intro.mov","loop":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen/show"</span><span class="w">     </span><span class="c1"># forever</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"path":"/clips/intro.mov","loops":3}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen/show"</span><span class="w">      </span><span class="c1"># three times</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"path":"/stills/logo.png"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen/show"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"colour":"#102030"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen/show"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"calibration":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen/show"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen"</span><span class="w">                                    </span><span class="c1"># nothing</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"backlight":40}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/screen"</span><span class="w">      </span><span class="c1"># until the next start</span>
+</code></pre></div>
+<p>A file is checked before the reply: a clip must be QuickTime Motion-JPEG no larger than 240×240,
+an image a PNG, baseline JPEG or GIF. Anything else is <code>422</code> <code>not_playable</code>, saying why, and the
+screen is unchanged. <code>GET /api/v1/media?path=/</code> lists every clip and image under a directory by
+their names, and <code>GET /api/v1/media/info?path=...</code> reads one file's header -- size, frames, frame
+rate -- without showing it.</p>
+<h2 id="the-leds">The LEDs<a class="headerlink" href="#the-leds" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/leds</code> is the strip: its <code>mode</code> (<code>off</code>, <code>solid</code>, <code>wipe</code>, <code>rainbow</code>, <code>flicker</code>),
+<code>colour</code>, <code>loop</code> and <code>brightness</code>. <code>flicker</code> flickers the colour like a failing hologram until
+something else replaces it. <code>PATCH</code> changes any of them now:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"solid","colour":"orange"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"rainbow","loop":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"flicker","colour":"#4da6ff"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"brightness":10}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+</code></pre></div>
+<p>A colour is <code>#rrggbb</code>, <code>R,G,B</code>, or a name. Keep the brightness at 30 or below when the strip is
+powered from the board.</p>
+<h2 id="the-holoprojector-and-its-servos">The holoprojector and its servos<a class="headerlink" href="#the-holoprojector-and-its-servos" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/holo</code> is the holo's motion and position (<code>x</code> and <code>y</code>, -1 to 1, + right and up), and
+whether it can move (<code>ready</code>, or <code>why</code> not). <code>POST /api/v1/holo/motion</code> moves it, or starts or
+stops a behaviour, with the console's <code>holo</code> parameters:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"motion":"twitch","range":50,"interval_s":[2,6]}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/holo/motion"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"motion":"move","x":40,"y":-20,"duration_ms":600}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/holo/motion"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"motion":"wag","count":3}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/holo/motion"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"motion":"stop"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/holo/motion"</span>
+</code></pre></div>
+<p>A holo that can't move -- its servos not calibrated, say -- is <code>409</code> <code>not_ready</code>, saying why. Its
+light is the LED strip: <a href="#the-leds"><code>/api/v1/leds</code></a>, or a <a href="#scenes">scene</a> to set both at once.</p>
+<p>The servos underneath are at <code>GET /api/v1/servos</code>: the pulse each was last sent, whether it is being
+driven, its limits and its drive policy. Calibrating one is a matter of moving it to each end of the
+holo's travel, then saving that range:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"id":"pan","us":1150}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/servos/move"</span><span class="w">      </span><span class="c1"># closed end: full left</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"id":"pan","us":1900}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/servos/move"</span><span class="w">      </span><span class="c1"># open end: full right</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w">  </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"min_us":1150,"max_us":1900}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/servos/calibration?id=pan"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"id":"all"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/servos/release"</span><span class="w">             </span><span class="c1"># limp</span>
+</code></pre></div>
+<p><code>DELETE /api/v1/servos/calibration?id=pan</code> forgets the range. <code>PUT /api/v1/servos/policy?id=pan</code>
+saves whether a servo keeps being driven once it has settled, at each end and between them, which
+can stop the buzz of a servo held against a stop.</p>
+<h2 id="scenes">Scenes<a class="headerlink" href="#scenes" title="Permanent link">&para;</a></h2>
+<p>A scene is a saved combination of what to show, what the LEDs do, and how the holo moves. Each
+part is optional, and a part left out is left alone, so a scene with only <code>leds</code> is an LED preset.
+Up to 16 are kept.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/scene?name=cantina"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{</span>
+<span class="s1">  "screen": {"path": "/clips/cantina.mov", "loop": true},</span>
+<span class="s1">  "leds":   {"mode": "solid", "colour": "#ff8000", "brightness": 30},</span>
+<span class="s1">  "holo":   {"motion": "twitch", "range": 50}</span>
+<span class="s1">}'</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"name":"cantina"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/apply"</span>
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/scene?name=cantina"</span>
+</code></pre></div>
+<p>A scene can have a <code>slot</code>, a number from 1 to 255, which small controllers on the
+<a href="../../use/host-link/">host link</a> apply it by instead of its name: <code>"slot": 3</code> in the scene. Two
+scenes can't share one: saving a slot another scene has is <code>409</code> <code>slot_taken</code>.</p>
+<p><code>POST /api/v1/scenes/apply</code> also takes a scene that isn't saved, as <code>{"scene": {...}}</code>. It applies
+the screen, then the LEDs, then the holo, and a part that fails stops the rest, with an error
+naming it. The files a scene names are checked when it is applied, not when it is saved.</p>
+<h3 id="when-a-scene-ends">When a scene ends<a class="headerlink" href="#when-a-scene-ends" title="Permanent link">&para;</a></h3>
+<p>A scene can say what happens when it is over, with <code>then</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>then</code></th>
+<th>When the scene ends</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stay</code> (the default)</td>
+<td>Nothing: everything carries on as the scene left it</td>
+</tr>
+<tr>
+<td><code>restore</code></td>
+<td>The screen, the LEDs and the holo go back to what they were doing before the scene. A behaviour such as a twitch starts again, and a clip that was looping plays again</td>
+</tr>
+<tr>
+<td><code>off</code></td>
+<td>The screen and LEDs go off, and the holo's servos go limp</td>
+</tr>
+</tbody>
+</table>
+<p>A scene ends when its clip has played (once, or its <code>loops</code>), or after <code>duration_s</code>, whichever
+comes first. A scene with <code>restore</code> or <code>off</code> needs one of them: a clip that doesn't <code>loop</code> forever,
+or a duration. In such a scene, a clip or animated GIF with neither <code>loop</code> nor <code>loops</code> plays once.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Leia's message once, with the LEDs flickering blue and the holo looking straight out; then back</span>
+<span class="c1"># to whatever the board was doing</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/scene?name=message"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{</span>
+<span class="s1">  "screen": {"path": "/clips/leia.mov"},</span>
+<span class="s1">  "leds":   {"mode": "flicker", "colour": "#4da6ff"},</span>
+<span class="s1">  "holo":   {"motion": "center"},</span>
+<span class="s1">  "then":   "restore"</span>
+<span class="s1">}'</span>
+<span class="c1"># Thirty seconds of flicker and a nod, then everything off</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/scene?name=bow"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{</span>
+<span class="s1">  "leds": {"mode": "flicker"}, "holo": {"motion": "nod"}, "duration_s": 30, "then": "off"</span>
+<span class="s1">}'</span>
+</code></pre></div>
+<p><code>GET /api/v1/scenes</code> says which scene is running to its end, under <code>active</code>. <code>POST
+/api/v1/scenes/end</code> ends it now, doing its <code>then</code>. Applying another scene, or showing something else
+in place of its clip, ends it without its <code>then</code>. One <code>restore</code> scene after another goes back to what
+the board was doing before the first.</p>
+<h2 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/settings</code> is what the board starts with; <code>PATCH</code> changes it, and it is saved:</p>
+<ul>
+<li><code>boot_scene</code>: the scene applied at every start, or null for nothing;</li>
+<li><code>screen.backlight</code>: the backlight it starts at;</li>
+<li><code>leds.brightness</code>, and <code>leds.count</code>, the LEDs on the strip.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"boot_scene":"cantina","screen":{"backlight":80}}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/settings"</span>
+</code></pre></div>
+<p>The backlight and brightness change now too. A new <code>leds.count</code> waits for a restart, and the reply
+says so with <code>"restart_required": true</code>. <code>DELETE /api/v1/settings</code> goes back to the firmware's
+defaults, keeping scenes, calibration and networks.</p>
+<h2 id="network-and-the-web-server">Network and the web server<a class="headerlink" href="#network-and-the-web-server" title="Permanent link">&para;</a></h2>
+<p><code>GET /api/v1/network</code> is the network the board is on, the networks it knows, and its access point.
+Passphrases are never read back. The board keeps 16 networks; saving another forgets the one saved
+longest ago. Joining without a passphrase uses the saved one, or takes the network to be open.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"passphrase":"correct horse battery"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/network/known?ssid=workshop"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"ssid":"workshop"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/network/join"</span>
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/network/scan"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/network/known?ssid=cafe"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"on":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/network/ap"</span>
+</code></pre></div>
+<p>Several of these can cut you off, so each replies first:</p>
+<ul>
+<li><strong>joining</strong> another network leaves the one the board is on;</li>
+<li><strong>forgetting</strong> the network the board is on leaves it too;</li>
+<li><strong><code>PATCH /api/v1/network</code></strong> with <code>{"sta_enabled": false}</code> stops it joining any;</li>
+<li><strong>changing the access point's name or passphrase</strong> restarts it, dropping its clients.</li>
+</ul>
+<p>The access point is the way back in. It is off at every start, unless the board can't join a
+network then: it comes on for 5 minutes, and <code>ap.off_in_s</code> counts them down. Pressing BOOT on the
+board brings it back the same way, as does <code>wifi ap on</code> on the console, to stay. <code>{"on": true}</code>
+keeps one that is on for a while on.</p>
+<p><code>GET /api/v1/web</code> and <code>PATCH /api/v1/web</code> are the web server's own settings: the <code>.local</code>
+hostname, the password, and the <a href="#protection">trusted sites</a>. <code>null</code> goes back to the default, or
+clears the password.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"password":"hunter22"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/web"</span>
+curl<span class="w"> </span>-u<span class="w"> </span>any:hunter22<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"hostname":"holo-dome"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/web"</span>
+</code></pre></div>
+<h2 id="events">Events<a class="headerlink" href="#events" title="Permanent link">&para;</a></h2>
+<p>Rather than asking again and again, a client can follow <code>GET /api/v1/events</code>: a stream of
+<a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events">Server-Sent Events</a> that
+stays open, and carries each change as it happens. The web app follows it; <code>curl -N</code> shows it:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-N<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Accept: text/event-stream"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/events?kinds=screen,scene,scene_ended"</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>retry: 3000
+
+event: scene
+data: {"event":"scene","state":{"name":"message","then":"restore","until_clip_ends":true,"remaining_s":null}}
+
+event: screen
+data: {"event":"screen","state":{"powered":true,"backlight":100,"showing":"clip","path":"/clips/leia.mov",...}}
+
+event: scene_ended
+id: 42
+data: {"event":"scene_ended","seq":42,"t_ms":812345,"name":"message","then":"restore","by":"clip"}
+</code></pre></div>
+<p>Two sorts of event come down it:</p>
+<table>
+<thead>
+<tr>
+<th>Sort</th>
+<th>Kinds</th>
+<th><code>data</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A resource changed</strong></td>
+<td><code>screen</code>, <code>leds</code>, <code>holo</code>, <code>scene</code> (the one running to its end, or null), <code>scenes</code>, <code>settings</code>, <code>network</code>, <code>ota</code> (the update session), <code>system</code> (uptime, free memory, signal; every 15 s)</td>
+<td><code>{"event": kind, "state": ...}</code>: what the resource's <code>GET</code> returns now</td>
+</tr>
+<tr>
+<td><strong>Something happened</strong></td>
+<td><code>clip_started</code>, <code>clip_ended</code>, <code>scene_started</code>, <code>scene_ended</code>, <code>touch</code></td>
+<td>The event's own fields, with <code>seq</code> and <code>t_ms</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>?kinds=</code></strong> takes only those kinds; without it, every kind.</li>
+<li><strong>Starts and ends.</strong> <code>clip_started</code> comes for every clip or animation, whoever started it:
+  <code>path</code>, <code>loop</code>, <code>plays</code>, <code>frames</code>, <code>fps</code>. <code>scene_started</code> comes for every scene applied: <code>name</code>,
+  <code>slot</code>, <code>then</code>, <code>until_clip_ends</code>, <code>duration_s</code>. A scene's clip starts just before the scene
+  does; at its end, <code>scene_ended</code> comes before what its <code>then</code> does. Only a scene with a <code>then</code>
+  other than <code>stay</code> has a <code>scene_ended</code>.</li>
+<li><strong>Changes close together are sent as one</strong>, the latest, and the holo's position at most four
+  times a second while it moves. Between changes, a page counts a scene's time down, or a clip's
+  frames on, itself.</li>
+<li><strong>While a clip plays or a scene runs to its end</strong>, <code>screen</code> (with the clip's frames, loops and
+  elapsed time) and <code>scene</code> (with its time left) are also sent every 5 seconds, so a client that
+  counts on by itself is put right however its clock, or the clip's real frame rate, drifts.</li>
+<li><strong>Happenings are numbered</strong> (<code>seq</code>, which is also the SSE <code>id:</code>) and the board keeps the last 32.
+  A browser's <code>EventSource</code> reconnects by itself and sends <code>Last-Event-ID</code>, and the board replays
+  what it missed; <code>?after=40</code> does the same by hand. States aren't kept: after a reconnect, read
+  them again with their <code>GET</code>s.</li>
+<li><strong>Without <code>Accept: text/event-stream</code></strong>, <code>GET /api/v1/events</code> is the kept happenings as JSON,
+  <code>{"seq", "lost", "events"}</code>, for a client that would rather poll.</li>
+<li><strong>A few streams at once</strong>: 3 unless the firmware is built with more. One more gets <code>503</code> <code>busy</code>,
+  and the web app polls instead.</li>
+</ul>
+<p>The stream needs no password: like <code>/screen</code> and <code>/leds</code>, which it mirrors, it's for reading. In a
+browser:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">events</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">EventSource</span><span class="p">(</span><span class="s2">"http://holo-2db0.local/api/v1/events?kinds=scene_ended,leds"</span><span class="p">);</span>
+<span class="nx">events</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">"scene_ended"</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"ended"</span><span class="p">,</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">m</span><span class="p">.</span><span class="nx">data</span><span class="p">)));</span>
+<span class="nx">events</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">"leds"</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"LEDs now"</span><span class="p">,</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">m</span><span class="p">.</span><span class="nx">data</span><span class="p">).</span><span class="nx">state</span><span class="p">));</span>
+</code></pre></div>
+<h2 id="the-host-link">The host link<a class="headerlink" href="#the-host-link" title="Permanent link">&para;</a></h2>
+<p>The <a href="../../use/host-link/">host link</a> runs the board from a controller on a wire rather than over
+Wi-Fi. Over its UART and RS485, it speaks this API one request a line, and the
+<a href="../host-protocol/">host link protocol</a> has the details. Its settings are here too:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/link"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"rs485","address":3,"groups":[2]}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/link"</span>
+</code></pre></div>
+<p><code>GET /api/v1/link</code> is the saved settings, what is running (which differs from them until a
+restart), and the counters. A new transport or pins wait for a restart, and the reply says so with
+<code>"restart_required": true</code>. A pin the board uses for something else is <code>409</code> <code>pin_in_use</code>.</p>
+<p><code>PATCH /api/v1/link/events</code> says which <a href="#events">events</a> the link reports to its host, until the
+next restart, and <code>GET /api/v1/link/events</code> shows the happenings it hasn't given the host yet
+(looking over HTTP gives nothing away):</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"kinds":["scene_ended","leds"],"push":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/link/events"</span>
+curl<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/link/events"</span>
+</code></pre></div>
+<h2 id="a-show-scripted">A show, scripted<a class="headerlink" href="#a-show-scripted" title="Permanent link">&para;</a></h2>
+<p>Upload a clip, check it can play, save it as a scene with warm LEDs and a restless holo, and have the
+board start with it:</p>
+<div class="highlight"><pre><span></span><code><span class="ch">#!/bin/sh</span>
+<span class="nb">set</span><span class="w"> </span>-e
+<span class="nv">B</span><span class="o">=</span>http://<span class="si">${</span><span class="nv">1</span><span class="k">:-</span><span class="nv">holo</span><span class="p">-2db0.local</span><span class="si">}</span>/api/v1
+<span class="nv">J</span><span class="o">=</span><span class="s1">'Content-Type: application/json'</span>
+
+curl<span class="w"> </span>-fsS<span class="w"> </span>-T<span class="w"> </span>cantina.mov<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/fs/file?path=/clips/cantina.mov&amp;parents=true&amp;overwrite=true"</span><span class="w"> </span>&gt;/dev/null
+curl<span class="w"> </span>-fsS<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/media/info?path=/clips/cantina.mov"</span><span class="p">;</span><span class="w"> </span><span class="nb">echo</span>
+curl<span class="w"> </span>-fsS<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/scene?name=cantina"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{</span>
+<span class="s1">  "screen": {"path": "/clips/cantina.mov", "loop": true},</span>
+<span class="s1">  "leds":   {"mode": "solid", "colour": "#ff8000", "brightness": 25},</span>
+<span class="s1">  "holo":   {"motion": "twitch", "range": 50}</span>
+<span class="s1">}'</span><span class="w"> </span>&gt;/dev/null
+curl<span class="w"> </span>-fsS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"name":"cantina"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/scenes/apply"</span><span class="w"> </span>&gt;/dev/null
+curl<span class="w"> </span>-fsS<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"boot_scene":"cantina"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/settings"</span><span class="p">;</span><span class="w"> </span><span class="nb">echo</span>
+</code></pre></div>
+<p><code>tools/api_smoke.py</code> in the repository exercises every endpoint this way, and checks each reply
+against the OpenAPI description: <code>make api-smoke HOST=holo-2db0.local</code> (add <code>WRITE=1</code> to also
+change things, under <code>/test-api</code> on the board, putting back what it touches).</p>
+<h2 id="updates">Updates<a class="headerlink" href="#updates" title="Permanent link">&para;</a></h2>
+<p>An update is a <strong>session</strong>, whether it comes from an upload, a pull, or the console's <code>ota put</code>.
+There is one session at a time; a second is refused with <code>409</code>. It moves through these states:</p>
+<div class="highlight"><pre><span></span><code>idle ──► receiving / downloading ──► verifying ──► staged ──► active ──► (restart) running, on trial ──► confirmed
+                     │                    │           │
+                     └──────► failed ◄────┘           └─► idle (discarded)
+</code></pre></div>
+<ul>
+<li><strong>receiving / downloading</strong>: bytes are arriving, written into the slot that isn't running. The
+  first 288 bytes are checked at once: an application image, for this chip, for this project. A
+  wrong file fails immediately rather than after a megabyte.</li>
+<li><strong>verifying</strong>: all there. The board checks the image's structure and its SHA-256.</li>
+<li><strong>staged</strong>: good, and in its slot, but not what boots. Nothing has changed yet.</li>
+<li><strong>active</strong>: the boot image. It runs from the next restart.</li>
+<li><strong>failed</strong>: see <code>error</code>. The running firmware is untouched, whatever went wrong.</li>
+</ul>
+<p>After a restart into the new image, it runs <strong>on trial</strong>. It confirms itself once it is up. A
+reset before then boots the previous image again.</p>
+<p><code>GET /api/v1/ota</code> returns everything about updates in one reply:</p>
+<ul>
+<li><code>slots</code>: each slot's label, which one runs, which boots, which is next, its record (<code>trial</code>,
+  <code>confirmed</code>, …), and the image in it;</li>
+<li><code>session</code>: the session;</li>
+<li><code>pull</code>: whether the board can fetch images, and whether it is online.</li>
+</ul>
+<p><code>GET /api/v1/ota/image</code> returns just the session, and is the call to poll.</p>
+<h3 id="upload">Upload<a class="headerlink" href="#upload" title="Permanent link">&para;</a></h3>
+<p><code>PUT /api/v1/ota/image</code> with the image as the body. The reply comes once the image is staged, or
+has failed:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-T<span class="w"> </span>build/holo-player-fw.bin<span class="w"> </span>http://holo-2db0.local/api/v1/ota/image
+</code></pre></div>
+<p>Query options:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sha256=&lt;hex&gt;</code></td>
+<td>Refuse the image unless it has this SHA-256</td>
+</tr>
+<tr>
+<td><code>activate=1</code></td>
+<td>Make it the boot image once staged</td>
+</tr>
+<tr>
+<td><code>reboot=1</code></td>
+<td>With <code>activate</code>: restart into it, a moment after replying</td>
+</tr>
+<tr>
+<td><code>force=1</code></td>
+<td>Accept an image built for another project</td>
+</tr>
+</tbody>
+</table>
+<p>Everything in one call, checked against the file's own hash:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">f</span><span class="o">=</span>build/holo-player-fw.bin
+curl<span class="w"> </span>-T<span class="w"> </span><span class="s2">"</span><span class="nv">$f</span><span class="s2">"</span><span class="w"> </span><span class="s2">"http://holo-2db0.local/api/v1/ota/image?sha256=</span><span class="k">$(</span>shasum<span class="w"> </span>-a<span class="w"> </span><span class="m">256</span><span class="w"> </span><span class="s2">"</span><span class="nv">$f</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>cut<span class="w"> </span>-d<span class="s1">' '</span><span class="w"> </span>-f1<span class="k">)</span><span class="s2">&amp;activate=1&amp;reboot=1"</span>
+</code></pre></div>
+<p>The upload streams straight into flash, so the server keeps answering throughout, and another client
+can watch <code>GET /api/v1/ota/image</code> count the bytes.</p>
+<h3 id="pull">Pull<a class="headerlink" href="#pull" title="Permanent link">&para;</a></h3>
+<p><code>POST /api/v1/ota/pull</code> has the board download the image itself, which needs its station link to
+the internet. The reply (<code>202</code>) comes as soon as the download starts; poll the session to follow
+it. The body names one of:</p>
+<ul>
+<li><strong><code>channel</code></strong>: a release channel, such as <code>latest</code>, looked up on this documentation site;</li>
+<li><strong><code>url</code></strong>: an image, or a release's <code>manifest.json</code>. A manifest's SHA-256 is then enforced.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"channel":"latest"}'</span><span class="w"> </span>http://holo-2db0.local/api/v1/ota/pull
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">'{"url":"http://10.0.19.20:8000/holo-player-fw.bin","activate":true,"reboot":true}'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>http://holo-2db0.local/api/v1/ota/pull
+</code></pre></div>
+<p><code>sha256</code>, <code>activate</code>, <code>reboot</code> and <code>force</code> work as they do for an upload. HTTPS certificates are
+checked, and a redirect from <code>https</code> to plain <code>http</code> is refused.</p>
+<h3 id="look-before-you-pull">Look before you pull<a class="headerlink" href="#look-before-you-pull" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/v1/ota/check?channel=latest</code> looks up what a pull would fetch, without downloading it:</p>
+<ul>
+<li>the release's <code>version</code>, next to <code>current</code>;</li>
+<li><code>newer</code>: whether the release is a later one. It is null when either version isn't a release
+  tag, such as a development build;</li>
+<li><code>size</code>, <code>sha256</code>, and a link to the release.</li>
+</ul>
+<p>Answers are kept for five minutes; <code>refresh=1</code> looks again. A channel that publishes no firmware,
+such as <code>dev</code>, answers <code>404</code>.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span><span class="s2">"http://holo-2db0.local/api/v1/ota/check?channel=latest"</span>
+</code></pre></div>
+<h3 id="switch">Switch<a class="headerlink" href="#switch" title="Permanent link">&para;</a></h3>
+<p><code>POST /api/v1/ota/activate</code> makes an image the boot image and, unless <code>"reboot": false</code>, restarts
+into it a second after replying:</p>
+<table>
+<thead>
+<tr>
+<th>Body</th>
+<th>Boots</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{}</code></td>
+<td>The staged image</td>
+</tr>
+<tr>
+<td><code>{"slot": "ota_0"}</code></td>
+<td>The image already in <code>ota_0</code>: the way back to the previous firmware</td>
+</tr>
+<tr>
+<td><code>{"slot": "&lt;the running slot&gt;", "reboot": false}</code></td>
+<td>Undoes an activation that hasn't restarted yet</td>
+</tr>
+</tbody>
+</table>
+<p>The board checks the image in the slot before selecting it. A slot marked invalid or rolled back is
+refused (<code>422</code>).</p>
+<h3 id="cancel-or-discard">Cancel or discard<a class="headerlink" href="#cancel-or-discard" title="Permanent link">&para;</a></h3>
+<p><code>DELETE /api/v1/ota/image</code> does one of three things:</p>
+<ul>
+<li>stops an upload or pull in progress, which then fails as <code>cancelled</code>;</li>
+<li>forgets a staged image;</li>
+<li>clears a failed session.</li>
+</ul>
+<p>An image already activated can't be discarded. Activate the running slot instead.</p>
+<h2 id="a-whole-update-scripted">A whole update, scripted<a class="headerlink" href="#a-whole-update-scripted" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="ch">#!/bin/sh</span>
+<span class="c1"># Update a board to the latest release, and wait until it runs it.</span>
+<span class="nb">set</span><span class="w"> </span>-e
+<span class="nv">B</span><span class="o">=</span>http://<span class="si">${</span><span class="nv">1</span><span class="k">:-</span><span class="nv">holo</span><span class="p">-2db0.local</span><span class="si">}</span>/api/v1
+<span class="nv">J</span><span class="o">=</span><span class="s1">'Content-Type: application/json'</span>
+
+curl<span class="w"> </span>-fsS<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/ota/check?channel=latest&amp;refresh=1"</span><span class="p">;</span><span class="w"> </span><span class="nb">echo</span>
+curl<span class="w"> </span>-fsS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"channel":"latest"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/ota/pull"</span><span class="w"> </span>&gt;/dev/null
+<span class="k">while</span><span class="w"> </span>:<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span><span class="nv">s</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-fsS<span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/ota/image"</span><span class="k">)</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="nv">$s</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
+<span class="w">    </span>*<span class="s1">'"state":"staged"'</span>*<span class="o">)</span><span class="w"> </span><span class="k">break</span><span class="w"> </span><span class="p">;;</span>
+<span class="w">    </span>*<span class="s1">'"state":"failed"'</span>*<span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$s</span><span class="s2">"</span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;;</span>
+<span class="w">  </span><span class="k">esac</span>
+<span class="w">  </span>sleep<span class="w"> </span><span class="m">1</span>
+<span class="k">done</span>
+curl<span class="w"> </span>-fsS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/ota/activate"</span><span class="w"> </span>&gt;/dev/null
+sleep<span class="w"> </span><span class="m">10</span>
+<span class="k">until</span><span class="w"> </span>curl<span class="w"> </span>-fsS<span class="w"> </span>-m<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/info"</span><span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>sleep<span class="w"> </span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="k">done</span><span class="p">;</span><span class="w"> </span><span class="nb">echo</span>
+</code></pre></div>
+<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th><code>error</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>bad_request</code>, <code>bad_json</code>, <code>bad_sha256</code>, <code>bad_path</code>, <code>not_a_directory</code>, <code>is_a_directory</code></td>
+<td>The request is malformed, or names the wrong kind of thing</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>auth_required</code></td>
+<td>A password is set, and this request lacks it</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>forbidden_host</code></td>
+<td>The <code>Host</code> header doesn't name the board</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>not_found</code>, <code>no_such_slot</code>, <code>no_firmware</code>, <code>unknown_scene</code></td>
+<td>No such endpoint, file, servo, network, slot, scene, or firmware on that channel</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>busy</code>, <code>nothing_staged</code>, <code>cannot_discard</code>, <code>cancelled</code></td>
+<td>Another long operation is running, or the update session isn't in the state asked of it</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>not_running</code></td>
+<td>No scene is running to its end</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>exists</code>, <code>not_empty</code>, <code>full</code>, <code>slot_taken</code></td>
+<td>Something is in the way: a file (<code>overwrite=true</code>), a directory's contents (<code>recursive=true</code>), the list of scenes or networks, or another scene's slot</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>not_ready</code></td>
+<td>The holo can't move now; the message says why</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>pin_in_use</code></td>
+<td>The host link can't have that pin: the board uses it for something else</td>
+</tr>
+<tr>
+<td>411</td>
+<td><code>length_required</code></td>
+<td>An upload without a <code>Content-Length</code></td>
+</tr>
+<tr>
+<td>413</td>
+<td><code>too_large</code></td>
+<td>The image won't fit the slot</td>
+</tr>
+<tr>
+<td>415</td>
+<td><code>content_type</code></td>
+<td>A <code>POST</code> or <code>PATCH</code> that isn't <code>application/json</code></td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>invalid_image</code>, <code>sha256_mismatch</code></td>
+<td>Not a usable firmware image (the running firmware still boots), or a file that didn't arrive intact</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>not_playable</code></td>
+<td>A file the screen can't show; the message says why</td>
+</tr>
+<tr>
+<td>503</td>
+<td><code>offline</code>, <code>unreachable</code></td>
+<td>The board can't reach the internet, or the release site</td>
+</tr>
+<tr>
+<td>503</td>
+<td><code>busy</code></td>
+<td>Every event stream is taken</td>
+</tr>
+<tr>
+<td>507</td>
+<td><code>no_space</code></td>
+<td>The storage volume is too full</td>
+</tr>
+</tbody>
+</table>
+<h2 id="every-endpoint">Every endpoint<a class="headerlink" href="#every-endpoint" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/info</code></td>
+<td>The board, its firmware, its network, its features</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/restart</code></td>
+<td>Restart</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/openapi.json</code></td>
+<td>The OpenAPI description of this firmware's API</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/events</code></td>
+<td>What changes, as it happens (Server-Sent Events), or the latest happenings</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/ota</code></td>
+<td>The slots, the session, and whether the board can pull</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/ota/image</code></td>
+<td>The session</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/ota/image</code></td>
+<td>Upload an image</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/ota/image</code></td>
+<td>Cancel, discard, or clear</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/ota/activate</code></td>
+<td>Make an image the boot image, and restart</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/ota/pull</code></td>
+<td>Download an image from a URL or release channel</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/ota/check</code></td>
+<td>What a pull would fetch, and whether it is newer</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/fs</code></td>
+<td>The storage volume's size and free space</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/fs/list</code></td>
+<td>A directory</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/fs/entry</code></td>
+<td>A file or directory, optionally hashed</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/fs/entry</code></td>
+<td>Delete a file or directory</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/fs/file</code></td>
+<td>Download a file</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/fs/file</code></td>
+<td>Upload a file</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/fs/mkdir</code></td>
+<td>Make a directory</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/fs/move</code></td>
+<td>Move or rename</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/fs/copy</code></td>
+<td>Copy a file</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/screen</code></td>
+<td>What the screen shows</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/screen</code></td>
+<td>The backlight, now</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/screen</code></td>
+<td>Show nothing</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/screen/show</code></td>
+<td>Show a clip, image, colour, or the crosshair</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/media</code></td>
+<td>The clips and images under a directory</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/media/info</code></td>
+<td>Describe a clip or image</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/leds</code></td>
+<td>The LED strip</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/leds</code></td>
+<td>Change the LED strip, now</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/holo</code></td>
+<td>The holo's motion and position</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/holo/motion</code></td>
+<td>Move the holo, or start or stop a behaviour</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/servos</code></td>
+<td>The servos: position, limits, policy</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/servos/move</code></td>
+<td>Drive a servo to a position</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/servos/release</code></td>
+<td>Stop driving servos</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/servos/calibration</code></td>
+<td>Save a servo's working range</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/servos/calibration</code></td>
+<td>Forget it</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/servos/policy</code></td>
+<td>Save a servo's drive policy</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/scenes</code></td>
+<td>The saved scenes</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/scenes/scene</code></td>
+<td>Save a scene</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/scenes/scene</code></td>
+<td>Delete a scene</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/scenes/apply</code></td>
+<td>Apply a scene</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/scenes/end</code></td>
+<td>End the running scene now, doing its <code>then</code></td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/settings</code></td>
+<td>What the board starts with</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/settings</code></td>
+<td>Change it (saved)</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/settings</code></td>
+<td>Back to the defaults</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/network</code></td>
+<td>The network, the known ones, the access point</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/network</code></td>
+<td>Turn joining networks on or off</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/network/scan</code></td>
+<td>The networks in range</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/network/known</code></td>
+<td>Save a network</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/network/known</code></td>
+<td>Forget a network</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/network/join</code></td>
+<td>Join a network</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/network/ap</code></td>
+<td>The access point: on or off, name, passphrase</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/web</code></td>
+<td>The web server's settings</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/web</code></td>
+<td>Change them (saved)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/link</code></td>
+<td>The host link: settings, what's running, counters</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/link</code></td>
+<td>Change its settings (saved)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/link/events</code></td>
+<td>The happenings it hasn't given its host yet</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/v1/link/events</code></td>
+<td>Which events it reports</td>
+</tr>
+</tbody>
+</table>
+<p><code>v1</code> changes only when an existing client would break; new endpoints and new fields arrive without
+it changing.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../console/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Console commands">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Console commands
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../http-api-explorer/" class="md-footer__link md-footer__link--next" aria-label="Next: HTTP API explorer">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                HTTP API explorer
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.footer","content.code.copy","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
+      
+    
+  </body>
+</html>

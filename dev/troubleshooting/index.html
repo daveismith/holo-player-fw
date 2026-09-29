@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../use/ota/">
+        <link rel="prev" href="../use/host-link/">
       
       
         <link rel="next" href="../reference/console/">
@@ -59,6 +59,8 @@
       <link rel="stylesheet" href="../stylesheets/installer.css">
     
       <link rel="stylesheet" href="../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../stylesheets/api.css">
     
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -542,6 +544,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -775,6 +858,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../use/ota/" class="md-nav__link">
         
   
@@ -782,7 +892,34 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
 
     
   </span>
@@ -906,6 +1043,87 @@
     
   
   Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
 
     
   </span>
@@ -1177,6 +1395,26 @@
   because browsers slow down background tabs. Cancel an upload that stops moving: the board keeps
   nothing from an upload that doesn't finish, so send it again
   (<a href="../use/board/#files">details</a>).</dd>
+<dt><strong><code>holo-xxxx.local</code> doesn't open.</strong></dt>
+<dd>Some Android phones and some networks don't resolve <code>.local</code> names. Use the board's address
+  instead: <code>web</code> on the console prints it, and your router's device list shows it too, under the
+  same name. The board must be on the same network as you: <code>wifi</code> says which network it joined
+  (<a href="../use/web/#reaching-it">details</a>).</dd>
+<dt><strong>The web app lost the board after an update, on its access point.</strong></dt>
+<dd>The access point is off after every restart, including the one that finishes an update, unless the
+  board can't join a network then. Press <strong>BOOT</strong> (the access point comes on for 5 minutes if the
+  board still can't join its network), or run <code>wifi ap on</code> on the console, and join <code>holo-xxxx</code>
+  again.</dd>
+<dt><strong>The access point went away after a few minutes.</strong></dt>
+<dd>One that came on by itself at start, or from the BOOT button, turns off after 5 minutes. Press
+  BOOT for another 5, or keep it on: the <strong>Network</strong> page's switch, or <code>wifi ap on</code>.</dd>
+<dt><strong>An update over Wi-Fi says "another update is in progress".</strong></dt>
+<dd>One update at a time, whoever started it: another tab, a script, or <code>ota put</code> on the console.
+  The Update page shows it and can cancel it. <code>curl -X DELETE http://holo-xxxx.local/api/v1/ota/image</code>
+  does the same.</dd>
+<dt><strong>Changes over the web ask for a password.</strong></dt>
+<dd>Someone set one with <code>web password</code>. Ask them, or clear it on the console with
+  <code>web password --clear</code>.</dd>
 </dl>
 
 
@@ -1215,7 +1453,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../use/ota/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Updating over serial">
+          <a href="../use/host-link/" class="md-footer__link md-footer__link--prev" aria-label="Previous: The host link">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1225,7 +1463,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Updating over serial
+                The host link
               </div>
             </div>
           </a>
@@ -1287,6 +1525,8 @@
         <script src="../javascripts/installer/ui.js" type="module"></script>
       
         <script src="../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../javascripts/api/ui.js" type="module"></script>
       
     
   </body>
