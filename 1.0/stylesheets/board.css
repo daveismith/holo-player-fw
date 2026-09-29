@@ -1,0 +1,724 @@
+/* The board pages (javascripts/board/): the Board page, the header's dock, the Run buttons and the
+   file manager. Colours come from the theme's variables, so it follows the light and dark schemes. */
+
+.hb-dock [hidden],
+#holo-board [hidden],
+.holo-files [hidden],
+.hb-inline [hidden],
+.md-typeset .hb-runner [hidden] {
+  display: none !important;
+}
+
+#holo-board.hb-static,
+.holo-files.hb-static,
+#holo-board.hb-notice,
+.holo-files.hb-notice {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 0.2rem solid var(--md-accent-fg-color);
+  border-radius: 0.2rem;
+  padding: 0.2em 1em;
+  margin: 1em 0;
+}
+
+/* --- shared pieces ---------------------------------------------------------------------------- */
+
+.hb-note:empty {
+  display: none;
+}
+
+.md-typeset .hb-note {
+  margin: 0.4em 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-error {
+  color: var(--md-default-fg-color);
+  border-left: 0.2rem solid #e53935;
+  padding-left: 0.6em;
+}
+
+.md-typeset .hb-empty {
+  color: var(--md-default-fg-color--light);
+}
+
+.hb-dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--md-default-fg-color--lighter);
+  margin-right: 0.4em;
+  flex: none;
+}
+
+[data-state="connected"] .hb-dot {
+  background: #43a047;
+}
+
+[data-state="connecting"] .hb-dot {
+  background: var(--md-accent-fg-color);
+}
+
+.md-typeset .hb-act,
+.md-typeset .hb-chip,
+.md-typeset .hb-crumb,
+.md-typeset .hb-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.2rem;
+  cursor: pointer;
+  padding: 0 0.35em;
+}
+
+.md-typeset .hb-act:hover,
+.md-typeset .hb-act:focus-visible,
+.md-typeset .hb-chip:hover,
+.md-typeset .hb-crumb:hover,
+.md-typeset .hb-link:hover {
+  border-color: var(--md-accent-fg-color);
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .hb-danger:hover {
+  border-color: #e53935;
+  color: #e53935;
+}
+
+.md-typeset button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.md-typeset .hb-input,
+.md-typeset .hb-filter,
+.md-typeset .hb-pick {
+  font-family: var(--md-code-font-family);
+  font-size: 0.85em;
+  color: inherit;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  padding: 0.3em 0.5em;
+  min-width: 0;
+}
+
+.md-typeset .hb-input:focus,
+.md-typeset .hb-filter:focus {
+  outline: none;
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .hb-term,
+.md-typeset .hb-out {
+  margin: 0.5em 0;
+  padding: 0.6em 0.8em;
+  font-size: 0.75em;
+  line-height: 1.4;
+  background: var(--md-code-bg-color);
+  color: var(--md-code-fg-color);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  border-radius: 0.1rem;
+}
+
+.md-typeset .hb-term {
+  height: 18em;
+  resize: vertical;
+}
+
+.md-typeset .hb-out {
+  max-height: 16em;
+}
+
+.md-typeset .hb-out.hb-failed {
+  border-left: 0.2rem solid #e53935;
+}
+
+/* --- a runner: chips, the line, helpers, output ------------------------------------------------ */
+
+.md-typeset .hb-runner {
+  margin: 0.4em 0 0.8em;
+}
+
+.md-typeset .hb-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.md-typeset .hb-line .hb-input {
+  flex: 1 1 12em;
+}
+
+.md-typeset .hb-prompt {
+  font-family: var(--md-code-font-family);
+  font-size: 0.85em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-line .md-button {
+  margin: 0;
+  padding: 0.25em 0.9em;
+  font-size: 0.8em;
+}
+
+.md-typeset .hb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  margin-bottom: 0.4em;
+}
+
+.md-typeset .hb-chip {
+  font-family: var(--md-code-font-family);
+  font-size: 0.8em;
+  border-color: var(--md-default-fg-color--lightest);
+  border-radius: 1em;
+  padding: 0.05em 0.7em;
+}
+
+.md-typeset .hb-helpers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  align-items: center;
+  margin-top: 0.4em;
+  font-size: 0.85em;
+}
+
+.md-typeset .hb-colour input {
+  vertical-align: middle;
+  width: 2.2em;
+  height: 1.6em;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.md-typeset .hb-glossary {
+  margin: 0.4em 0;
+  font-size: 0.85em;
+}
+
+.md-typeset .hb-glossary summary {
+  cursor: pointer;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-glossary pre {
+  margin: 0.3em 0;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+/* --- the Board page ---------------------------------------------------------------------------- */
+
+#holo-board {
+  margin: 1em 0 2em;
+}
+
+.md-typeset .hb-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4em 1em;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 0.4em 1em;
+}
+
+.md-typeset .hb-status p {
+  margin: 0.3em 0;
+}
+
+.md-typeset .hb-status-line {
+  display: flex;
+  align-items: center;
+}
+
+.md-typeset .hb-status-buttons .md-button {
+  margin: 0.1em 0 0.1em 0.4em;
+}
+
+.md-typeset .hb-status .hb-error {
+  flex-basis: 100%;
+}
+
+.md-typeset .hb-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 2em;
+}
+
+@media screen and (min-width: 60em) {
+  .md-typeset .hb-panes {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.md-typeset .hb-pane h2 {
+  margin: 1.2em 0 0.6em;
+}
+
+.md-typeset .hb-group {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  margin: 0;
+}
+
+.md-typeset .hb-group > summary {
+  cursor: pointer;
+  padding: 0.5em 0;
+  font-weight: 700;
+}
+
+.md-typeset .hb-count {
+  margin-left: 0.5em;
+  font-weight: 400;
+  font-size: 0.8em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-command {
+  padding: 0.2em 0 0.4em 0.8em;
+  border-left: 0.1rem solid var(--md-default-fg-color--lightest);
+  margin: 0.4em 0 0.8em;
+}
+
+.md-typeset .hb-command h3 {
+  margin: 0.2em 0;
+  font-size: 0.95em;
+}
+
+.md-typeset .hb-hint {
+  font-family: var(--md-code-font-family);
+  font-weight: 400;
+  font-size: 0.8em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-desc {
+  margin: 0.2em 0 0.5em;
+  font-size: 0.9em;
+}
+
+.md-typeset .hb-filter {
+  width: 100%;
+  margin-bottom: 0.5em;
+  font-family: inherit;
+}
+
+/* --- the file manager -------------------------------------------------------------------------- */
+
+.md-typeset .hb-fm {
+  margin: 0.5em 0 1em;
+}
+
+.md-typeset .hb-offline p {
+  margin-top: 0;
+}
+
+.md-typeset .hb-files-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3em 1em;
+  margin-bottom: 0.4em;
+}
+
+.md-typeset .hb-crumbs {
+  font-family: var(--md-code-font-family);
+  font-size: 0.85em;
+}
+
+.md-typeset .hb-usage-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.8em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-meter {
+  width: 6em;
+}
+
+.md-typeset .hb-files {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  min-height: 3em;
+}
+
+.md-typeset .hb-files.hb-dragging {
+  border: 1px dashed var(--md-accent-fg-color);
+  background: var(--md-accent-fg-color--transparent);
+}
+
+.md-typeset .hb-row {
+  display: grid;
+  grid-template-columns: 1.6em minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.25em 0.6em;
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .hb-row:last-child {
+  border-bottom: none;
+}
+
+.md-typeset .hb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.md-typeset .hb-link {
+  padding: 0;
+  color: var(--md-typeset-a-color);
+}
+
+.md-typeset .hb-size {
+  color: var(--md-default-fg-color--light);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.md-typeset .hb-actions {
+  white-space: nowrap;
+}
+
+.md-typeset .hb-files .hb-empty {
+  margin: 0.6em;
+  font-size: 0.85em;
+}
+
+.md-typeset .hb-drop-hint {
+  margin: 0.3em 0;
+  font-size: 0.75em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hb-toolbar .md-button {
+  margin: 0.2em 0.4em 0.2em 0;
+  padding: 0.25em 0.9em;
+  font-size: 0.8em;
+}
+
+.md-typeset .hb-xfer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6em auto auto;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.8em;
+  margin: 0.3em 0;
+}
+
+.md-typeset .hb-xfer-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-typeset .hb-xfer progress {
+  width: 100%;
+  accent-color: var(--md-primary-fg-color);
+}
+
+.md-typeset .hb-xfer-stats {
+  color: var(--md-default-fg-color--light);
+  font-variant-numeric: tabular-nums;
+}
+
+.md-typeset .hb-xfer.hb-failed .hb-xfer-stats {
+  color: #e53935;
+}
+
+@media screen and (max-width: 30em) {
+  .md-typeset .hb-xfer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .md-typeset .hb-xfer progress {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* --- Run buttons in the documentation ---------------------------------------------------------- */
+
+.md-typeset .hb-run-line,
+.md-typeset .hb-run-cell {
+  display: inline-block;
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.5em;
+  padding: 0;
+  vertical-align: -0.25em;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 50%;
+  background: var(--md-default-bg-color);
+  color: var(--md-primary-fg-color);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+}
+
+/* The ▶ is drawn, not text, so copying a code block copies only the commands. */
+.md-typeset .hb-run-line::before,
+.md-typeset .hb-run-cell::before {
+  content: "";
+  display: block;
+  margin: auto;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0.3em 0 0.3em 0.5em;
+  border-color: transparent transparent transparent currentcolor;
+  transform: translateX(0.07em);
+}
+
+.md-typeset .hb-run-line:hover,
+.md-typeset .hb-run-line:focus-visible,
+.md-typeset .hb-run-cell:hover,
+.md-typeset .hb-run-cell:focus-visible {
+  border-color: var(--md-accent-fg-color);
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .hb-run-cell {
+  margin: 0 0 0 0.4em;
+  width: 1.3em;
+  height: 1.3em;
+}
+
+.md-typeset .hb-inline {
+  margin: -0.4em 0 1em;
+  padding: 0.3em 0.8em 0.1em;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 0.2rem solid var(--md-primary-fg-color);
+  border-radius: 0 0 0.2rem 0.2rem;
+  font-size: 0.9em;
+}
+
+.md-typeset .hb-inline-row > td {
+  padding: 0.2em 0.6em !important;
+}
+
+.md-typeset .hb-inline-row .hb-inline {
+  margin: 0.3em 0;
+}
+
+.md-typeset .hb-inline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 0.3em;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--md-default-fg-color--light);
+}
+
+/* --- the dock in the header -------------------------------------------------------------------- */
+
+.hb-dock {
+  position: relative;
+  flex: none;
+  margin: 0 0.4rem;
+}
+
+.hb-dock-button {
+  display: flex;
+  align-items: center;
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--md-primary-bg-color);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 1em;
+  padding: 0.15em 0.8em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hb-dock-button:hover,
+.hb-dock-button:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.hb-dock .hb-dot {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.hb-dock[data-state="connected"] .hb-dot {
+  background: #69f0ae;
+}
+
+.hb-dock[data-state="connecting"] .hb-dot {
+  background: var(--md-accent-fg-color);
+}
+
+.hb-dock-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 10;
+  width: 17rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.2rem 0.8rem;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  box-shadow: var(--md-shadow-z2);
+}
+
+.hb-dock-panel p {
+  margin: 0.5em 0;
+}
+
+/* Outside .md-typeset, so the theme's .md-button styles don't reach: the same look, drawn here. */
+.hb-dock-panel .md-button {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.25em 1em;
+  margin: 0;
+  color: var(--md-primary-fg-color);
+  background: transparent;
+  border: 0.1rem solid currentcolor;
+  border-radius: 0.1rem;
+  cursor: pointer;
+}
+
+.hb-dock-panel .md-button--primary {
+  color: var(--md-primary-bg-color);
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+.hb-dock-panel .md-button:hover,
+.hb-dock-panel .md-button:focus-visible {
+  color: var(--md-accent-bg-color);
+  background: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+
+.hb-dock-panel .hb-note:empty {
+  display: none;
+}
+
+.hb-dock-panel .hb-error {
+  border-left: 0.2rem solid #e53935;
+  padding-left: 0.6em;
+}
+
+.hb-dock-link {
+  color: var(--md-typeset-a-color);
+}
+
+@media screen and (max-width: 44.9375em) {
+  .hb-dock-label {
+    display: none;
+  }
+
+  .hb-dock-button {
+    padding: 0.35em 0.45em;
+  }
+
+  .hb-dock .hb-dot {
+    margin: 0;
+  }
+}
+
+/* The theme draws every <details> as a collapsible admonition; these are plain disclosures. */
+.md-typeset details.hb-group,
+.md-typeset details.hb-glossary {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.md-typeset details.hb-group {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  margin: 0;
+}
+
+.md-typeset details.hb-glossary {
+  margin: 0.4em 0;
+  font-size: 0.85em;
+}
+
+.md-typeset details.hb-group > summary,
+.md-typeset details.hb-glossary > summary {
+  background: none;
+  border: none;
+  padding: 0.5em 1.8em 0.5em 0;
+  margin: 0;
+}
+
+.md-typeset details.hb-glossary > summary {
+  padding: 0.1em 1.8em 0.1em 0;
+  font-weight: 400;
+}
+
+.md-typeset details.hb-group > summary::before,
+.md-typeset details.hb-glossary > summary::before {
+  display: none;
+}
+
+.md-typeset details.hb-group > summary::after,
+.md-typeset details.hb-glossary > summary::after {
+  background-color: var(--md-default-fg-color--light);
+  top: 0.55em;
+}
+
+.md-typeset details.hb-glossary > summary::after {
+  top: 0.15em;
+  display: none;
+}
+
+.md-typeset details.hb-group[open] > summary {
+  border-bottom: none;
+}
+
+/* A sub-command's entry under its command on the Board page. */
+.md-typeset .hb-entry {
+  margin: 0.3em 0 0.6em;
+}
+
+.md-typeset .hb-entry h4 {
+  margin: 0.6em 0 0.3em;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.md-typeset .hb-entry .hb-runner {
+  margin: 0.2em 0 0.4em;
+}
+
+/* Moving by drag and drop. */
+.md-typeset .hb-row[draggable="true"] {
+  cursor: grab;
+}
+
+.md-typeset .hb-row.hb-dragged {
+  opacity: 0.4;
+}
+
+.md-typeset .hb-drop-target {
+  outline: 1px dashed var(--md-accent-fg-color);
+  outline-offset: -1px;
+  background: var(--md-accent-fg-color--transparent);
+}

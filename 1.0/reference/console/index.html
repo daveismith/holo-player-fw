@@ -14,7 +14,7 @@
         <link rel="prev" href="../../troubleshooting/">
       
       
-        <link rel="next" href="../config/">
+        <link rel="next" href="../http-api/">
       
       
         
@@ -57,6 +57,10 @@
     
     
       <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/api.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -540,6 +544,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -741,6 +826,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../use/ota/" class="md-nav__link">
         
   
@@ -748,7 +887,34 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
 
     
   </span>
@@ -973,6 +1139,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scenes-and-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenes and settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#files-and-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -988,6 +1165,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         System
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The host link
       </span>
     </span>
   </a>
@@ -1031,6 +1219,87 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1221,6 +1490,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scenes-and-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scenes and settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#files-and-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1236,6 +1516,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         System
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The host link
       </span>
     </span>
   </a>
@@ -1296,6 +1587,9 @@
 <h1 id="console-commands">Console commands<a class="headerlink" href="#console-commands" title="Permanent link">&para;</a></h1>
 <p>The console is the board's whole interface. It runs on UART0 at 115200 baud, reached over the
 USB-C port. Type <code>help</code> for the full list with hints; this page is the annotated version.</p>
+<p>In desktop Chrome, Edge or Opera, the ▶ beside a command tries it on a board connected to the
+computer. <a href="../../use/board/">The board in the browser</a> has every command the board lists, and its
+console.</p>
 <p>Command history is kept in <code>/data/history.txt</code> and survives a restart.</p>
 <div class="admonition note">
 <p class="admonition-title">A colour is written the same way everywhere</p>
@@ -1419,6 +1713,10 @@ on it. Full detail in <a href="../../use/images/">Images</a>.</p>
 <td>The colour wheel five times round the ring in 12.8 s</td>
 </tr>
 <tr>
+<td><code>leds flicker [&lt;c&gt;]</code></td>
+<td>The colour flickering like a failing hologram, until something else. White if no colour given</td>
+</tr>
+<tr>
 <td><code>leds bright &lt;1-100&gt;</code></td>
 <td>Brightness, applied live</td>
 </tr>
@@ -1470,6 +1768,70 @@ on it. Full detail in <a href="../../use/images/">Images</a>.</p>
 </table>
 <p><code>holo led</code> and <code>holo leia</code>'s light half do nothing on this board — there is no light attached.
 Full detail in <a href="../../use/holo/">The holoprojector</a>.</p>
+<h2 id="scenes-and-settings">Scenes and settings<a class="headerlink" href="#scenes-and-settings" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scene [list]</code></td>
+<td>The saved scenes, and which the board starts with</td>
+</tr>
+<tr>
+<td><code>scene show &lt;name&gt;</code></td>
+<td>One scene, as JSON</td>
+</tr>
+<tr>
+<td><code>scene apply &lt;name&gt;</code></td>
+<td>Apply it: the screen, then the LEDs, then the holo</td>
+</tr>
+<tr>
+<td><code>scene end</code></td>
+<td>End the scene running to its end now, doing what it does then (go back, or all off)</td>
+</tr>
+<tr>
+<td><code>scene delete &lt;name&gt;</code></td>
+<td>Delete it; if the board started with it, it now starts with nothing</td>
+</tr>
+<tr>
+<td><code>scene boot [&lt;name&gt;\|--clear]</code></td>
+<td>The scene the board starts with; alone, which it is</td>
+</tr>
+<tr>
+<td><code>scene slot &lt;name&gt; [&lt;1-255&gt;\|--clear]</code></td>
+<td>The number a host on the host link applies it by; alone, which it is</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td>What the board starts with: the backlight, the LEDs' brightness and count, and the scene</td>
+</tr>
+<tr>
+<td><code>settings backlight &lt;1-100&gt;</code></td>
+<td>The backlight at start, and now</td>
+</tr>
+<tr>
+<td><code>settings brightness &lt;1-100&gt;</code></td>
+<td>The LEDs' brightness at start, and now</td>
+</tr>
+<tr>
+<td><code>settings leds &lt;count&gt;</code></td>
+<td>LEDs on the strip, from the next start</td>
+</tr>
+<tr>
+<td><code>settings reset</code></td>
+<td>Back to the firmware's defaults; scenes are kept</td>
+</tr>
+</tbody>
+</table>
+<p>A scene is what the screen shows, what the LEDs do and how the holo moves, saved together by
+name; a scene may have any of the three. Scenes are made with the
+<a href="../http-api/#scenes">HTTP API</a> or the <a href="../../use/web/">web app</a> — a scene's JSON is too long to
+type here — and the console applies and chooses them. A name may contain spaces:
+<code>scene apply amber glow</code>.</p>
 <h2 id="files-and-firmware">Files and firmware<a class="headerlink" href="#files-and-firmware" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1499,10 +1861,18 @@ Full detail in <a href="../../use/holo/">The holoprojector</a>.</p>
 <td><code>ota put [-b baud] [-n] [-d] &lt;size&gt;</code></td>
 <td>Receive a new image into the slot that is not running</td>
 </tr>
+<tr>
+<td><code>ota pull [-n] [-s] [-f] [--sha256 &lt;hex&gt;] &lt;url\|channel&gt;</code></td>
+<td>Download a new image over Wi-Fi: a release channel such as <code>latest</code>, a release's manifest, or an image's URL</td>
+</tr>
+<tr>
+<td><code>ota activate [-n] [slot]</code></td>
+<td>Make the staged image, or the image in a slot, the boot image, and restart into it</td>
+</tr>
 </tbody>
 </table>
-<p>The host side of all of these is <code>tools/fs_xfer.py</code> in esp-console-kit — see
-<a href="../../use/files/">Files on the board</a> and <a href="../../use/ota/">Updating over serial</a>.</p>
+<p>The host side of <code>fs put</code>, <code>fs get</code> and <code>ota put</code> is <code>tools/fs_xfer.py</code> in esp-console-kit — see
+<a href="../../use/files/">Files on the board</a> and <a href="../../use/ota/">Updating the firmware</a>.</p>
 <h2 id="system">System<a class="headerlink" href="#system" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1564,8 +1934,57 @@ Full detail in <a href="../../use/holo/">The holoprojector</a>.</p>
 </table>
 <p><code>tasks</code> and <code>top</code> need the FreeRTOS trace and run-time-stats options, and <code>flash-stats</code> needs the
 flash counters; all are enabled in <code>sdkconfig.defaults</code>.</p>
+<h2 id="the-host-link">The host link<a class="headerlink" href="#the-host-link" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../use/host-link/">the host link</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>link</code></td>
+<td>The transport, its pins and settings, the counters, and the events asked for</td>
+</tr>
+<tr>
+<td><code>link mode &lt;off\|uart\|rs485&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
+<td>The transport, from the next restart; <code>-b</code> the baud rate, <code>-a</code> the address, 1–223</td>
+</tr>
+<tr>
+<td><code>link proto &lt;auto\|json\|native&gt;</code></td>
+<td>What UART and RS485 accept</td>
+</tr>
+<tr>
+<td><code>link address &lt;1-223&gt;</code></td>
+<td>The board's address on UART and RS485</td>
+</tr>
+<tr>
+<td><code>link groups [&lt;group&gt;…\|--clear]</code></td>
+<td>The groups it acts for, 1–31, up to 8</td>
+</tr>
+<tr>
+<td><code>link pins &lt;a&gt; &lt;b&gt; &lt;c&gt;</code></td>
+<td>The GPIOs for roles A, B and C, from the next restart</td>
+</tr>
+<tr>
+<td><code>link events [&lt;kind&gt;…\|--none] [--push\|--keep]</code></td>
+<td>The events it reports from the start: <code>clip_ended</code>, <code>scene_ended</code>, <code>touch</code>, or a resource's changes (<code>screen</code>, <code>leds</code>, <code>scene</code>, …)</td>
+</tr>
+<tr>
+<td><code>link log [on\|off]</code></td>
+<td>Print everything the link sends and receives</td>
+</tr>
+<tr>
+<td><code>link reset</code></td>
+<td>Back to the firmware's defaults</td>
+</tr>
+</tbody>
+</table>
 <h2 id="networking">Networking<a class="headerlink" href="#networking" title="Permanent link">&para;</a></h2>
-<p>Wi-Fi is not needed for anything on this page, but it is available.</p>
+<p>Wi-Fi is what the <a href="../../use/web/">web app</a> and <a href="../../use/ota/#updating-over-wi-fi">updates over Wi-Fi</a>
+use; nothing else needs it.</p>
 <table>
 <thead>
 <tr>
@@ -1577,6 +1996,30 @@ flash counters; all are enabled in <code>sdkconfig.defaults</code>.</p>
 <tr>
 <td><code>wifi [on\|off]</code></td>
 <td>Turn the radio on or off</td>
+</tr>
+<tr>
+<td><code>wifi scan</code></td>
+<td>The networks in range, strongest first, and which are saved</td>
+</tr>
+<tr>
+<td><code>wifi ap [on\|off] [--ssid &lt;ssid&gt;] [--pass &lt;passphrase&gt;]</code></td>
+<td>The board's own access point, <code>holo-xxxx</code> at 192.168.4.1: on or off (off again at every boot, unless the board can't join a network: then on for 5 minutes, as after a press of BOOT), and its name and passphrase. Alone, shows them, and how long it has left</td>
+</tr>
+<tr>
+<td><code>web [on\|off]</code></td>
+<td>The web app and its API: where to reach it. <code>off</code> stops the server, and stays off across restarts</td>
+</tr>
+<tr>
+<td><code>web password &lt;password&gt;\|--clear</code></td>
+<td>Changes over the web need this password, as do downloading files and reading the web settings</td>
+</tr>
+<tr>
+<td><code>web hostname &lt;name&gt;\|--clear</code></td>
+<td>The board's name on the network: <code>&lt;name&gt;.local</code></td>
+</tr>
+<tr>
+<td><code>web cors [add &lt;origin&gt;\|remove &lt;origin&gt;\|reset\|none]</code></td>
+<td>Which other sites' pages may call the API from a browser (CORS). Alone, lists them</td>
 </tr>
 <tr>
 <td><code>wifi_save &lt;ssid&gt; [pass]</code></td>
@@ -1737,13 +2180,13 @@ site, so the tables above cannot quietly fall behind the code.</p>
         
         
           
-          <a href="../config/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../http-api/" class="md-footer__link md-footer__link--next" aria-label="Next: HTTP API">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                HTTP API
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1790,6 +2233,10 @@ site, so the tables above cannot quietly fall behind the code.</p>
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
       
         <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
       
     
   </body>

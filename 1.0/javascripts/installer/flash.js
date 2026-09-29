@@ -7,6 +7,7 @@ import {
   TABLE_LENGTH, TABLE_OFFSET,
 } from "./inspect.js";
 import { md5Hex } from "./md5.js";
+import { sha256Hex } from "../common/digest.js";
 
 const CHIP_NAME = "ESP32-S3";
 const ROM_BAUD = 115200;          // the ROM bootloader, and the firmware's console
@@ -18,11 +19,6 @@ export class InstallError extends Error {
     super(detail ?? kind);
     this.kind = kind;
   }
-}
-
-async function sha256Hex(bytes) {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Fetch every part in the manifest and check it against the manifest's SHA-256 before anything

@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../console/">
+        <link rel="prev" href="../host-protocol/">
       
       
         <link rel="next" href="../video-internals/">
@@ -57,6 +57,10 @@
     
     
       <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/api.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -540,6 +544,87 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -741,6 +826,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../use/ota/" class="md-nav__link">
         
   
@@ -748,7 +887,34 @@
   <span class="md-ellipsis">
     
   
-  Updating over serial
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
 
     
   </span>
@@ -883,6 +1049,87 @@
                   
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
     
   
   
@@ -994,6 +1241,28 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         holo-player-fw
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wi-fi-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wi-Fi fallback
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host link
       </span>
     </span>
   </a>
@@ -1206,6 +1475,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#wi-fi-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wi-Fi fallback
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host link
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#console-wifi-commands" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1411,6 +1702,87 @@ a guess, which is why motion works before anything is calibrated; see
 </tr>
 </tbody>
 </table>
+<h3 id="wi-fi-fallback">Wi-Fi fallback<a class="headerlink" href="#wi-fi-fallback" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HOLO_WIFI_FALLBACK_AP</code></td>
+<td>on</td>
+<td>Turn the access point on when the board can't join a network at start</td>
+</tr>
+<tr>
+<td><code>HOLO_WIFI_FALLBACK_AP_MIN</code></td>
+<td>5</td>
+<td>Minutes it stays on, at start or from the button, before it turns itself off</td>
+</tr>
+<tr>
+<td><code>HOLO_WIFI_JOIN_WAIT_S</code></td>
+<td>20</td>
+<td>Seconds a join has before the access point comes on instead</td>
+</tr>
+<tr>
+<td><code>HOLO_WIFI_BUTTON_GPIO</code></td>
+<td>0</td>
+<td>The button (to ground) that rejoins, or turns the access point on, when the board is off the network; 0 is BOOT. -1 for none</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../../use/web/#with-no-network-the-boards-own-access-point">With no network</a>.</p>
+<h3 id="host-link">Host link<a class="headerlink" href="#host-link" title="Permanent link">&para;</a></h3>
+<p>The compiled-in defaults, which the saved <a href="../../use/host-link/">link settings</a> override.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HOSTLINK_MODE</code></td>
+<td>Off</td>
+<td>Off, UART, or RS485</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_PROTOCOL</code></td>
+<td>Either</td>
+<td>JSON lines, native frames, or either, told apart by the first byte</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_PIN_A</code> / <code>_B</code> / <code>_C</code></td>
+<td>21 / 33 / 15</td>
+<td>P2 pins 11, 12 and 7</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_BAUD</code></td>
+<td>115200</td>
+<td>UART and RS485</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_ADDRESS</code></td>
+<td>1</td>
+<td>The board's address on UART and RS485, 1–223</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_I2C_ADDRESS</code></td>
+<td>0x42</td>
+<td>The board's I2C address (for the I2C link, not in the firmware yet)</td>
+</tr>
+<tr>
+<td><code>HOSTLINK_TASK_STACK</code></td>
+<td>10240</td>
+<td>The link task's stack: a request runs on it</td>
+</tr>
+</tbody>
+</table>
 <h3 id="console-wifi-commands">Console WiFi commands<a class="headerlink" href="#console-wifi-commands" title="Permanent link">&para;</a></h3>
 <p>The <code>cmd_wifi</code> component adds its own menu, for the NVS namespace saved networks are kept in and
 how hard the board tries to reconnect when a link drops.</p>
@@ -1604,7 +1976,7 @@ being received always goes into the slot that is not running.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../console/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Console commands">
+          <a href="../host-protocol/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Host link protocol">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1614,7 +1986,7 @@ being received always goes into the slot that is not running.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Console commands
+                Host link protocol
               </div>
             </div>
           </a>
@@ -1674,6 +2046,10 @@ being received always goes into the slot that is not running.</p>
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
       
         <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
       
     
   </body>

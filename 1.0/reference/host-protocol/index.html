@@ -1,0 +1,2700 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player">
+      
+      
+      
+      
+        <link rel="prev" href="../http-api-explorer/">
+      
+      
+        <link rel="next" href="../config/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+      
+        <title>Host link protocol - Holo Player</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/api.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#host-link-protocol" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Holo Player" class="md-header__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Holo Player
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Host link protocol
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/flashing/" class="md-tabs__link">
+          
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../use/video/" class="md-tabs__link">
+          
+  
+  Use
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../console/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Holo Player" class="md-nav__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Holo Player
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/flashing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        JSON lines
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON lines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A request
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-reply" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The reply
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taking-turns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Taking turns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-served" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is served
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-password" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        No password
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Events
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Events">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#asking-for-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Asking for events
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kept-events-and-the-ones-missed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Kept events, and the ones missed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-link-needs-no-attention-pin" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why the link needs no attention pin
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#native-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Native frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Native frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#on-uart-and-rs485" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On UART and RS485
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replies" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Replies
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-status-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The status block
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event records
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i2c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        I2C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scene-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scene slots
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addresses-and-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Addresses and groups
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Versions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video-internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        JSON lines
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON lines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A request
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-reply" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The reply
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#taking-turns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Taking turns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-served" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is served
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-password" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        No password
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Events
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Events">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#asking-for-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Asking for events
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kept-events-and-the-ones-missed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Kept events, and the ones missed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-link-needs-no-attention-pin" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why the link needs no attention pin
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#native-frames" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Native frames
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Native frames">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#on-uart-and-rs485" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        On UART and RS485
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replies" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Replies
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-status-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The status block
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event records
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i2c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        I2C
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scene-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scene slots
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addresses-and-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Addresses and groups
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Versions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="host-link-protocol">Host link protocol<a class="headerlink" href="#host-link-protocol" title="Permanent link">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">What's in the firmware so far</p>
+<p>JSON lines, native frames and events, on UART and RS485. The I2C register map is described
+ahead of the firmware.</p>
+</div>
+<p>This is the specification of what goes over the <a href="../../use/host-link/">host link</a>: the wire
+between the board and a controller (another microcontroller, an ESP32, a Raspberry Pi, a dome
+controller). The wiring for each transport is on its own page:
+<a href="../../connect/host-uart/">UART</a>, <a href="../../connect/host-rs485/">RS485</a> and
+<a href="../../connect/host-i2c/">I2C</a>.</p>
+<p>There are two protocols, and the board can accept both on the same port:</p>
+<table>
+<thead>
+<tr>
+<th>Protocol</th>
+<th>Looks like</th>
+<th>For</th>
+<th>Transports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JSON lines</strong></td>
+<td><code>POST /scenes/apply {"name":"cantina"}</code></td>
+<td>Hosts that can build and read JSON: a Pi, an ESP32, a person at a terminal</td>
+<td>UART, RS485</td>
+</tr>
+<tr>
+<td><strong>Native frames</strong></td>
+<td>Small binary messages with a CRC</td>
+<td>Hosts with little memory, and I2C</td>
+<td>UART, RS485, I2C</td>
+</tr>
+</tbody>
+</table>
+<p>JSON lines are the board's <a href="../http-api/">HTTP API</a>, one request a line. The requests, replies
+and errors are the ones that page and its <a href="../openapi.json">OpenAPI description</a> document. Native
+frames are a small fixed subset of the same things: scenes, the screen, the LEDs, the holo, and
+status.</p>
+<p>This is protocol version <strong>1</strong>. <code>GET /link</code> reports it, as does the native <code>PING</code>.</p>
+<h2 id="json-lines">JSON lines<a class="headerlink" href="#json-lines" title="Permanent link">&para;</a></h2>
+<h3 id="a-request">A request<a class="headerlink" href="#a-request" title="Permanent link">&para;</a></h3>
+<p>One line, ending with a line feed (<code>\n</code>, 0x0A). A carriage return before it is ignored, so a
+terminal's <code>\r\n</code> works.</p>
+<div class="highlight"><pre><span></span><code>[@&lt;address&gt; ][#&lt;tag&gt; ]&lt;METHOD&gt; &lt;path&gt;[ &lt;JSON&gt;]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@&lt;address&gt;</code></td>
+<td>Which board: <code>@12</code> for address 12, <code>@g3</code> for group 3, <code>@*</code> for every board. Needed on RS485. Optional on UART, where there is only one board</td>
+</tr>
+<tr>
+<td><code>#&lt;tag&gt;</code></td>
+<td>Optional. 1–16 of <code>A-Z a-z 0-9 _ -</code>. The reply carries it back, so a host can match a reply to its request</td>
+</tr>
+<tr>
+<td><code>&lt;METHOD&gt;</code></td>
+<td><code>GET</code>, <code>PUT</code>, <code>POST</code>, <code>PATCH</code> or <code>DELETE</code>, in capitals</td>
+</tr>
+<tr>
+<td><code>&lt;path&gt;</code></td>
+<td>A path of the HTTP API, without <code>/api/v1</code>: <code>/scenes/apply</code>, <code>/scenes/scene?name=cantina</code>. A path with <code>/api/v1</code> in front is accepted too</td>
+</tr>
+<tr>
+<td><code>&lt;JSON&gt;</code></td>
+<td>The request body, on the same line: a JSON object, as the HTTP API takes it. Left out when the request has none</td>
+</tr>
+</tbody>
+</table>
+<p>A line is at most <strong>1024 bytes</strong>, including the line feed, and is UTF-8. An empty line is
+ignored.</p>
+<div class="highlight"><pre><span></span><code>GET /screen
+PATCH /leds {"mode":"solid","colour":"orange","brightness":30}
+POST /scenes/apply {"name":"cantina"}
+#a7 POST /holo/motion {"motion":"nod","count":2}
+@3 POST /scenes/end
+</code></pre></div>
+<h3 id="the-reply">The reply<a class="headerlink" href="#the-reply" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>[@&lt;address&gt; ][#&lt;tag&gt; ]&lt;status&gt;[ +&lt;pending&gt;][ &lt;JSON&gt;]
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@&lt;address&gt;</code></td>
+<td>The board's own address, when the request had one</td>
+</tr>
+<tr>
+<td><code>#&lt;tag&gt;</code></td>
+<td>The request's tag, when it had one</td>
+</tr>
+<tr>
+<td><code>&lt;status&gt;</code></td>
+<td>The HTTP status, three digits: <code>200</code>, <code>202</code>, <code>204</code>, <code>400</code>, <code>404</code>, <code>409</code>, <code>422</code>, …</td>
+</tr>
+<tr>
+<td><code>+&lt;pending&gt;</code></td>
+<td>How many events are waiting for the host (see <a href="#events">Events</a>). Only there when it isn't 0</td>
+</tr>
+<tr>
+<td><code>&lt;JSON&gt;</code></td>
+<td>The reply body, as the HTTP API sends it. There is none with <code>204</code></td>
+</tr>
+</tbody>
+</table>
+<p>An error is the status with the API's error object:</p>
+<div class="highlight"><pre><span></span><code>&gt; POST /screen/show {"path":"/clips/nope.mov"}
+&lt; 404 {"error":"not_found","message":"no /clips/nope.mov"}
+&gt; #a8 POST /holo/motion {"motion":"wag"}
+&lt; #a8 409 +1 {"error":"not_ready","message":"the holo is not armed"}
+</code></pre></div>
+<p>(<code>&gt;</code> is what the host sends, and <code>&lt;</code> what the board sends back. Neither is sent.)</p>
+<p>On top of the HTTP API's errors, a line can get:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th><code>error</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>bad_request</code></td>
+<td>The line doesn't parse: no method, no path, or the JSON is broken</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>not_found</code></td>
+<td>The path or method isn't served over the link (see below)</td>
+</tr>
+<tr>
+<td>413</td>
+<td><code>too_large</code></td>
+<td>The line is over 1024 bytes. The board skips to the next line feed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="taking-turns">Taking turns<a class="headerlink" href="#taking-turns" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>One request at a time.</strong> The board reads a request, does it, and replies, then reads the
+  next. A host sends a request and waits for its reply before sending another.</li>
+<li><strong>Allow 2 seconds</strong> for a reply. Most take a few milliseconds. Showing a clip or applying a
+  scene checks the file first, which can take a few hundred milliseconds while the storage is
+  busy.</li>
+<li><strong>Lines sent while the board is busy wait</strong> in its 2 KB receive buffer. Past that, bytes are
+  lost, and <code>GET /link</code> counts an overrun.</li>
+<li><strong>Events can arrive before a reply.</strong> An event is never sent in the middle of a reply, but one
+  can come between a request and its reply (see <a href="#events">Events</a>).</li>
+</ul>
+<h3 id="what-is-served">What is served<a class="headerlink" href="#what-is-served" title="Permanent link">&para;</a></h3>
+<p>The link serves what a controller needs during a show, and leaves the rest to the USB console
+and Wi-Fi:</p>
+<table>
+<thead>
+<tr>
+<th>Served</th>
+<th>Paths</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The board</td>
+<td><code>GET /info</code>, <code>POST /restart</code></td>
+</tr>
+<tr>
+<td>The screen</td>
+<td><code>GET</code>, <code>PATCH</code> and <code>DELETE /screen</code>, <code>POST /screen/show</code>, <code>GET /media</code>, <code>GET /media/info</code></td>
+</tr>
+<tr>
+<td>The LEDs</td>
+<td><code>GET</code> and <code>PATCH /leds</code></td>
+</tr>
+<tr>
+<td>The holo and servos</td>
+<td><code>GET /holo</code>, <code>POST /holo/motion</code>, <code>GET /servos</code>, <code>POST /servos/move</code>, <code>POST /servos/release</code></td>
+</tr>
+<tr>
+<td>Scenes</td>
+<td><code>GET /scenes</code>, <code>PUT</code> and <code>DELETE /scenes/scene</code>, <code>POST /scenes/apply</code>, <code>POST /scenes/end</code></td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>GET</code>, <code>PATCH</code> and <code>DELETE /settings</code></td>
+</tr>
+<tr>
+<td>Events</td>
+<td><code>GET /events</code> (the kept happenings, as JSON)</td>
+</tr>
+<tr>
+<td>The link</td>
+<td><code>GET</code> and <code>PATCH /link</code>, <code>GET</code> and <code>PATCH /link/events</code></td>
+</tr>
+</tbody>
+</table>
+<p>Not served: files and uploads, firmware updates, the network, the web server's settings, and
+servo calibration. Those need the USB console or Wi-Fi.</p>
+<h3 id="no-password">No password<a class="headerlink" href="#no-password" title="Permanent link">&para;</a></h3>
+<p>The link has no password, and none of the HTTP API's <code>Host</code> or <code>Content-Type</code> rules apply. A wire
+into the board is physical access, as the USB console is. A board's web password doesn't apply
+to its link.</p>
+<h2 id="events">Events<a class="headerlink" href="#events" title="Permanent link">&para;</a></h2>
+<p>Events tell the host what changed without it having to ask. They are the board's own events, the
+same ones the web app follows over Wi-Fi (<a href="../http-api/#events"><code>GET /api/v1/events</code></a>), with the
+same names and the same JSON. Two sorts come over the link:</p>
+<p><strong>Something happened.</strong> Each is numbered (<code>seq</code>) and stamped (<code>t_ms</code>, the board's uptime in
+milliseconds):</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clip_started</code></td>
+<td>A clip or animation has started, whoever started it</td>
+<td><code>path</code>, from the root of the storage volume; <code>loop</code>; <code>plays</code>: times through, 0 for forever; <code>frames</code> and <code>fps</code>, from its header</td>
+</tr>
+<tr>
+<td><code>clip_ended</code></td>
+<td>A clip or animation has stopped</td>
+<td><code>path</code>, from the root of the storage volume; <code>finished</code>: <code>true</code> when it played to its end, <code>false</code> when something replaced or stopped it</td>
+</tr>
+<tr>
+<td><code>scene_started</code></td>
+<td>A scene has been applied, saved or given whole</td>
+<td><code>name</code>; <code>slot</code>, when it has one; <code>then</code>: <code>stay</code>, <code>restore</code> or <code>off</code>; <code>until_clip_ends</code>: it ends when its clip has played; <code>duration_s</code>, when it has one</td>
+</tr>
+<tr>
+<td><code>scene_ended</code></td>
+<td>A scene running to its end has ended</td>
+<td><code>name</code>; <code>slot</code>, when it has one; <code>then</code>: what it does at its end; <code>by</code>: <code>clip</code> (its clip played), <code>time</code> (its <code>duration_s</code> was up), <code>end</code> (<code>POST /scenes/end</code>), or <code>replaced</code> (another scene or clip took over, and its <code>then</code> wasn't done)</td>
+</tr>
+<tr>
+<td><code>touch</code></td>
+<td>The screen was touched, or let go. Only while touch reporting is on (<code>touch on</code>)</td>
+<td><code>action</code>: <code>down</code> or <code>up</code>; <code>x</code>, <code>y</code>: 0–239</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A resource changed.</strong> The event carries the resource under <code>state</code>, exactly as its <code>GET</code>
+returns it: <code>screen</code>, <code>leds</code>, <code>holo</code>, <code>scene</code> (the scene running to its end, or null), <code>scenes</code>,
+<code>settings</code>, <code>network</code>, <code>ota</code> and <code>system</code>. Changes close together come as one, the latest; the
+holo's at most four times a second while it moves. While a clip plays or a scene runs to its end,
+<code>screen</code> and <code>scene</code> also come every 5 seconds, so a host that counts frames or time on by itself
+can put itself right.</p>
+<p>In JSON lines an event is a line that starts with <code>!</code> and a space:</p>
+<div class="highlight"><pre><span></span><code>! {"event":"scene_ended","seq":41,"t_ms":812345,"name":"message","slot":3,"then":"restore","by":"clip"}
+! {"event":"leds","state":{"mode":"solid","colour":"#ffa500","loop":false,"brightness":30,"count":16,"gpio":16}}
+</code></pre></div>
+<p><strong>In what order.</strong> A scene's clip starts as the scene is applied, so its <code>clip_started</code> comes
+just before its <code>scene_started</code>. At its end, <code>scene_ended</code> comes first, then whatever its <code>then</code>
+does: with <code>restore</code>, the scene's <code>clip_ended</code> and the earlier clip's <code>clip_started</code>. A scene
+with <code>then: stay</code> (the default) has a <code>scene_started</code> but never a <code>scene_ended</code>: nothing watches
+for its end.</p>
+<p>A host reading line by line can sort every line by its first character: <code>!</code> is an event, <code>@</code> or
+<code>#</code> or a digit is a reply.</p>
+<p><strong><code>ready</code></strong> is the link's own: sent once on UART when the link starts, after a restart, whatever the
+host asked for. It tells a host that the board has restarted, and that it must ask for events
+again:</p>
+<div class="highlight"><pre><span></span><code>! {"event":"ready","firmware":"v1.1.0","protocol":1,"address":1}
+</code></pre></div>
+<h3 id="asking-for-events">Asking for events<a class="headerlink" href="#asking-for-events" title="Permanent link">&para;</a></h3>
+<p><strong>The link reports nothing until the host asks</strong>, so a host that never reads what the board
+sends is never flooded.</p>
+<div class="highlight"><pre><span></span><code>&gt; PATCH /link/events {"kinds":["scene_ended","clip_ended","leds"],"push":true}
+&lt; 200 {"kinds":["clip_ended","leds","scene_ended"],"push":true,"seq":0,"pending":0}
+</code></pre></div>
+<ul>
+<li><code>kinds</code>: the events the link reports, of either sort. <code>[]</code> reports none.</li>
+<li><code>push</code>: whether they are sent as they happen (<code>true</code>), or kept for the host to fetch
+  (<code>false</code>). Pushing works only on UART. On RS485 and I2C the board speaks only when asked, so
+  events are always kept.</li>
+<li><strong>A resource's changes are only pushed.</strong> With <code>push</code> off, and on RS485 and I2C, the host reads
+  the resource itself (or the native <a href="#the-status-block">status block</a>) when it wants to know.
+  The pending count and <code>GET /link/events</code> count happenings only.</li>
+</ul>
+<p>What a host asks for lasts until the board restarts. The link's saved settings say what it
+starts with (<code>PATCH /link</code> with <code>events</code>), and start as nothing.</p>
+<h3 id="kept-events-and-the-ones-missed">Kept events, and the ones missed<a class="headerlink" href="#kept-events-and-the-ones-missed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The board keeps its last 32 happenings.</strong> <code>seq</code> numbers every happening on the board, from 1,
+  going back to 1 after 65535. It is shared with the web app's stream, so it counts kinds this
+  host didn't ask for too: a gap means <em>something</em> happened that this host may not have seen.</li>
+<li><strong>Catching up</strong>: <code>GET /events?after=&lt;the last seq seen&gt;&amp;kinds=&lt;its kinds&gt;</code> returns the kept
+  happenings of those kinds after it, as JSON. An empty list, with <code>lost</code> 0, means nothing was
+  missed. <code>lost</code> is how many after <code>after</code> are no longer kept. It is how a host catches up after a
+  gap, or after it restarted itself:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>&gt; GET /events?after=40&amp;kinds=clip_ended,scene_ended
+&lt; 200 {"seq":43,"lost":0,"events":[{"event":"clip_ended","seq":41,...},{"event":"scene_ended","seq":42,...}]}
+</code></pre></div>
+<ul>
+<li><strong>The pending count</strong> is how many happenings of the host's kinds it hasn't been given yet. It's
+  on every reply, as <code>+&lt;pending&gt;</code>, whenever it isn't 0. A happening has been given once it has been
+  pushed, or returned by <code>GET /link/events</code> over the link.</li>
+<li><strong><code>GET /link/events</code></strong> returns the happenings not yet given, in the same shape, and counts them
+  as given.</li>
+</ul>
+<p>A host that doesn't want anything sent unasked can leave <code>push</code> off and still know when to look:
+the <code>+&lt;pending&gt;</code> on the replies to its own requests says when there is something to fetch.</p>
+<h3 id="why-the-link-needs-no-attention-pin">Why the link needs no attention pin<a class="headerlink" href="#why-the-link-needs-no-attention-pin" title="Permanent link">&para;</a></h3>
+<p>A UART is two separate wires, one each way, and the board's transmit line is its own. It can send
+an event whenever it happens, without a third wire to ask for the host's attention first.</p>
+<p>The one host that needs more is one that sleeps, because a UART line alone won't wake it. For
+that, the third pin can be an <strong>ATTN</strong> output (<code>attn</code> in the settings): it goes low while events
+are pending, and high again once they've been given. It's off unless turned on.</p>
+<p>RS485 is one pair of wires shared by everything on the bus, and a board speaks only when spoken
+to. The host polls, and the pending count on each reply tells it which boards have something to
+fetch. On I2C, the third pin is the <a href="#i2c">interrupt line</a>.</p>
+<h2 id="native-frames">Native frames<a class="headerlink" href="#native-frames" title="Permanent link">&para;</a></h2>
+<p>A native frame is a short binary message for hosts that would rather not build JSON: an ATtiny,
+an Arduino Uno, or an I2C bus. Every multi-byte field is little-endian.</p>
+<h3 id="on-uart-and-rs485">On UART and RS485<a class="headerlink" href="#on-uart-and-rs485" title="Permanent link">&para;</a></h3>
+<p>A frame is <a href="https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing">COBS</a>-encoded
+between two zero bytes:</p>
+<div class="highlight"><pre><span></span><code>0x00  COBS( addr | seq | type | payload… | crc16 )  0x00
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Size</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>addr</code></td>
+<td>1</td>
+<td>The board: 1–223, a group as 223 + the group number (224–254), or 0 for every board. The board's reply carries its own address</td>
+</tr>
+<tr>
+<td><code>seq</code></td>
+<td>1</td>
+<td>Anything the host likes. The reply carries it back</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>1</td>
+<td>The message, from the table below. A reply is the request's type + 0x80</td>
+</tr>
+<tr>
+<td><code>payload</code></td>
+<td>0–48</td>
+<td>The message's fields</td>
+</tr>
+<tr>
+<td><code>crc16</code></td>
+<td>2</td>
+<td>CRC-16/CCITT-FALSE (polynomial 0x1021, initial 0xFFFF, not reflected, no final XOR) over everything before it. Its check value, over the ASCII <code>123456789</code>, is 0x29B1</td>
+</tr>
+</tbody>
+</table>
+<p>A frame with a bad CRC is dropped without a reply, and <code>GET /link</code> counts it.</p>
+<p>With the <code>auto</code> protocol, the board tells the two apart by the first byte: a native frame opens
+with 0x00, and a JSON line with <code>@</code>, <code>#</code> or a capital letter.</p>
+<h3 id="replies">Replies<a class="headerlink" href="#replies" title="Permanent link">&para;</a></h3>
+<p>Every reply's payload starts with two bytes:</p>
+<table>
+<thead>
+<tr>
+<th>Byte</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>0 for success, or an error, below</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>Events waiting for the host, up to 255</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th><code>status</code></th>
+<th>Name</th>
+<th>The JSON error it matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>ok</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1</td>
+<td>bad request</td>
+<td><code>bad_request</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>not found</td>
+<td><code>not_found</code>, <code>unknown_scene</code>: no scene with that slot, no such file</td>
+</tr>
+<tr>
+<td>3</td>
+<td>not playable</td>
+<td><code>not_playable</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>not ready</td>
+<td><code>not_ready</code>: the holo can't move</td>
+</tr>
+<tr>
+<td>5</td>
+<td>busy</td>
+<td><code>busy</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>failed</td>
+<td>anything else</td>
+</tr>
+<tr>
+<td>7</td>
+<td>unknown type</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0xFE</td>
+<td>still working</td>
+<td>I2C only: ask again</td>
+</tr>
+</tbody>
+</table>
+<p>A board answers a request addressed to it. It answers a request to every board, or to a group,
+only on UART, where it's the only board on the wire.</p>
+<h3 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Name</th>
+<th>Request payload</th>
+<th>Reply payload, after <code>status</code> and <code>pending</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0x01</td>
+<td><code>PING</code></td>
+<td>—</td>
+<td><code>protocol</code> u8, <code>uptime_s</code> u32</td>
+</tr>
+<tr>
+<td>0x02</td>
+<td><code>VERSION</code></td>
+<td>—</td>
+<td>The firmware version, ASCII, up to 32 bytes</td>
+</tr>
+<tr>
+<td>0x03</td>
+<td><code>STATUS</code></td>
+<td>—</td>
+<td>The <a href="#the-status-block">status block</a>, 12 bytes</td>
+</tr>
+<tr>
+<td>0x10</td>
+<td><code>SCENE</code></td>
+<td><code>slot</code> u8</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x11</td>
+<td><code>END</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x20</td>
+<td><code>SCREEN_OFF</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x21</td>
+<td><code>COLOUR</code></td>
+<td><code>r</code>, <code>g</code>, <code>b</code> u8</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x22</td>
+<td><code>BACKLIGHT</code></td>
+<td><code>percent</code> u8, 0–100</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x30</td>
+<td><code>LEDS</code></td>
+<td><code>mode</code> u8, <code>r</code>, <code>g</code>, <code>b</code> u8, <code>brightness</code> u8, <code>flags</code> u8</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x40</td>
+<td><code>HOLO</code></td>
+<td><code>motion</code> u8, <code>x</code> s8, <code>y</code> s8, <code>duration_ms</code> u16, <code>range</code> u8, <code>count</code> u8</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0x50</td>
+<td><code>EVENTS_SET</code></td>
+<td><code>kinds</code> u8, <code>push</code> u8</td>
+<td><code>seq</code> u16</td>
+</tr>
+<tr>
+<td>0x51</td>
+<td><code>EVENTS_GET</code></td>
+<td><code>after</code> u16</td>
+<td><code>lost</code> u8, <code>count</code> u8, then <code>count</code> <a href="#event-records">event records</a> (up to 5)</td>
+</tr>
+<tr>
+<td>0x7F</td>
+<td><code>RESTART</code></td>
+<td>—</td>
+<td>— (sent before the board restarts)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>SCENE</code></strong> applies the scene with that <a href="#scene-slots">slot</a>, as <code>POST /scenes/apply</code> does.
+  <strong><code>END</code></strong> ends the scene running to its end, doing its <code>then</code>, as <code>POST /scenes/end</code> does.</li>
+<li><strong><code>LEDS</code></strong>:</li>
+<li><code>mode</code>: 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, or 0xFF to leave it as it is;</li>
+<li><code>brightness</code>: 1–100, or 0 to leave it;</li>
+<li><code>flags</code>: bit 0 is <code>loop</code>, and bit 1 means <code>r</code>, <code>g</code>, <code>b</code> is a new colour (without it, they are
+    ignored).</li>
+<li><strong><code>HOLO</code></strong>:</li>
+<li><code>motion</code>: 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off;</li>
+<li><code>x</code>, <code>y</code>: -100 to 100 for <code>move</code>, -128 to 127 for <code>nudge</code>;</li>
+<li><code>duration_ms</code>, <code>range</code> and <code>count</code>: 0 for the default.</li>
+</ul>
+<p>The motion's other settings take their defaults. <code>POST /holo/motion</code> over JSON lines has them
+  all.
+- <strong><code>EVENTS_SET</code></strong>:
+  - <code>kinds</code>: a bit for each event, bit 0 <code>clip_ended</code>, bit 1 <code>scene_ended</code>, bit 2 <code>touch</code>,
+    bit 3 <code>clip_started</code>, bit 4 <code>scene_started</code>;
+  - <code>push</code>: 1 to send events as they happen (UART only), 0 to keep them.</p>
+<p>The reply's <code>seq</code> is the latest event's number.
+- <strong><code>EVENTS_GET</code></strong> with <code>after</code> 0 returns the happenings not yet given, as <code>GET /link/events</code>
+  does, and otherwise every kept one of the host's kinds after <code>after</code>, as
+  <code>GET /events?after=</code> does. A host that gets 5 asks again.</p>
+<h3 id="the-status-block">The status block<a class="headerlink" href="#the-status-block" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Byte</th>
+<th>Field</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>showing</code></td>
+<td>0 nothing, 1 colour, 2 calibration, 3 image, 4 clip</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>scene</code></td>
+<td>The slot of the scene running to its end; 0 for none, 0xFF for one without a slot</td>
+</tr>
+<tr>
+<td>2–3</td>
+<td><code>remaining</code></td>
+<td>Until that scene's <code>duration_s</code> is up, in tenths of a second; 0xFFFF for none</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>holo</code></td>
+<td>0 hold, 1 move, 2 twitch, 3 wag, 4 nod, 5 scan, 6 circle; 0xFF when it can't move</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>leds</code></td>
+<td>0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>backlight</code></td>
+<td>0–100</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>brightness</code></td>
+<td>The LEDs', 1–100</td>
+</tr>
+<tr>
+<td>8–9</td>
+<td><code>seq</code></td>
+<td>The latest event's number, 0 for none yet</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>last_status</code></td>
+<td>The status of the last request over the link</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>flags</code></td>
+<td>Bit 0: touch reporting is on. Bit 1: the holo is ready</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-records">Event records<a class="headerlink" href="#event-records" title="Permanent link">&para;</a></h3>
+<p>Native frames carry happenings (and <code>ready</code>) only: a resource's state doesn't fit a record, and a
+small host reads the <a href="#the-status-block">status block</a> instead. Pushed on its own, an event is a
+frame of type <strong>0x70</strong> whose payload is one record. (Replies have the top bit set, and 0x70
+doesn't: no reply can be mistaken for an event.) <code>EVENTS_GET</code> returns several. A record is 8
+bytes:</p>
+<table>
+<thead>
+<tr>
+<th>Bytes</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>kind</code>: 1 <code>clip_ended</code>, 2 <code>scene_ended</code>, 3 <code>touch</code>, 4 <code>clip_started</code>, 5 <code>scene_started</code>, 15 <code>ready</code></td>
+</tr>
+<tr>
+<td>1–2</td>
+<td><code>seq</code> (0 for <code>ready</code>, which isn't numbered)</td>
+</tr>
+<tr>
+<td>3–7</td>
+<td>By kind, below. Unused bytes are 0</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Bytes 3–7</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 <code>clip_ended</code></td>
+<td><code>finished</code> u8 (the path is only in JSON)</td>
+</tr>
+<tr>
+<td>2 <code>scene_ended</code></td>
+<td><code>slot</code> u8 (0 for none), <code>then</code> u8 (0 stay, 1 restore, 2 off), <code>by</code> u8 (0 clip, 1 time, 2 end, 3 replaced)</td>
+</tr>
+<tr>
+<td>4 <code>clip_started</code></td>
+<td><code>loop</code> u8, <code>plays</code> u8 (0 forever; at most 255), <code>frames</code> u16, <code>fps</code> u8 (rounded; the path is only in JSON)</td>
+</tr>
+<tr>
+<td>5 <code>scene_started</code></td>
+<td><code>slot</code> u8 (0 for none), <code>then</code> u8 (0 stay, 1 restore, 2 off), <code>until_clip_ends</code> u8, <code>duration_s</code> u16 (whole seconds, rounded up; 0 for none)</td>
+</tr>
+<tr>
+<td>3 <code>touch</code></td>
+<td><code>action</code> u8 (0 down, 1 up), <code>x</code> u8, <code>y</code> u8</td>
+</tr>
+<tr>
+<td>15 <code>ready</code></td>
+<td><code>protocol</code> u8, <code>address</code> u8</td>
+</tr>
+</tbody>
+</table>
+<h3 id="i2c">I2C<a class="headerlink" href="#i2c" title="Permanent link">&para;</a></h3>
+<p>On I2C, the board is a target at its address (0x42 unless changed), and the host reads and writes
+registers. A transaction writes the register number, then either writes to it, or reads it after a
+repeated start. There are no frames and no COBS: the I2C address is the board's address.</p>
+<table>
+<thead>
+<tr>
+<th>Register</th>
+<th>Name</th>
+<th>Access</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0x00</td>
+<td><code>STATUS</code></td>
+<td>read, 14 bytes</td>
+<td><code>protocol</code> u8, the 12-byte <a href="#the-status-block">status block</a>, <code>pending</code> u8</td>
+</tr>
+<tr>
+<td>0x10</td>
+<td><code>COMMAND</code></td>
+<td>write</td>
+<td><code>seq</code> u8, <code>type</code> u8, <code>payload</code>…, <code>crc16</code></td>
+</tr>
+<tr>
+<td>0x11</td>
+<td><code>RESULT</code></td>
+<td>read, up to 56 bytes</td>
+<td><code>seq</code> u8, <code>type</code> + 0x80, <code>status</code> u8, <code>pending</code> u8, the reply payload, <code>crc16</code></td>
+</tr>
+<tr>
+<td>0x20</td>
+<td><code>EVENT</code></td>
+<td>read, 8 bytes</td>
+<td>The oldest event not yet given, as an <a href="#event-records">event record</a>, and given by this read. <code>kind</code> 0 when there is none</td>
+</tr>
+<tr>
+<td>0x30</td>
+<td><code>VERSION</code></td>
+<td>read, 32 bytes</td>
+<td>The firmware version, ASCII, padded with zeros</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>A command runs after the write ends.</strong> The host writes <code>COMMAND</code>, then reads <code>RESULT</code> until
+  <code>status</code> isn't 0xFE (still working). The CRCs are as on UART, over every byte before them.</li>
+<li><strong>Reads don't wait for the firmware.</strong> The board fills each register ahead of the read.</li>
+<li><strong>The interrupt line</strong> is the third pin: open drain, pulled low while events are pending, and
+  let go when there are none. The lines of several boards can share one host input. After an
+  interrupt, the host reads each board's <code>STATUS</code> to see which has <code>pending</code>.</li>
+<li><strong>Broadcast.</strong> With <code>general_call</code> on, a <code>COMMAND</code> written to address 0x00 reaches every board
+  on the bus that has it on. There is no result to read.</li>
+</ul>
+<p>The commands are the native messages above, less <code>EVENTS_GET</code> (read <code>EVENT</code> instead). <code>push</code>
+means nothing on I2C.</p>
+<h2 id="scene-slots">Scene slots<a class="headerlink" href="#scene-slots" title="Permanent link">&para;</a></h2>
+<p>A scene can have a <strong>slot</strong>, a number from 1 to 255, which native frames and small hosts use
+instead of its name. <code>PUT /scenes/scene?name=cantina</code> with <code>"slot": 3</code> in the scene sets it; so
+does <code>scene slot cantina 3</code> on the console. Two scenes can't share a slot.</p>
+<p>A slot is part of the scene, not its position in the list, so deleting another scene doesn't
+move it.</p>
+<h2 id="addresses-and-groups">Addresses and groups<a class="headerlink" href="#addresses-and-groups" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Where it's set</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Address</td>
+<td><code>address</code> in the link settings, or <code>link address</code></td>
+<td>1–223. The default is 1</td>
+</tr>
+<tr>
+<td>Groups</td>
+<td><code>groups</code></td>
+<td>Up to 8 of 1–31. A group is any set of boards that should act together, such as "every holo" or "the front of the dome"</td>
+</tr>
+<tr>
+<td>Every board</td>
+<td>—</td>
+<td><code>@*</code> in JSON lines, 0 in native frames</td>
+</tr>
+</tbody>
+</table>
+<p>On RS485, a request needs an address, and a JSON line without <code>@</code> is ignored and counted. On
+UART it can leave the address out.</p>
+<h2 id="versions">Versions<a class="headerlink" href="#versions" title="Permanent link">&para;</a></h2>
+<p>A protocol version changes only when an existing host would break. New paths, messages, event
+kinds and fields arrive without it changing, so a host ignores what it doesn't know: an unknown
+event, a longer status block, an extra field.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../http-api-explorer/" class="md-footer__link md-footer__link--prev" aria-label="Previous: HTTP API explorer">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                HTTP API explorer
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../config/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.footer","content.code.copy","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
+      
+    
+  </body>
+</html>
