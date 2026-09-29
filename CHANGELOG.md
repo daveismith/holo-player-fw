@@ -10,6 +10,12 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Fixed
+
+- Forgetting a network whose join had failed -- on the console, the Network page or
+  `DELETE /api/v1/network/known` -- now stops the board retrying it. Before, it went on trying the
+  forgotten network in the background every 30 seconds. (esp-console-kit `a535a49`.)
+
 ## [1.0.1] - 2026-09-28
 
 Everything the console does can now be done over Wi-Fi: a web app on your network, or on the
