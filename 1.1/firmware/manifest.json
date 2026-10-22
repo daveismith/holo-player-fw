@@ -1,0 +1,43 @@
+{
+  "project": "holo-player-fw",
+  "version": "v1.1.0",
+  "chip": "esp32s3",
+  "flash_size": "16MB",
+  "flash_mode": "dio",
+  "flash_freq": "80m",
+  "release": "https://github.com/daveismith/holo-player-fw/releases/tag/v1.1.0",
+  "parts": [
+    {
+      "role": "bootloader",
+      "offset": 0,
+      "path": "holo-player-fw-v1.1.0-bootloader.bin",
+      "size": 20288,
+      "sha256": "c959430c015588a642596475be194fddc933e2dab333aa7d19d5a4a05cd30c78",
+      "release_url": "https://github.com/daveismith/holo-player-fw/releases/download/v1.1.0/holo-player-fw-v1.1.0-bootloader.bin"
+    },
+    {
+      "role": "partition-table",
+      "offset": 32768,
+      "path": "holo-player-fw-v1.1.0-partition-table.bin",
+      "size": 3072,
+      "sha256": "792abbfab267a4b31df5e41ca919aa8a177ee82362b403b40d74ad7abcb64d2b",
+      "release_url": "https://github.com/daveismith/holo-player-fw/releases/download/v1.1.0/holo-player-fw-v1.1.0-partition-table.bin"
+    },
+    {
+      "role": "otadata",
+      "offset": 57344,
+      "path": "holo-player-fw-v1.1.0-ota-data-initial.bin",
+      "size": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f",
+      "release_url": "https://github.com/daveismith/holo-player-fw/releases/download/v1.1.0/holo-player-fw-v1.1.0-ota-data-initial.bin"
+    },
+    {
+      "role": "app",
+      "offset": 65536,
+      "path": "holo-player-fw-v1.1.0.bin",
+      "size": 1814320,
+      "sha256": "ae5805eb93a1d533628ceb26bd9bdf14f62f47e4ba868558796e9cb9b3b90359",
+      "release_url": "https://github.com/daveismith/holo-player-fw/releases/download/v1.1.0/holo-player-fw-v1.1.0.bin"
+    }
+  ]
+}
