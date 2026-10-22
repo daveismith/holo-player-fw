@@ -10,6 +10,15 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-22
+
+The board's settings can now be backed up to a small text file and restored, a backup never
+holding a Wi-Fi network or password; the board can be told not to rejoin its network at start;
+and an ESP-IDF 6.1 I2C driver bug that could corrupt memory after a timed-out read is patched.
+
+A board on 1.0.x updates from the [Install page](https://davidiansmith.ca/holo-player-fw/1.1/install/flashing/)
+(which keeps settings and clips), over Wi-Fi from the web app, or with `ota put` over the console.
+
 ### Added
 
 - **Backing up the settings.** `nvs_export` writes everything the board remembers -- scenes,
@@ -220,7 +229,8 @@ you can name, flash and report.
   `tools/fs_xfer.py` in esp-console-kit.
 - **Documentation site** built from `manual/`, published per version.
 
-[Unreleased]: https://github.com/daveismith/holo-player-fw/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/daveismith/holo-player-fw/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/daveismith/holo-player-fw/releases/tag/v1.1.0
 [1.0.1]: https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.1
 [1.0.0]: https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0
 [0.1.0]: https://github.com/daveismith/holo-player-fw/releases/tag/v0.1.0
