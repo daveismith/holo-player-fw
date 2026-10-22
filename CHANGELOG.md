@@ -24,6 +24,13 @@ so the release tag is the version baked into the image and reported by `version`
   the network but stays off it until asked (`wifi on`, a join, or BOOT), and the access point
   only comes on by itself at start when there is no network to rejoin.
 
+### Changed
+
+- When a motion is cut short because an axis refused it, `holo`'s status now says which motion,
+  how long ago and, when one axis refused it, which -- `; <motion> stopped <n> s ago: <reason>
+  (<axis>)` -- where it said only `; stopped: <reason>`. The manual's holo page now has a sample status and what each
+  line means.
+
 ### Fixed
 
 - An I2C read that timed out could make the next probe of the bus -- the IMU's at start,

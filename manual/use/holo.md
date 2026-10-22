@@ -12,6 +12,28 @@ holo            # status: the light, the current motion, and both axes
 holo help       # every verb and its options
 ```
 
+The status, partway through a `holo wag`:
+
+```text
+holo   horizontal pan, vertical tilt, light none
+       motion wag, at x +27% y +0%
+       h      pan     closed 1150 open 1900 us, at 1627 us (default range, not saved)
+       v      tilt    closed 1300 open 1950 us, at 1625 us (default range, not saved)
+```
+
+- **motion** is what is running and where the holo points, as `x` and `y` in −100…100%. Before
+  anything has moved it reads `position unknown`.
+- Each **axis** line gives the servo, its endpoints and where it is now, or `not moved since
+  boot`. An axis released with
+  `holo off` adds `limp`. `(default range, not saved)` means it has never been calibrated (see
+  below).
+- **light** is `none` on this board: the engine supports an LED (see *The light*), but none is
+  configured.
+- When a motion is cut short because an axis refused it, the motion line ends with which motion,
+  how long ago and why -- `; <motion> stopped <n> s ago: <reason>`, the reason being `not fitted`
+  or `uncalibrated` -- followed by the axis in brackets when one axis refused it. A `holo stop` or `holo off` is not a refusal and
+  adds nothing.
+
 ## Motions
 
 | Verb | Does |
