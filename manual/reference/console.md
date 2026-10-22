@@ -165,6 +165,7 @@ use; nothing else needs it.
 | Command | Does |
 |---|---|
 | `wifi [on\|off]` | Turn the radio on or off |
+| `wifi auto [on\|off]` | Whether the board rejoins its last network when it starts; on until turned off. Alone, says which |
 | `wifi scan` | The networks in range, strongest first, and which are saved |
 | `wifi ap [on\|off] [--ssid <ssid>] [--pass <passphrase>]` | The board's own access point, `holo-xxxx` at 192.168.4.1: on or off (off again at every boot, unless the board can't join a network: then on for 5 minutes, as after a press of BOOT), and its name and passphrase. Alone, shows them, and how long it has left |
 | `web [on\|off]` | The web app and its API: where to reach it. `off` stops the server, and stays off across restarts |
@@ -192,6 +193,9 @@ use; nothing else needs it.
 | `nvs_erase` / `nvs_erase_namespace` | Erase a key, or a whole namespace |
 | `nvs_namespace` | Select the namespace the other commands act on |
 | `nvs_list` | List what is stored |
+| `nvs_inventory [-x]` | Every stored setting and whether a backup holds it, or why not; `-x` lists the rules |
+| `nvs_export [path]` | The settings as a backup file: printed, or written to `/data/backup/<name>` (a path starting `/` is on the volume, as `fs` takes it) |
+| `nvs_import [-n] [--replace] [--ignore-excluded] [--other-board] [--no-snapshot] [-r] <path\|url\|->` | Restore a backup: a name in `/data/backup`, a path starting `/` on the volume, a URL, or the console (`-`). The whole file is checked before anything is written; `-n` only shows what would change. Restart afterwards (`-r`) |
 | `i2cconfig` | Configure the bus the I2C tools use |
 | `i2cdetect` | Scan the bus |
 | `i2cget` / `i2cset` | Read and write a register |
@@ -202,7 +206,8 @@ they did not create. Remember that the touch controller only answers while the s
 touched.
 
 Servo calibration lives in the `servo` NVS namespace, keyed by pin. Saved Wi-Fi networks live in
-their own namespace, set in menuconfig.
+their own namespace, set in menuconfig. [Backing up the settings](../use/backup.md) covers
+`nvs_inventory`, `nvs_export` and `nvs_import`.
 
 ## Where these come from
 

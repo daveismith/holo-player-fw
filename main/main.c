@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "esp_console.h"
 #include "esp_event.h"
@@ -15,6 +16,7 @@
 #include "linenoise/linenoise.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "ota_pull.h"
 #include "soc/soc_caps.h"
 #include "board.h"
 #include "cmd_fs.h"
@@ -55,6 +57,8 @@ static const char *TAG = "holo";
 /* The LittleFS `storage` partition: command history now, the video clips later. */
 #define MOUNT_PATH    "/data"
 #define STORAGE_LABEL "storage"
+/* Where `nvs_export <name>` writes, and `nvs_import`'s snapshot of the configuration before it */
+#define BACKUP_DIR    MOUNT_PATH "/backup"
 
 #if CONFIG_CONSOLE_STORE_HISTORY
 #define HISTORY_PATH MOUNT_PATH "/history.txt"
@@ -159,6 +163,44 @@ static esp_err_t storage_info(void *ctx, size_t *total, size_t *used)
     return esp_littlefs_info((const char *)ctx, total, used);
 }
 
+/* `nvs_import <url>`'s download, through the HTTP client that release checks use. One byte past
+ * the cap is asked for, so a file that is too big is refused rather than cut short. It runs on
+ * the console's task: an HTTPS fetch left 3.5 KB of its 8 KB stack unused (2026-10-22). */
+static esp_err_t backup_fetch(const char *url, size_t max_bytes, char **body, size_t *len, char *why,
+                              size_t why_len)
+{
+    esp_err_t err = ota_pull_fetch(url, body, max_bytes + 1, why, why_len);
+    if (err == ESP_OK) {
+        *len = strlen(*body);
+    }
+    if (err == ESP_ERR_INVALID_SIZE || (err == ESP_OK && *len > max_bytes)) {
+        free(*body);
+        *body = NULL;
+        snprintf(why, why_len, "over %u bytes: a backup is never that big", (unsigned)max_bytes);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    return err;
+}
+
+static bool any_network(const char *ssid, bool has_passphrase, bool last, void *ctx)
+{
+    (void)ssid;
+    (void)has_passphrase;
+    (void)last;
+    *(bool *)ctx = true;
+    return false;
+}
+
+/* After an import: a backup never holds a Wi-Fi network, so a wiped board has none. */
+static const char *import_note(void)
+{
+    bool any = false;
+    wifi_known_list(any_network, &any);
+    return any ? NULL
+                 : "no saved Wi-Fi network here, and a backup never holds one: join again with "
+                   "wifi_save, or on the web app's Network page over the access point";
+}
+
 static void initialize_nvs(void)
 {
     esp_err_t err = nvs_flash_init();
@@ -256,6 +298,15 @@ void app_main(void)
     wifi_known_register_commands();
     register_network_commands();
     register_nvs();
+    /* `nvs_inventory`, `nvs_export`, `nvs_import`. The kit's exclusions are all this board needs;
+     * a new NVS key that is a credential, a per-board identity or a counter is excluded here,
+     * with nvs_backup_exclude(), in the same change. No stdin_refusal: stdin is always the
+     * console's (UART0; the host link has a UART of its own). */
+    register_nvs_backup(&(const nvs_backup_config_t){
+        .dir = BACKUP_DIR,
+        .fetch = backup_fetch,
+        .import_note = import_note,
+    });
     register_i2ctools();
     const cmd_fs_config_t fs_config = {
         .base_path = MOUNT_PATH,

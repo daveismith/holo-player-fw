@@ -91,6 +91,7 @@ nav:
       - LED patterns: use/leds.md
       - The holoprojector: use/holo.md
       - Files on the board: use/files.md
+      - Backing up the settings: use/backup.md
       - The board in the browser: use/board.md
       - The board over Wi-Fi: use/web.md
       - Updating the firmware: use/ota.md

@@ -93,7 +93,8 @@ menu "Wi-Fi fallback"
         help
             With no saved network, or none joined within HOLO_WIFI_JOIN_WAIT_S of starting,
             the board turns its own access point on for HOLO_WIFI_FALLBACK_AP_MIN minutes, so
-            a phone can reach it to set one up.
+            a phone can reach it to set one up. With auto join off (`wifi auto off`) the board
+            does not rejoin at start, so only having no network to rejoin turns it on.
 
     config HOLO_WIFI_FALLBACK_AP_MIN
         int "Minutes the access point stays on, at start or from the button"

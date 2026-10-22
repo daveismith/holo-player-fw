@@ -76,6 +76,9 @@ boot:
 wifi_save <ssid> <passphrase>
 ```
 
+(`wifi auto off` keeps the network but stops the rejoin at boot, for a board that should stay off
+it until asked; `wifi auto on` puts it back.)
+
 Then ask the board where to find it:
 
 ```

@@ -148,6 +148,16 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.equal(refusal("fs put -f x 12"), "transfer");
   assert.equal(refusal("ota put 1000"), "ota");
   assert.equal(refusal("ota"), null);
+  assert.equal(refusal("nvs_import -"), "stdin");
+  assert.equal(refusal("nvs_import -n -"), "stdin");
+  assert.equal(refusal("nvs_import holo.r2cfg"), null);
+  assert.ok(danger("nvs_import holo.r2cfg"));
+  assert.equal(danger("nvs_import -n holo.r2cfg"), null);
+  assert.equal(danger("nvs_export"), null);
+  assert.match(danger("nvs_export holo.r2cfg"), /replacing/);
+  assert.match(danger("nvs_import -r holo.r2cfg"), /restarts/);
+  assert.ok(danger("wifi auto off"));
+  assert.equal(danger("wifi auto on"), null);
   assert.match(danger("fs rm old.mov"), /deletes old\.mov/);
   assert.equal(danger("fs ls"), null);
   assert.equal(danger("gpio get 4"), null);

@@ -10,8 +10,27 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Added
+
+- **Backing up the settings.** `nvs_export` writes everything the board remembers -- scenes,
+  start-up settings, servo calibration, the host link, the web app's name and allowed sites --
+  as one small text file, and `nvs_import` restores it: from the board's `backup/` directory, a
+  URL, or the console. The whole file is checked before anything is written, the configuration
+  as it was is saved first, and only what differs is written. A backup never holds a Wi-Fi
+  network, the access point's passphrase or the web password, so it is safe to keep and share;
+  `nvs_inventory` shows what is in and why anything is not. Documented in the manual's
+  *Backing up the settings*.
+- **`wifi auto [on|off]`**: whether the board rejoins its network when it starts. Off, it keeps
+  the network but stays off it until asked (`wifi on`, a join, or BOOT), and the access point
+  only comes on by itself at start when there is no network to rejoin.
+
 ### Fixed
 
+- An I2C read that timed out could make the next probe of the bus -- the IMU's at start,
+  `i2cdetect`, a servo board's attach -- write a few bytes through a stale pointer in ESP-IDF
+  6.1's I2C driver, corrupting memory somewhere at random. Every probe and read now goes through
+  a guard that clears that state first. (esp-console-kit's `i2c_bus_guard`, found on the dome
+  panel, where it caused panics.)
 - Forgetting a network whose join had failed -- on the console, the Network page or
   `DELETE /api/v1/network/known` -- now stops the board retrying it. Before, it went on trying the
   forgotten network in the background every 30 seconds. (esp-console-kit `a535a49`.)

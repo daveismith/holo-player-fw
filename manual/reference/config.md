@@ -65,7 +65,7 @@ a guess, which is why motion works before anything is calibrated; see
 
 | Option | Default | Does |
 |---|---|---|
-| `HOLO_WIFI_FALLBACK_AP` | on | Turn the access point on when the board can't join a network at start |
+| `HOLO_WIFI_FALLBACK_AP` | on | Turn the access point on when the board can't join a network at start. With `wifi auto off`, only when there is no network to rejoin |
 | `HOLO_WIFI_FALLBACK_AP_MIN` | 5 | Minutes it stays on, at start or from the button, before it turns itself off |
 | `HOLO_WIFI_JOIN_WAIT_S` | 20 | Seconds a join has before the access point comes on instead |
 | `HOLO_WIFI_BUTTON_GPIO` | 0 | The button (to ground) that rejoins, or turns the access point on, when the board is off the network; 0 is BOOT. -1 for none |

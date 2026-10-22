@@ -31,6 +31,9 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_QUAD=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_USE_MALLOC=y
+# SERVO_TASK_STACK_IN_PSRAM (esp-console-kit) stays off: internal RAM is not short here (104 KB
+# free at idle, 40 KB at the lowest during a clip; 108 KB with it on, 2026-10-22), and PSRAM's
+# bandwidth is the video player's.
 
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 

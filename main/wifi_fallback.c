@@ -6,7 +6,8 @@
  * the access point goes on for HOLO_WIFI_FALLBACK_AP_MIN minutes and turns itself off after
  * (wifi_ap_start_for()); the station keeps retrying meanwhile. A press while the access point
  * is on for a while starts its minutes over. An access point turned on to stay (`wifi ap on`,
- * the API) is left alone.
+ * the API) is left alone. With auto join off (`wifi auto off`) there is no rejoin at start,
+ * and so no check either; a board with no network to rejoin still gets the access point.
  */
 #include <stdbool.h>
 #include "driver/gpio.h"
@@ -130,7 +131,7 @@ esp_err_t wifi_fallback_start(void)
     if (!have_network()) {
         ESP_LOGI(TAG, "no saved network: the access point for %d min", CONFIG_HOLO_WIFI_FALLBACK_AP_MIN);
         ap_on();
-    } else {
+    } else if (wifi_known_autojoin()) {
         s_check_at = esp_timer_get_time() + WAIT_US;
     }
 #endif
