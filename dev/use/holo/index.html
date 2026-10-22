@@ -1466,6 +1466,26 @@ engine moves them the way a dome's basic holoprojectors move. For getting them c
 <div class="highlight"><pre><span></span><code>holo            # status: the light, the current motion, and both axes
 holo help       # every verb and its options
 </code></pre></div>
+<p>The status, partway through a <code>holo wag</code>:</p>
+<div class="highlight"><pre><span></span><code>holo   horizontal pan, vertical tilt, light none
+       motion wag, at x +27% y +0%
+       h      pan     closed 1150 open 1900 us, at 1627 us (default range, not saved)
+       v      tilt    closed 1300 open 1950 us, at 1625 us (default range, not saved)
+</code></pre></div>
+<ul>
+<li><strong>motion</strong> is what is running and where the holo points, as <code>x</code> and <code>y</code> in −100…100%. Before
+  anything has moved it reads <code>position unknown</code>.</li>
+<li>Each <strong>axis</strong> line gives the servo, its endpoints and where it is now, or <code>not moved since
+  boot</code>. An axis released with
+  <code>holo off</code> adds <code>limp</code>. <code>(default range, not saved)</code> means it has never been calibrated (see
+  below).</li>
+<li><strong>light</strong> is <code>none</code> on this board: the engine supports an LED (see <em>The light</em>), but none is
+  configured.</li>
+<li>When a motion is cut short because an axis refused it, the motion line ends with which motion,
+  how long ago and why -- <code>; &lt;motion&gt; stopped &lt;n&gt; s ago: &lt;reason&gt;</code>, the reason being <code>not fitted</code>
+  or <code>uncalibrated</code> -- followed by the axis in brackets when one axis refused it. A <code>holo stop</code> or <code>holo off</code> is not a refusal and
+  adds nothing.</li>
+</ul>
 <h2 id="motions">Motions<a class="headerlink" href="#motions" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
