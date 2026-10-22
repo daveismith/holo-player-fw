@@ -824,6 +824,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../use/backup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Backing up the settings
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../use/board/" class="md-nav__link">
         
   
@@ -1252,6 +1279,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1267,7 +1322,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1378,7 +1433,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1406,7 +1461,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_2" class="md-nav__link">
+  <a href="#added_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1487,6 +1542,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Added
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1502,7 +1585,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
+  <a href="#added_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1613,7 +1696,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_1" class="md-nav__link">
+  <a href="#added_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1641,7 +1724,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#added_2" class="md-nav__link">
+  <a href="#added_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Added
@@ -1682,6 +1765,31 @@
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.0.1...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Backing up the settings.</strong> <code>nvs_export</code> writes everything the board remembers -- scenes,
+  start-up settings, servo calibration, the host link, the web app's name and allowed sites --
+  as one small text file, and <code>nvs_import</code> restores it: from the board's <code>backup/</code> directory, a
+  URL, or the console. The whole file is checked before anything is written, the configuration
+  as it was is saved first, and only what differs is written. A backup never holds a Wi-Fi
+  network, the access point's passphrase or the web password, so it is safe to keep and share;
+  <code>nvs_inventory</code> shows what is in and why anything is not. Documented in the manual's
+  <em>Backing up the settings</em>.</li>
+<li><strong><code>wifi auto [on|off]</code></strong>: whether the board rejoins its network when it starts. Off, it keeps
+  the network but stays off it until asked (<code>wifi on</code>, a join, or BOOT), and the access point
+  only comes on by itself at start when there is no network to rejoin.</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>An I2C read that timed out could make the next probe of the bus -- the IMU's at start,
+  <code>i2cdetect</code>, a servo board's attach -- write a few bytes through a stale pointer in ESP-IDF
+  6.1's I2C driver, corrupting memory somewhere at random. Every probe and read now goes through
+  a guard that clears that state first. (esp-console-kit's <code>i2c_bus_guard</code>, found on the dome
+  panel, where it caused panics.)</li>
+<li>Forgetting a network whose join had failed -- on the console, the Network page or
+  <code>DELETE /api/v1/network/known</code> -- now stops the board retrying it. Before, it went on trying the
+  forgotten network in the background every 30 seconds. (esp-console-kit <code>a535a49</code>.)</li>
+</ul>
 <h2 id="101-2026-09-28"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.1">1.0.1</a> - 2026-09-28<a class="headerlink" href="#101-2026-09-28" title="Permanent link">&para;</a></h2>
 <p>Everything the console does can now be done over Wi-Fi: a web app on your network, or on the
 board's own access point, handles updates, files, the screen, the LEDs, the holo and scenes, all
@@ -1690,7 +1798,7 @@ or RS485, and both hear what happens as it happens.</p>
 <p>A board on 1.0.0 updates from the <a href="https://davidiansmith.ca/holo-player-fw/1.0/install/flashing/">Install page</a>
 (which keeps settings and clips) or with <code>ota put</code> over the console. From this release on,
 updates can also come over Wi-Fi.</p>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <h4 id="the-board-over-wi-fi">The board over Wi-Fi<a class="headerlink" href="#the-board-over-wi-fi" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>A web app</strong>, for phones and computers, at <code>http://holo-xxxx.local/</code> or the board's address
@@ -1793,7 +1901,7 @@ updates can also come over Wi-Fi.</p>
 <li>RS485 has been tried through a plain UART adapter, but not yet on a bus with transceivers.</li>
 </ul>
 <h2 id="100-2026-09-23"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.0.0">1.0.0</a> - 2026-09-23<a class="headerlink" href="#100-2026-09-23" title="Permanent link">&para;</a></h2>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Install from the browser.</strong> The Install page in each release's documentation flashes that
   release onto the board over Web Serial (desktop Chrome, Edge or Opera), with no toolchain. It
@@ -1829,7 +1937,7 @@ updates can also come over Wi-Fi.</p>
 <h2 id="010-2026-09-20"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v0.1.0">0.1.0</a> - 2026-09-20<a class="headerlink" href="#010-2026-09-20" title="Permanent link">&para;</a></h2>
 <p>First tagged release. Everything below already worked; this is the point it became a version
 you can name, flash and report.</p>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Video.</strong> Motion-JPEG QuickTime playback on the round panel, on the clip's own timing, with
   <code>video play|stop|status|info|verify</code>. Frames decode 16 lines at a time into alternating DMA

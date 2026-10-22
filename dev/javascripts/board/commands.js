@@ -22,7 +22,8 @@ export const GROUPS = [
     "light_sleep"]],
   ["Wi-Fi", ["wifi", "wifi_save", "wifi_forget", "wifi_known", "join", "wifi_link", "wifi_ps", "wifi_txpower"]],
   ["Network", ["ip", "ping", "iperf", "traceroute", "dig"]],
-  ["NVS", ["nvs_set", "nvs_get", "nvs_erase", "nvs_erase_namespace", "nvs_namespace", "nvs_list"]],
+  ["NVS", ["nvs_set", "nvs_get", "nvs_erase", "nvs_erase_namespace", "nvs_namespace", "nvs_list",
+    "nvs_inventory", "nvs_export", "nvs_import"]],
   ["I2C", ["i2cconfig", "i2cdetect", "i2cget", "i2cset", "i2cdump"]],
 ];
 
@@ -79,9 +80,11 @@ export function isCommand(line) {
 // Why the pages won't run a line at all, or null. Transfers need the file manager, which speaks
 // XMODEM; typed at the console they would leave the board waiting for data that never comes.
 export function refusal(line) {
-  const [name, sub] = words(line);
+  const w = words(line);
+  const [name, sub] = w;
   if (name === "fs" && (sub === "put" || sub === "get")) return "transfer";
   if (name === "ota" && sub === "put") return "ota";
+  if (name === "nvs_import" && w.includes("-")) return "stdin";
   return null;
 }
 
@@ -128,10 +131,20 @@ export function danger(line) {
     case "nvs_erase":
     case "nvs_erase_namespace":
       return "This changes the settings stored on the board.";
+    case "nvs_import": {
+      const args = [sub, ...rest];
+      if (args.some((w) => w === "-n" || w === "--dry-run")) return null;
+      return args.some((w) => w === "-r" || w === "--restart")
+        ? "This writes the backup's settings over the board's own, then restarts it: the page reconnects when it is back."
+        : "This writes the backup's settings over the board's own; restart it afterwards.";
+    }
+    case "nvs_export":
+      return sub ? `This writes ${sub} on the board, replacing any file of that name.` : null;
     case "wifi_save":
     case "wifi_forget":
       return "This changes the Wi-Fi networks the board remembers.";
     case "wifi":
+      if (sub === "auto" && rest[0] === "off") return "The board stops rejoining its network when it starts.";
       if (sub === "ap") {
         return rest.some((w) => w === "--ssid" || w === "--pass") ? "This changes the board's access point name or passphrase."
           : rest.includes("on") ? "The board starts its own Wi-Fi access point." : null;

@@ -826,6 +826,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/backup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Backing up the settings
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../use/board/" class="md-nav__link">
         
   
@@ -1998,6 +2025,10 @@ use; nothing else needs it.</p>
 <td>Turn the radio on or off</td>
 </tr>
 <tr>
+<td><code>wifi auto [on\|off]</code></td>
+<td>Whether the board rejoins its last network when it starts; on until turned off. Alone, says which</td>
+</tr>
+<tr>
 <td><code>wifi scan</code></td>
 <td>The networks in range, strongest first, and which are saved</td>
 </tr>
@@ -2097,6 +2128,18 @@ use; nothing else needs it.</p>
 <td>List what is stored</td>
 </tr>
 <tr>
+<td><code>nvs_inventory [-x]</code></td>
+<td>Every stored setting and whether a backup holds it, or why not; <code>-x</code> lists the rules</td>
+</tr>
+<tr>
+<td><code>nvs_export [path]</code></td>
+<td>The settings as a backup file: printed, or written to <code>/data/backup/&lt;name&gt;</code> (a path starting <code>/</code> is on the volume, as <code>fs</code> takes it)</td>
+</tr>
+<tr>
+<td><code>nvs_import [-n] [--replace] [--ignore-excluded] [--other-board] [--no-snapshot] [-r] &lt;path\|url\|-&gt;</code></td>
+<td>Restore a backup: a name in <code>/data/backup</code>, a path starting <code>/</code> on the volume, a URL, or the console (<code>-</code>). The whole file is checked before anything is written; <code>-n</code> only shows what would change. Restart afterwards (<code>-r</code>)</td>
+</tr>
+<tr>
 <td><code>i2cconfig</code></td>
 <td>Configure the bus the I2C tools use</td>
 </tr>
@@ -2118,7 +2161,8 @@ use; nothing else needs it.</p>
 they did not create. Remember that the touch controller only answers while the screen is being
 touched.</p>
 <p>Servo calibration lives in the <code>servo</code> NVS namespace, keyed by pin. Saved Wi-Fi networks live in
-their own namespace, set in menuconfig.</p>
+their own namespace, set in menuconfig. <a href="../../use/backup/">Backing up the settings</a> covers
+<code>nvs_inventory</code>, <code>nvs_export</code> and <code>nvs_import</code>.</p>
 <h2 id="where-these-come-from">Where these come from<a class="headerlink" href="#where-these-come-from" title="Permanent link">&para;</a></h2>
 <p>The board-specific commands — <code>screen</code>, <code>lcd</code>, <code>touch</code>, <code>imu</code>, <code>video</code>, <code>image</code>, <code>leds</code> — are in
 this repository, under <code>components/</code>. Everything else comes from the

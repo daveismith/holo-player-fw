@@ -62,6 +62,10 @@ export function vet(line) {
     return ["Updates go over serial with ", code("fs_xfer.py ota"), ": see ",
       h("a", { href: pageUrl("use/ota").href }, "Updating over serial"), "."];
   }
+  if (refused === "stdin") {
+    return ["From this page, upload the backup and import it by its path: see ",
+      h("a", { href: pageUrl("use/backup").href }, "Backing up the settings"), "."];
+  }
   const missing = placeholders(line)[0];
   if (missing) return ["Fill in ", code(missing.text), " first."];
   return null;
