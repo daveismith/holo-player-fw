@@ -245,8 +245,12 @@ bits). Bus-off then comes within the first frame, every time. Seen that way: the
 and back-off, `can recover`, and the send slots across a bus-off (each costs one frame, counted
 failed; none leaks). `link pins 21 33 15` and a restart put it back. Still by reading only: frames
 queued behind a bus-off going out after the recovery (the console can't queue a second in time).
-Tests 6.1 and 6.2 (unplug the adapter, short CANH to CANL) need hands and are still to do; a
-second plug-and-play board on the same bus (the shoulder sensor, 6.3) was dropped from the plan and
-has never been tried. By reading only: a failed controller stop in `cyphal restart`, the abort-delay race at a
+Done by hand the same day: the adapter unplugged for a minute (error-passive, no bus-off, node-ID
+kept; cyphal_service goes on running with a dead handle and has to be restarted), and CANH shorted
+to CANL for 5 s (4 bus-offs, the back-off as designed, error-active again 11 s after the first,
+one frame lost per bus-off, none leaked; the service logs `InvalidFrame` at 13,000 lines a second
+during the short and recovers without a flush). A second plug-and-play board on the same bus (the
+shoulder sensor, 6.3) was dropped from the plan and has never been tried; nor has bus-off from a
+short under `can`. By reading only: a failed controller stop in `cyphal restart`, the abort-delay race at a
 stop, a node start that fails at boot. Plug-and-play's hold while another node is heard on the
 allocated ID is proven by the host tests, not by timing on the bench.
