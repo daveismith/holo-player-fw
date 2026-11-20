@@ -104,6 +104,7 @@ nav:
       - HTTP API: reference/http-api.md
       - HTTP API explorer: reference/http-api-explorer.md
       - Host link protocol: reference/host-protocol.md
+      - Cyphal interface: reference/cyphal.md
       - Configuration: reference/config.md
       - Video internals: reference/video-internals.md
       - Changelog: changelog.md

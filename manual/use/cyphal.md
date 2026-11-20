@@ -9,7 +9,8 @@ a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal nod
 
 Scenes, the screen, the LEDs and the holo are not on Cyphal yet. The node is there to be found
 and identified, by a dome controller or by a tool such as
-[cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut.
+[cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut. What is being built is
+described [below](#the-holo-on-cyphal).
 
 The bus is classic CAN, 1 Mbit/s unless changed. The USB console, Wi-Fi and the web app all work
 alongside it. UART, RS485 and CAN share the same pins, so only one of them runs at a time.
@@ -240,6 +241,143 @@ and `cyphal` shows the wait:
 
 Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats due meanwhile expire
 (`dropped`, about one a second). The rest of the board runs as usual.
+
+## The holo on Cyphal
+
+!!! note "Not in the firmware yet"
+    This section describes the holo's Cyphal interface ahead of the firmware, for review. None
+    of it can be used yet. The [Cyphal interface](../reference/cyphal.md) reference has every
+    type, port and register.
+
+A controller on the bus, the dome panel or an app on a Linux machine, will be able to do with
+this holo what the panel does with a holo of its own: every motion, the light, direct moves of
+the axes, the holo's state, and letting go of the servos. It will also reach most of the board's
+own features: scenes, the screen, the LED ring, and the board's events. And the node will be
+managed the standard Cyphal way, with registers and commands, by any Cyphal tool.
+
+The holo's messages and services are Cyphal data types of their own, `r2.holo.*`, kept in the
+[r2_cyphal_dsdl](https://github.com/daveismith/r2_cyphal_dsdl) repository, which a controller
+generates its code from. Everything else (the heartbeat, `GetInfo`, registers, restart) uses
+Cyphal's standard types.
+
+### What a controller can do
+
+| To | It | Default port |
+|---|---|---|
+| Know what the holo is doing | Subscribes to `r2.holo.Status` | subject 2300 |
+| Hear what happens: clips and scenes starting and ending, touches | Subscribes to `r2.holo.Event` | subject 2301 |
+| Know where the axes are | Subscribes to `r2.holo.Axes` | subject 2302 |
+| Move the axes directly | Publishes `r2.holo.Axes`, a stream of setpoints | subject 2303 |
+| Start a motion | Calls `r2.holo.Motion` | service 100 |
+| Set the holo's light | Calls `r2.holo.Light` | service 101 |
+| Apply or end a scene | Calls `r2.holo.Scene` | service 102 |
+| Show a clip, an image or a colour, or nothing; set the backlight | Calls `r2.holo.Screen` | service 103 |
+| Set the LED ring | Calls `r2.holo.Ring` | service 104 |
+| List the saved scenes | Calls `r2.holo.ListScenes` | service 105 |
+| Change a setting, or a port's number | Calls `uavcan.register.Access` | service 384 |
+| Restart the board, reset it, find it | Calls `uavcan.node.ExecuteCommand` | service 435 |
+
+Each service does what the same request over the [HTTP API](../reference/http-api.md) or the
+[host link](host-link.md) does, through the same code, and refuses it for the same reasons:
+the answer carries the host link's status code (ok, bad request, not found, not playable, not
+ready, busy, failed) and the message in words, such as `holo: refused, uncalibrated (tilt)`.
+
+### Moving the holo
+
+`r2.holo.Motion` starts any of the holo's motions, with every parameter the console's
+[`holo`](holo.md#motions) takes: center, move, nudge, twitch, wag, nod, scan, circle, stop, and
+off, which stops, lets both servos go limp and turns the light off. A parameter left at 0 takes
+the motion's default, as on the console.
+
+For a direct move, a controller streams setpoints instead: `r2.holo.Axes` messages with both
+axes in hundredths of a percent of their travel each side of the centre (−10000 to 10000). Each
+setpoint goes to the servos at once, with no easing, and stops any motion running first; the
+latest wins. This is what a joystick or a ROS joint command needs. The holo publishes where it
+has put the axes on the same scale, ten times a second while it moves and once a second at rest.
+
+A subject belongs to the whole bus, so two holos listening for setpoints on the same subject
+move together. Give a second holo its own setpoint subject by its register,
+`uavcan.sub.setpoint.id`.
+
+### The light is the LED ring
+
+A dome panel's own holos have a single-colour light: off, on, pulse, flicker and blink, at a
+level, each for good or for a time, after which the light goes back to what it was doing; and
+`leia`, the message from Leia, a flicker at full with the holo turned to the centre. On this
+board `r2.holo.Light` does all of that on the LED ring: `on` lights it steady, and the others are
+ring modes of the same names. The ring keeps its colour unless the request gives one.
+
+The ring gains pulse and blink, and timed modes, for this; the console's `leds` and the HTTP API
+gain them too. The console's `holo led` and `holo leia` belong to the holo engine shared with the
+panel, and still do nothing on this board.
+
+### Knowing what it is doing
+
+`r2.holo.Status` is one message with everything: the holo's motion (ready or why not, what runs,
+for how long, why the last one stopped early, the last motion asked for), the ring (including a
+timed mode and what it goes back to), the screen (what shows, a clip's progress, the backlight)
+and the scene running to its end. It goes out within a quarter of a second of a change, and once
+a second whatever changes.
+
+`r2.holo.Event` carries the board's happenings, the same ones as its
+[JSON events](../reference/http-api.md#events): a clip or a scene starting or ending, with its
+path or name, and a touch on the screen while touch reporting is on. Each is numbered with the
+board's sequence number. There is no catching up on Cyphal: a controller that sees a number
+skipped has missed something, and reads the next `Status` for how things are now.
+
+### Settings as registers
+
+The node's settings are Cyphal registers, which any Cyphal tool lists, reads and writes:
+
+| Register | The setting | Default |
+|---|---|---|
+| `uavcan.node.id` | The node-ID, 0–127; 65535 for plug-and-play (`cyphal id`) | 65535 |
+| `r2.node.name` | The name `GetInfo` reports (`cyphal name`) | `r2.dome.holo.front` |
+| `uavcan.can.bitrate` | The bitrate (`cyphal bitrate`) | 1000000 |
+| `uavcan.pub.status.id`, … `uavcan.srv.ring.id`, … | Each port's number; 65535 turns the port off | The defaults above |
+
+They are the same saved settings the `cyphal` commands change, and the console will read and
+write the registers by name too (`cyphal register`, to come). A change takes effect when the node
+next starts. Later the holo's calibration, its servos' drive policy and touch reporting become
+registers as well.
+
+The port numbers are saved and go into a [backup](backup.md) with the rest of the node's
+settings. A second holo restored from the same backup needs its own node-ID and its own setpoint
+subject.
+
+### Restart, factory reset, identify
+
+`uavcan.node.ExecuteCommand`, the standard command service:
+
+- **restart** restarts the board;
+- **factory reset** puts every register and the board's settings back to their defaults and
+  restarts, keeping the scenes, the files, the servos' calibration, the network settings and the
+  host link's mode (so the node comes back on the bus);
+- **identify** blinks the ring and shows the crosshair for a few seconds, to tell which board on
+  the bus is which.
+
+### From a computer
+
+[Yakut](https://github.com/OpenCyphal/yakut) speaks all of this, given the standard types and
+`r2_cyphal_dsdl` on its `CYPHAL_PATH`: the folders that hold `uavcan` and `r2`. With the board at
+node-ID 52, it would read a register, start a wag, and restart the board:
+
+```sh
+export CYPHAL_PATH="$HOME/public_regulated_data_types:$HOME/r2_cyphal_dsdl"
+yakut register-access 52 uavcan.srv.motion.id
+yakut call 52 motion '{motion: {kind: 4, count: 3}}'
+yakut execute-command 52 restart
+```
+
+On macOS a gs_usb adapter (a CANable, candleLight) needs a workaround first: python-can, which
+Yakut uses, asks the system to detach a kernel driver, and macOS refuses without root.
+
+### What stays off Cyphal
+
+Uploading clips and images, the network and the web app's settings, passwords, the configuration
+backup and firmware updates stay on Wi-Fi and the USB console. So do saving and editing scenes:
+Cyphal applies a saved one. The [reference](../reference/cyphal.md#not-on-cyphal) has the whole
+list.
 
 `transfers` counts what was sent, whole (heartbeats, `GetInfo` responses and plug-and-play
 requests) and what was received (`GetInfo` requests and plug-and-play messages); `frames` counts
