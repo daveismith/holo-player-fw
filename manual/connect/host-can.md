@@ -1,7 +1,8 @@
 # Host link: CAN
 
 !!! note "Not in the firmware yet"
-    This page describes the CAN link ahead of the firmware, for review. UART and RS485 work now.
+    This page describes the CAN link ahead of the firmware, for review. UART and RS485 work now,
+    as does the `can` command for [testing the wiring](../use/cyphal.md#testing-the-wiring-raw-frames).
 
 On CAN, the board is a node on a [Cyphal](https://opencyphal.org) bus: Cyphal/CAN, on classic CAN
 frames. It suits a build that already has a CAN bus through the body and dome, with other Cyphal

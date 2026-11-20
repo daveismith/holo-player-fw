@@ -14,6 +14,7 @@ export const GROUPS = [
   ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
   ["Scenes and settings", ["scene", "settings"]],
   ["Host link", ["link"]],
+  ["CAN", ["can"]],
   ["Touch and motion", ["touch", "imu"]],
   ["Files", ["fs"]],
   ["Firmware", ["version", "ota", "restart"]],
@@ -154,6 +155,14 @@ export function danger(line) {
       return "This saves a servo's working range on the board.";
     case "i2cset":
       return "This writes to a device on the I2C bus.";
+    case "can":
+      if (sub === "start") {
+        return rest.includes("--listen") ? "This takes the host link's pins A and B for CAN, listening only."
+          : "This takes the host link's pins A and B for CAN, and puts the board on the bus: it acknowledges other nodes' frames.";
+      }
+      if (sub === "send") return "This sends a frame on the CAN bus.";
+      if (sub === "echo" && rest[0] !== "off") return "The board sends every CAN frame it receives back onto the bus.";
+      return null;
     default:
       return null;
   }

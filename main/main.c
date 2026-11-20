@@ -33,6 +33,7 @@
 #include "cmd_nvs.h"
 #include "cmd_system.h"
 #include "cmd_wifi.h"
+#include "cmd_can.h"
 #include "console_settings.h"
 #include "video_player.h"
 #include "web_server.h"
@@ -120,6 +121,33 @@ static const gpio_reserved_t s_gpio_reserved[] = {
     { 45, "VDD_SPI strap" },
     { 46, "boot mode strap" },
 };
+
+/*
+ * What the `gpio` command refuses: the table above, the host link's pins when it holds them,
+ * and two entries for `can`'s pins, -1 (matching no pin) while it isn't running.
+ *
+ * The kit's register_gpio() keeps this pointer, not a copy, and walks the table at each `gpio`;
+ * can_pins_held() changes the two `can` entries after registration. So the table must stay
+ * where it is and as long as it was registered, and only those two entries may change.
+ */
+#define LINK_PIN_COUNT 3    /* the host link's A, B and C */
+#define CAN_PIN_COUNT  2    /* `can`'s TX and RX */
+static gpio_reserved_t s_reserved[sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]) + LINK_PIN_COUNT +
+                                  CAN_PIN_COUNT];
+static gpio_reserved_t *s_can_reserved;
+
+/* `can` goes on the host link's pins A and B, and only while the link isn't running on them */
+static const char *can_pins(int *tx, int *rx)
+{
+    return hostlink_lend_pins(tx, rx);
+}
+
+/* Both run on the console's task, so `gpio` never sees the table half-changed */
+static void can_pins_held(int tx, int rx, bool held)
+{
+    s_can_reserved[0] = (gpio_reserved_t){ held ? tx : -1, "CAN TX, while `can` runs" };
+    s_can_reserved[1] = (gpio_reserved_t){ held ? rx : -1, "CAN RX, while `can` runs" };
+}
 
 /* An update is about to write flash, which stalls both cores for each write: a clip would
  * stutter through it, so it stops, and the screen with it. */
@@ -274,20 +302,23 @@ void app_main(void)
     /* Register commands */
     esp_console_register_help_command();
     register_system_common();
-    /* The pins the host link holds, when it holds any, go with the board's own */
+    /* The pins the host link holds, when it holds any, go with the board's own; then the two
+     * `can` fills in while it runs. */
     hostlink_init();
-    static gpio_reserved_t reserved[sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]) + 3];
     size_t n_reserved = sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]);
-    memcpy(reserved, s_gpio_reserved, sizeof(s_gpio_reserved));
-    int link_pins[3];
-    static const char *const LINK_ROLES[] = { "host link (A)", "host link (B)", "host link (C)" };
+    memcpy(s_reserved, s_gpio_reserved, sizeof(s_gpio_reserved));
+    int link_pins[LINK_PIN_COUNT];
+    static const char *const LINK_ROLES[LINK_PIN_COUNT] = { "host link (A)", "host link (B)", "host link (C)" };
     hostlink_pins(&link_pins[0], &link_pins[1], &link_pins[2]);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < LINK_PIN_COUNT; i++) {
         if (link_pins[i] >= 0) {
-            reserved[n_reserved++] = (gpio_reserved_t){ link_pins[i], LINK_ROLES[i] };
+            s_reserved[n_reserved++] = (gpio_reserved_t){ link_pins[i], LINK_ROLES[i] };
         }
     }
-    register_gpio(reserved, n_reserved);
+    s_can_reserved = &s_reserved[n_reserved];
+    s_can_reserved[0] = s_can_reserved[1] = (gpio_reserved_t){ -1, NULL };
+    n_reserved += CAN_PIN_COUNT;
+    register_gpio(s_reserved, n_reserved);
 #if SOC_LIGHT_SLEEP_SUPPORTED
     register_system_light_sleep();
 #endif
@@ -326,6 +357,7 @@ void app_main(void)
     scene_register_commands();
     settings_register_commands();
     hostlink_register_commands();
+    register_can_commands(&(const can_cmd_config_t){ .pins = can_pins, .on_pins = can_pins_held });
 
     /* Radio up in station mode, and the last network joined rejoined. */
     esp_err_t err = wifi_known_start();

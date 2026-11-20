@@ -91,3 +91,11 @@ CONFIG_LITTLEFS_READ_SIZE=256
 CONFIG_LITTLEFS_WRITE_SIZE=256
 CONFIG_LITTLEFS_MALLOC_STRATEGY_SPIRAM_PREFER=y
 CONFIG_LITTLEFS_MMAP_PARTITION=y
+
+# The CAN controller's interrupt (components/canbus) runs while a flash write has the cache off,
+# as the UART's does: a frame that arrives during an OTA write or a history save reaches the
+# receive queue instead of overrunning the controller's 64-byte FIFO. How deep that queue must be
+# for a flash write is measured in components/canbus/Kconfig (CANBUS_RX_QUEUE_LEN). It costs about
+# 3 KB of IRAM (the TWAI HAL, the driver, its frame queue and our callbacks), taken whether or not
+# CAN is used; kept because the Cyphal node must keep receiving during flash writes.
+CONFIG_TWAI_ISR_CACHE_SAFE=y

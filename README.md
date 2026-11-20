@@ -78,10 +78,12 @@ app is a front end for a JSON API that scripts can use too, described in OpenAPI
 | `components/scenes/` | Scenes (the screen, LEDs and holo saved together) and the settings the board starts with, kept in NVS; the `scene` and `settings` commands |
 | `web/` | The web app itself: plain ES modules and CSS, no build step (`tools/web_dev.py` serves it from disk against a real board) |
 | `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
+| `components/canbus/` | The CAN (TWAI) controller through ESP-IDF's node driver (`canbus.h`: start, stop, send, a receive queue filled from the interrupt, error state, bus-off recovery), and the `can` bench command on the host link's pins |
 | `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`; `ota_core`, the update session every transport shares), `web_server` (HTTP server, `/api/v1/ota`, `/api/v1/web`, pulls, long operations), `web_api` (`/api/v1/fs`, `/servos`, `/network`), `servo`, `holo`, `i2c_bus_guard` (a link-time patch for ESP-IDF 6.1.0's I2C driver) |
 | `external/AnimatedGIF/` | Submodule: [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), Apache-2.0, pinned to `c2478ec` |
 | `manual/` | The documentation site's pages (`mkdocs.yml`) |
 | `tools/` | `check_command_docs.py` (every command is documented), `check_api_docs.py` (the OpenAPI description matches the firmware's routes), `check_api_examples.py` (its examples match its schemas), `api_smoke.py` (a board's replies match the description), `web_dev.py` (the web app from disk), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs), and `test_installer.mjs` and `test_board.mjs` with their `fixtures/` (the pages' JavaScript) |
+| `tools/can_check.py` | The computer's side of `can`, through a gs_usb CAN adapter (python-can): `listen`, `send`, `echo` (numbered frames to a board running `can echo on`, checked as they come back) and `flood` |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Versioning

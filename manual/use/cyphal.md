@@ -2,7 +2,7 @@
 
 !!! note "Not in the firmware yet"
     This page describes the Cyphal node ahead of the firmware, for review. Its commands can't be
-    run yet.
+    run yet, except `can`: [testing the wiring](#testing-the-wiring-raw-frames) works now.
 
 With a [CAN transceiver](../connect/host-can.md) on the host link's pins, the board is a node on
 a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal node does:
@@ -185,15 +185,16 @@ uses the same pins and the same controller, so it runs only while the Cyphal nod
 |---|---|
 | `can` | Whether it's running, the bus's state and error counters, and frames sent and received |
 | `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller, at 1 Mbit/s unless told otherwise. `--listen` receives without sending or acknowledging. `--selftest` receives its own frames and needs no acknowledgement |
-| `can stop` | Stop, and release the pins |
+| `can stop` | Stop, and release the pins as floating inputs. `dump` and `echo` go off, so the next `can start` is quiet |
 | `can send <id>#<hex>` | Send one frame. An ID of up to three hex digits is an 11-bit one; eight digits, a 29-bit one. Up to 8 data bytes |
-| `can dump [on\|off]` | Print every frame received, until turned off |
+| `can dump [on\|off]` | Print every frame received, until turned off (`on` if neither is given) |
+| `can echo [on\|off]` | Send every frame received straight back, with 1 added to its ID |
 | `can recover` | Bring the controller back from bus-off |
 
 **With no second node**, a self-test shows that the controller, the two pins and the transceiver
 work:
 
-```text
+```
 can start --selftest
 can dump on
 can send 123#DEADBEEF
@@ -205,6 +206,35 @@ The frame comes back:
 can: 123 [4] DE AD BE EF
 ```
 
+`can stop` ends the self-test. A transceiver whose S pin is high (silent) fails it: the frame
+never comes back, and `tx errors` climb.
+
 **With an adapter on the bus**, `can start` and `can dump on` show what it sends, and
 `can send 1ABCDEF0#0102` should arrive there. A frame that is sent but never acknowledged leaves
 `tx errors` climbing: [a first test](../connect/host-can.md#a-first-test) lists what to check.
+
+`can` alone reports:
+
+```text
+can: running at 1 Mbit/s on GPIO21 (TX), GPIO33 (RX), normal
+  bus: error-active, tx errors 0, rx errors 0, bus errors 0, bus-off 0 times
+  frames: sent 4, received 1000; send failed 0, receive dropped 0 (queue held 5 of 256 at most), waiting to send 0
+  dump off, echo off; internal heap 107259 bytes free, 69388 lowest
+```
+
+`bus errors` counts every error the controller has seen on the bus since `can start`. `send
+failed` counts frames that never made it: the one on the wire when the controller went bus-off,
+and any still waiting at `can stop`. Frames waiting behind a bus-off go out after `can recover`.
+`receive dropped` counts frames that arrived faster than the board could take them, which `can
+dump` causes on a busy bus: printing is slower than CAN. The queue between the controller and
+the board's reader holds 256 frames, enough to ride out a flash write on a bus full of 8-byte
+frames; `queue held` says how full it has been since `can start`. With `--listen`, the bus
+always reads `error-passive` with `rx errors 128`: that keeps the controller from ever sending
+an error flag.
+While `can` runs, `gpio` refuses its two pins.
+
+`tools/can_check.py`, in this repository, is the computer's side, through a gs_usb adapter
+(candleLight, CANable): `listen`, `send`, `flood`, and `echo`, which sends numbered frames to a
+board running `can echo on` and checks that every one comes back, in order. An adapter keeps
+retrying a frame nobody acknowledged, even after it is closed and opened again; `can start` on
+the board acknowledges it and clears it.

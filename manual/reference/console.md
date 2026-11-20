@@ -159,8 +159,9 @@ See [the host link](../use/host-link.md).
 
 ## CAN and Cyphal
 
-!!! note "Not in the firmware yet"
-    These commands are described ahead of the firmware, for review.
+!!! note "The Cyphal node is not in the firmware yet"
+    `can` works now. `link mode can` and the `cyphal` commands are described ahead of the
+    firmware, for review.
 
 See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-can.md).
 
@@ -175,9 +176,10 @@ See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-ca
 | `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
 | `can` | Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received |
 | `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller. `--listen` receives without sending or acknowledging; `--selftest` receives its own frames and needs no second node |
-| `can stop` | Stop, and release the pins |
+| `can stop` | Stop, and release the pins; `dump` and `echo` go off |
 | `can send <id>#<hex>` | Send one frame: an 11-bit ID as up to three hex digits, a 29-bit one as eight, and up to 8 data bytes |
-| `can dump [on\|off]` | Print every frame received |
+| `can dump [on\|off]` | Print every frame received (`on` if neither is given) |
+| `can echo [on\|off]` | Send every frame received straight back, with 1 added to its ID: the other end of `tools/can_check.py echo` |
 | `can recover` | Bring the controller back from bus-off |
 
 ## Networking

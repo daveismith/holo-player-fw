@@ -164,6 +164,15 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.ok(danger("gpio set 4 1"));
   assert.ok(danger("restart"));
   assert.equal(danger("leds rainbow loop"), null);
+  assert.equal(groupOf("can"), "CAN");
+  assert.match(danger("can start"), /acknowledges/);
+  assert.match(danger("can start -b 500k --listen"), /listening only/);
+  assert.ok(danger("can send 123#DEADBEEF"));
+  assert.ok(danger("can echo on"));
+  assert.equal(danger("can echo off"), null);
+  assert.equal(danger("can"), null);
+  assert.equal(danger("can dump on"), null);
+  assert.equal(refusal("can dump on"), null);
 });
 
 test("quoting arguments for esp_console", () => {

@@ -616,6 +616,34 @@ void hostlink_pins(int *a, int *b, int *c)
     }
 }
 
+const char *hostlink_lend_pins(int *a, int *b)
+{
+    static char why[112];
+    const char *ret = NULL;
+    lock();
+    *a = s_saved.pin_a;
+    *b = s_saved.pin_b;
+    if (s_started) {
+        /* What the transport runs on, which a `link pins` since the start doesn't change */
+        const int c = s_run.mode == HL_RS485 || s_run.attn ? s_run.pin_c : -1;
+        const int used[] = { s_run.pin_a, s_run.pin_b, c };
+        for (int i = 0; i < 3 && ret == NULL; i++) {
+            if (used[i] >= 0 && (used[i] == *a || used[i] == *b)) {
+                if (c >= 0) {
+                    snprintf(why, sizeof(why), "the host link is running on GPIO%d, GPIO%d and GPIO%d "
+                             "(`link mode off`, then restart)", s_run.pin_a, s_run.pin_b, c);
+                } else {
+                    snprintf(why, sizeof(why), "the host link is running on GPIO%d and GPIO%d "
+                             "(`link mode off`, then restart)", s_run.pin_a, s_run.pin_b);
+                }
+                ret = why;
+            }
+        }
+    }
+    unlock();
+    return ret;
+}
+
 esp_err_t hostlink_start(void)
 {
     hostlink_init();
@@ -625,7 +653,9 @@ esp_err_t hostlink_start(void)
         return ESP_OK;
     }
     const esp_err_t err = hl_uart_start(&s_run);
+    lock();
     s_started = err == ESP_OK;
+    unlock();
     return err;
 }
 

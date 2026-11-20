@@ -10,6 +10,20 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Added
+
+- **`can`**: plain CAN frames on the host link's pins A and B, for checking a CAN transceiver and
+  a bus before anything runs on it. `can start` takes the pins (1 Mbit/s unless `-b`; `--listen`
+  never drives the bus, `--selftest` hears its own frames with no second node), `can send`
+  sends one frame, `can dump` prints what arrives, `can echo` sends each frame back on the next
+  ID, and `can` alone shows the bus's state, its error counters and the frames sent, received
+  and dropped. `can recover` brings the controller back from bus-off; `can stop` gives the pins
+  back. It refuses to start while the host link runs on those pins, and `gpio` refuses them
+  while it runs. Documented in the manual's *The board on Cyphal*, "Testing the wiring".
+- **`tools/can_check.py`**, the computer's side, through a gs_usb adapter (candleLight,
+  CANable): `listen`, `send`, `flood`, and `echo`, which sends numbered frames to a board
+  running `can echo on` and checks that every one comes back, in order.
+
 ## [1.1.0] - 2026-10-22
 
 The board's settings can now be backed up to a small text file and restored, a backup never
