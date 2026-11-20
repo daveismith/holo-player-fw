@@ -114,8 +114,9 @@ keeps an `Unreleased` section; nothing is tagged outside a release.
   for every SSID and passphrase in it: none.
 - **The hostname and the host link's address stay in** (decided 2026-10-19 and 2026-10-22): a
   replacement board restored from a backup takes the old one's place. **So do the Cyphal node's
-  fixed node-ID and name** (NVS `cyphal`; 2026-11-20): decided by that precedent, not by the user,
-  and flagged to the user for confirmation. `manual/use/backup.md` tells the user that a second
+  fixed node-ID and name** (NVS `cyphal`; 2026-11-20): the user's condition is that both can be
+  changed and erased, which `cyphal id <n>|auto`, `cyphal name <name>|--reset` and `cyphal reset`
+  do; keep that true. `manual/use/backup.md` tells the user that a second
   board restored from the same backup needs its own node-ID.
 - **`nvs_import -` works over this UART console** (2026-10-22). No `stdin_refusal` is installed
   because stdin is always the console's; the host link has a UART of its own. If a second
