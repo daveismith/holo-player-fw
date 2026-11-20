@@ -625,6 +625,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1046,6 +1073,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board on Cyphal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../troubleshooting/" class="md-nav__link">
         
   
@@ -1415,7 +1469,8 @@
 
 <h1 id="backing-up-the-settings">Backing up the settings<a class="headerlink" href="#backing-up-the-settings" title="Permanent link">&para;</a></h1>
 <p>Everything the board remembers — its scenes and the one it starts with, the backlight and LED
-settings, the servo calibration, the host link, the web app's name and allowed sites — lives in
+settings, the servo calibration, the host link, the Cyphal node's settings, the web app's name
+and allowed sites — lives in
 its NVS partition, and a flash erase, a factory reset or a new firmware that changes how NVS is
 laid out can lose all of it. A <strong>backup</strong> is that configuration as one small text file
 (<code>.r2cfg</code>), which the board can write, check and restore by itself.</p>
@@ -1438,10 +1493,12 @@ wifi_known      known           blob exclude  credential: the saved WiFi network
 ...
 13 entries in 7 namespaces: 5 in a backup, 8 excluded
 </code></pre></div>
-<p>The board's hostname (<code>web hostname</code>) and its host link address are in a backup, so a
-replacement board restored from it answers to the same name and address. Setting up a <em>second</em>
-board from one's backup (<code>--other-board</code>, below) copies them too: give it its own name and
-address afterwards.</p>
+<p>The board's hostname (<code>web hostname</code>), its host link address and its Cyphal node's name and fixed
+node-ID are in a backup, so a replacement board restored from it answers to the same name and
+address. Setting up a <em>second</em> board from one's backup (<code>--other-board</code>, below) copies them too:
+give it its own name, address and node-ID afterwards (two nodes with one node-ID
+<a href="../cyphal/#a-node-id-that-is-already-taken">stop</a>; with plug-and-play each board is given its
+own).</p>
 <h2 id="making-one">Making one<a class="headerlink" href="#making-one" title="Permanent link">&para;</a></h2>
 <p><code>nvs_export</code> prints the file, or writes it to the volume's <code>backup/</code> directory:</p>
 <div class="highlight"><pre><span></span><code>nvs_export

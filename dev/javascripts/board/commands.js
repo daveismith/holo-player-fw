@@ -14,6 +14,7 @@ export const GROUPS = [
   ["Holoprojector", ["holo", "servo_list", "servo_move", "servo_sweep", "servo_config", "servo_off", "servo_register"]],
   ["Scenes and settings", ["scene", "settings"]],
   ["Host link", ["link"]],
+  ["CAN", ["can", "cyphal"]],
   ["Touch and motion", ["touch", "imu"]],
   ["Files", ["fs"]],
   ["Firmware", ["version", "ota", "restart"]],
@@ -154,6 +155,30 @@ export function danger(line) {
       return "This saves a servo's working range on the board.";
     case "i2cset":
       return "This writes to a device on the I2C bus.";
+    case "can":
+      if (sub === "start") {
+        return rest.includes("--listen") ? "This takes the host link's pins A and B for CAN, listening only."
+          : "This takes the host link's pins A and B for CAN, and puts the board on the bus: it acknowledges other nodes' frames.";
+      }
+      if (sub === "send") return "This sends a frame on the CAN bus.";
+      if (sub === "echo" && rest[0] !== "off") return "The board sends every CAN frame it receives back onto the bus.";
+      return null;
+    case "link":
+      if (sub === "mode") {
+        return rest[0] === "can"
+          ? "This changes the host link's transport, from the board's next restart: `can` hands pins A and B to the Cyphal node, which goes on the CAN bus."
+          : "This changes the host link's transport, from the board's next restart.";
+      }
+      if (sub === "pins") return "This moves the host link to other pins, from the board's next restart. Check what is wired to them first.";
+      if (sub === "reset") return "This puts the host link's settings back to the firmware's defaults; the transport and pins from the board's next restart.";
+      if (sub === "proto" || sub === "address" || sub === "groups") return "This changes the host link's settings, at once.";
+      if (sub === "events" && rest.length) return "This changes the events the host link reports, at once.";
+      return null;
+    case "cyphal":
+      if (sub === "restart") return "The Cyphal node stops and starts again with its saved settings: it is off the bus for a moment, then with a fixed node-ID listens for 2 s before it sends, and with plug-and-play asks for a node-ID again, sending as one only after at least a second.";
+      if (sub === "reset") return "This puts the Cyphal node's settings back to the defaults (plug-and-play, the default name, 1 Mbit/s), from its next start.";
+      if (sub === "id" || sub === "name" || sub === "bitrate") return "This changes the Cyphal node's saved settings, from its next start.";
+      return null;
     default:
       return null;
   }

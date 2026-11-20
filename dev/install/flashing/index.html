@@ -721,6 +721,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1038,6 +1065,33 @@
     
   
   The host link
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board on Cyphal
 
     
   </span>
@@ -1550,16 +1604,20 @@ its notes say so, and a fresh install is needed.</p>
 <div class="tabbed-block">
 <p>The firmware builds with <strong>ESP-IDF 6.1</strong> for the <code>esp32s3</code> target. There is no Arduino
 path.</p>
-<p><strong>1. Get the source.</strong> Two things live in git submodules — the shared console commands,
-and the GIF decoder — so clone recursively:</p>
+<p><strong>1. Get the source.</strong> Three things the build needs live in git submodules — the shared
+console commands, the GIF decoder and libcanard, the Cyphal/CAN transport — so clone
+recursively:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/daveismith/holo-player-fw
 </code></pre></div>
 <p>In a clone that already exists, and again after pulling a change that adds one:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init
 </code></pre></div>
 <p>Without them the build fails: at <code>main/CMakeLists.txt</code>, which requires the console
-components by name, or at <code>components/animatedgif</code>, whose sources are the other
-submodule.</p>
+components by name, or at <code>components/animatedgif</code> or <code>components/libcanard</code>, whose
+sources are the other two. A fourth submodule, Cyphal's public data types
+(<code>external/public_regulated_data_types</code>), isn't needed to build: only to regenerate the
+Cyphal node's C headers (<code>tools/gen_dsdl.py</code>) and to run its hardware tests
+(<code>tests/hardware/</code>).</p>
 <p><strong>2. Build.</strong></p>
 <div class="highlight"><pre><span></span><code>idf.py<span class="w"> </span>build
 </code></pre></div>

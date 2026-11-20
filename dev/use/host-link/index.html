@@ -14,7 +14,7 @@
         <link rel="prev" href="../ota/">
       
       
-        <link rel="next" href="../../troubleshooting/">
+        <link rel="next" href="../cyphal/">
       
       
         
@@ -625,6 +625,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -1090,6 +1117,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board on Cyphal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../troubleshooting/" class="md-nav__link">
         
   
@@ -1504,8 +1558,9 @@
 <h1 id="the-host-link">The host link<a class="headerlink" href="#the-host-link" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">What's in the firmware so far</p>
-<p>UART and RS485, with JSON lines, native frames and events. I2C is described here ahead of the
-firmware. RS485 has been tried through a plain UART, not yet with a transceiver.</p>
+<p>UART and RS485, with JSON lines, native frames and events, and CAN, which hands the pins to
+the Cyphal node. I2C is described here ahead of the firmware. RS485 has been tried through a
+plain UART, not yet with a transceiver.</p>
 </div>
 <p>The host link lets another controller run the board over a wire: an Arduino or MarcDuino, a dome
 controller, another ESP32, or a Raspberry Pi. It plays scenes, shows clips, sets the LEDs and moves
@@ -1547,7 +1602,9 @@ touch the USB console or Wi-Fi: all three work at once.</p>
 </tr>
 </tbody>
 </table>
-<p>CAN (with Cyphal) and plain GPIO triggers are planned for later.</p>
+<p><a href="../../connect/host-can/">CAN</a> gives the same pins, through a CAN transceiver, to a
+<a href="../cyphal/">Cyphal node</a> (<code>link mode can</code>), which so far only identifies itself. Plain GPIO
+triggers are planned for later.</p>
 <p><strong>JSON lines</strong> are the <a href="../../reference/http-api/">HTTP API</a>, one request a line:</p>
 <div class="highlight"><pre><span></span><code>POST /scenes/apply {"name":"cantina"}
 200 {"screen":{...},"leds":{...},"holo":{...}}
@@ -1564,6 +1621,7 @@ touch the USB console or Wi-Fi: all three work at once.</p>
 <th>UART</th>
 <th>RS485</th>
 <th>I2C</th>
+<th>CAN</th>
 </tr>
 </thead>
 <tbody>
@@ -1574,6 +1632,7 @@ touch the USB console or Wi-Fi: all three work at once.</p>
 <td>TX (board → host)</td>
 <td>DI of the transceiver</td>
 <td>SDA</td>
+<td>TXD of the transceiver</td>
 </tr>
 <tr>
 <td>B</td>
@@ -1582,6 +1641,7 @@ touch the USB console or Wi-Fi: all three work at once.</p>
 <td>RX (host → board)</td>
 <td>RO of the transceiver</td>
 <td>SCL</td>
+<td>RXD of the transceiver</td>
 </tr>
 <tr>
 <td>C</td>
@@ -1590,12 +1650,16 @@ touch the USB console or Wi-Fi: all three work at once.</p>
 <td>ATTN, if turned on</td>
 <td>DE and /RE of the transceiver</td>
 <td>IRQ (open drain)</td>
+<td>not used</td>
 </tr>
 </tbody>
 </table>
 <p>A GND wire, P2 pin 1 or 5, goes with every transport. The pins can be changed in the settings, to
 any of the free GPIOs that the LEDs and servos aren't using. While the link holds a pin, the <code>gpio</code>
-command refuses to drive it.</p>
+command refuses to drive it, and says what has it:</p>
+<div class="highlight"><pre><span></span><code>gpio 21 is reserved: CAN TX, for the Cyphal node (`link mode can`)
+</code></pre></div>
+<p>If the transport doesn't start, the link holds no pins, and <code>link</code> says so.</p>
 <p>Everything is 3.3 V, and <strong>no pin takes 5 V</strong>. Each transport's page says what to put between the
 board and a 5 V host.</p>
 <h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
@@ -1615,6 +1679,10 @@ restart
 <span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"mode":"uart","baud":115200}'</span><span class="w"> </span>http://holo-2db0.local/api/v1/link
 </code></pre></div>
 <p><strong>In the web app:</strong> the Host link card on the Settings page.</p>
+<p>On CAN the board runs no host protocol: the pins go to the <a href="../cyphal/">Cyphal node</a>, whose
+<code>cyphal</code> command reports on it. The protocol, baud rate, address, groups, reply delay and events
+are kept for UART and RS485, and can still be changed, but CAN doesn't use them: <code>link</code> and the
+web app leave them out while the link is on CAN, and the console says so when one is changed.</p>
 <p>Changing the transport, the pins, <code>attn</code>, the I2C address or <code>general_call</code> waits for a restart,
 and the reply says so with <code>"restart_required": true</code>. The rest applies at once: the baud rate,
 the address and groups, the protocol, and the events it starts with. A new baud rate takes effect
@@ -1630,11 +1698,11 @@ after the reply, which is sent at the old one.</p>
 <tbody>
 <tr>
 <td><code>link</code></td>
-<td>The transport, its pins and settings, the counters, and the events asked for</td>
+<td>The transport, its pins and settings, the counters, and the events asked for. On CAN, the pins and who has them</td>
 </tr>
 <tr>
-<td><code>link mode &lt;off\|uart\|rs485&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
-<td>The transport, from the next restart. <code>-b</code> is the baud rate, <code>-a</code> the board's address: 1–223</td>
+<td><code>link mode &lt;off\|uart\|rs485\|can&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
+<td>The transport, from the next restart. <code>-b</code> is the baud rate, <code>-a</code> the board's address: 1–223. <code>can</code> hands the pins to the <a href="../cyphal/">Cyphal node</a></td>
 </tr>
 <tr>
 <td><code>link proto &lt;auto\|json\|native&gt;</code></td>
@@ -1786,13 +1854,13 @@ whether anything arrives. Each transport's page has a first test to try.</p>
         
         
           
-          <a href="../../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
+          <a href="../cyphal/" class="md-footer__link md-footer__link--next" aria-label="Next: The board on Cyphal">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Troubleshooting
+                The board on Cyphal
               </div>
             </div>
             <div class="md-footer__button md-icon">

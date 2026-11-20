@@ -625,6 +625,33 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -961,6 +988,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../use/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board on Cyphal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../troubleshooting/" class="md-nav__link">
         
   
@@ -1203,6 +1257,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         The host link
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-and-cyphal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CAN and Cyphal
       </span>
     </span>
   </a>
@@ -1554,6 +1619,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         The host link
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-and-cyphal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CAN and Cyphal
       </span>
     </span>
   </a>
@@ -1973,11 +2049,11 @@ flash counters; all are enabled in <code>sdkconfig.defaults</code>.</p>
 <tbody>
 <tr>
 <td><code>link</code></td>
-<td>The transport, its pins and settings, the counters, and the events asked for</td>
+<td>The transport, its pins and settings, the counters, and the events asked for. On CAN, the pins and who has them</td>
 </tr>
 <tr>
-<td><code>link mode &lt;off\|uart\|rs485&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
-<td>The transport, from the next restart; <code>-b</code> the baud rate, <code>-a</code> the address, 1–223</td>
+<td><code>link mode &lt;off\|uart\|rs485\|can&gt; [-b &lt;baud&gt;] [-a &lt;address&gt;]</code></td>
+<td>The transport, from the next restart; <code>-b</code> the baud rate, <code>-a</code> the address, 1–223. <code>can</code> gives the pins to the <a href="#can-and-cyphal">Cyphal node</a></td>
 </tr>
 <tr>
 <td><code>link proto &lt;auto\|json\|native&gt;</code></td>
@@ -2006,6 +2082,74 @@ flash counters; all are enabled in <code>sdkconfig.defaults</code>.</p>
 <tr>
 <td><code>link reset</code></td>
 <td>Back to the firmware's defaults</td>
+</tr>
+</tbody>
+</table>
+<h2 id="can-and-cyphal">CAN and Cyphal<a class="headerlink" href="#can-and-cyphal" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../use/cyphal/">the board on Cyphal</a>, and <a href="../../connect/host-can/">the wiring</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>link mode can</code></td>
+<td>The host link's pins go to the Cyphal node, from the next restart</td>
+</tr>
+<tr>
+<td><code>cyphal</code></td>
+<td>The node's state, its node-ID, name, unique ID and plug-and-play pseudo-ID, the bus's state, and the counters</td>
+</tr>
+<tr>
+<td><code>cyphal id &lt;0-127&gt;\|auto</code></td>
+<td>A fixed node-ID, or one from the bus by plug-and-play. From the node's next start</td>
+</tr>
+<tr>
+<td><code>cyphal name &lt;name&gt;\|--reset</code></td>
+<td>The name <code>uavcan.node.GetInfo</code> reports: <code>r2.dome.holo.front</code> until changed. From the node's next start</td>
+</tr>
+<tr>
+<td><code>cyphal bitrate &lt;125k\|250k\|500k\|1m&gt;</code></td>
+<td>The bus's bitrate. From the node's next start</td>
+</tr>
+<tr>
+<td><code>cyphal restart</code></td>
+<td>Stop the node and start it again, with the settings as they now are: also how a node that stopped over a node-ID in use is started again</td>
+</tr>
+<tr>
+<td><code>cyphal reset</code></td>
+<td>Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s</td>
+</tr>
+<tr>
+<td><code>can</code></td>
+<td>Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received. While the node runs it only reports, and its sub-commands refuse</td>
+</tr>
+<tr>
+<td><code>can start [-b &lt;bitrate&gt;] [--listen\|--selftest]</code></td>
+<td>Start the controller. <code>--listen</code> receives without sending or acknowledging; <code>--selftest</code> receives its own frames and needs no second node</td>
+</tr>
+<tr>
+<td><code>can stop</code></td>
+<td>Stop, and release the pins; <code>dump</code> and <code>echo</code> go off</td>
+</tr>
+<tr>
+<td><code>can send &lt;id&gt;#&lt;hex&gt;</code></td>
+<td>Send one frame: an 11-bit ID as up to three hex digits, a 29-bit one as eight, and up to 8 data bytes</td>
+</tr>
+<tr>
+<td><code>can dump [on\|off]</code></td>
+<td>Print every frame received (<code>on</code> if neither is given)</td>
+</tr>
+<tr>
+<td><code>can echo [on\|off]</code></td>
+<td>Send every frame received straight back, with 1 added to its ID: the other end of <code>tools/can_check.py echo</code></td>
+</tr>
+<tr>
+<td><code>can recover</code></td>
+<td>Bring the controller back from bus-off</td>
 </tr>
 </tbody>
 </table>
