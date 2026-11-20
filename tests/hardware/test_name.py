@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import uavcan.node.GetInfo_1_0 as GetInfo
 
-from .conftest import ensure_node, open_checked
+from .conftest import ensure_node, open_checked, until_state
 
 DEFAULT = "r2.dome.holo.front"
 NEW = "r2.dome.holo.top"
@@ -48,20 +48,20 @@ async def test_new_name_after_restarts(node, net, board, dut_node_id):
         assert NEW in out, out
         assert await name_reported(net, dut_node_id) == DEFAULT, "a name applies from the node's next start"
         board.command("cyphal restart")
-        board.wait_state("online", dut_node_id)
+        await until_state(board, "online", dut_node_id)
         assert await name_reported(net, dut_node_id) == NEW
         # The board's restart: the adapter closed first, so that nothing goes unacknowledged, and
         # opened again in the node's listen
         await net.close()
         board.restart()
-        st = board.wait_state("online", dut_node_id, timeout=15)
+        st = await until_state(board, "online", dut_node_id, timeout=15)
         assert st["name"] == NEW
         await open_checked(net, board, dut_node_id)
         assert await name_reported(net, dut_node_id) == NEW
     finally:
         board.command("cyphal name --reset")
         board.command("cyphal restart")
-        board.wait_state("online", dut_node_id)
+        await until_state(board, "online", dut_node_id)
     if net.node is None:
         ensure_node(board, dut_node_id, restart=False)
         await open_checked(net, board, dut_node_id)

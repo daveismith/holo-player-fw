@@ -159,17 +159,13 @@ See [the host link](../use/host-link.md).
 
 ## CAN and Cyphal
 
-!!! note "Plug-and-play is not in the firmware yet"
-    The Cyphal node runs with a fixed node-ID (`cyphal id`); `cyphal id auto` is saved, and the
-    node then sends nothing until plug-and-play is in the firmware.
-
 See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-can.md).
 
 | Command | Does |
 |---|---|
 | `link mode can` | The host link's pins go to the Cyphal node, from the next restart |
-| `cyphal` | The node's state, its node-ID, name and unique ID, the bus's state, and the counters |
-| `cyphal id <0-127>\|auto` | A fixed node-ID, or one from the bus by plug-and-play (not in the firmware yet). From the node's next start |
+| `cyphal` | The node's state, its node-ID, name, unique ID and plug-and-play pseudo-ID, the bus's state, and the counters |
+| `cyphal id <0-127>\|auto` | A fixed node-ID, or one from the bus by plug-and-play. From the node's next start |
 | `cyphal name <name>\|--reset` | The name `uavcan.node.GetInfo` reports: `r2.dome.holo.front` until changed. From the node's next start |
 | `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
 | `cyphal restart` | Stop the node and start it again, with the settings as they now are: also how a node that stopped over a node-ID in use is started again |

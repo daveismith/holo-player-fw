@@ -4,8 +4,18 @@
 #include <stdio.h>
 #include <string.h>
 #include "cyphal_util.h"
+#include "uavcan/node/Heartbeat_1_0.h"
+#include "uavcan/pnp/NodeIDAllocationData_1_0.h"
 
 #define CRC64WE_POLY 0x42F0E1EBA9EA3693ull
+
+/* NodeIDAllocationData.1.0 with its node-ID: the hash, the array's length and one uavcan.node.ID.1.0. The
+ * largest it can be, so the type's buffer size */
+#define PNP_WITH_NODE_ID_BYTES (6 + 1 + uavcan_node_ID_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_)
+_Static_assert(PNP_WITH_NODE_ID_BYTES == uavcan_pnp_NodeIDAllocationData_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_,
+               "an allocation with its node-ID is the type's largest form");
+_Static_assert(CYPHAL_PNP_LISTEN_US == uavcan_node_Heartbeat_1_0_MAX_PUBLICATION_PERIOD * 1000000,
+               "plug-and-play listens for a heartbeat's longest period");
 
 uint64_t cyphal_crc64we(const void *data, size_t len)
 {
@@ -125,6 +135,72 @@ int cyphal_frame_source(uint32_t can_id, bool ext, bool rtr, uint8_t len)
         return -1;
     }
     return (int)(can_id & 0x7F);
+}
+
+int64_t cyphal_pnp_interval_us(uint32_t random)
+{
+    return CYPHAL_PNP_REQUEST_MIN_US + (int64_t)(random % CYPHAL_PNP_REQUEST_JITTER_US);
+}
+
+/* Zeroed, not _initialize_()d: see serialize_getinfo() in cyphal.c */
+size_t cyphal_pnp_request(uint8_t *out, size_t size, uint64_t pseudo_id)
+{
+    uavcan_pnp_NodeIDAllocationData_1_0 m;
+    memset(&m, 0, sizeof(m));
+    m.unique_id_hash = pseudo_id & CYPHAL_PSEUDO_ID_MASK;
+    return uavcan_pnp_NodeIDAllocationData_1_0_serialize_(&m, out, &size) < 0 ? 0 : size;
+}
+
+cyphal_pnp_result_t cyphal_pnp_accept(const void *payload, size_t size, bool anonymous, uint64_t pseudo_id,
+                                      uint8_t *node_id)
+{
+    uavcan_pnp_NodeIDAllocationData_1_0 m;
+    memset(&m, 0, sizeof(m));
+    size_t n = size;     /* shorter than the type is read as zeros past the end; longer, the rest is ignored */
+    if (uavcan_pnp_NodeIDAllocationData_1_0_deserialize_(&m, (const uint8_t *)payload, &n) < 0) {
+        return CYPHAL_PNP_INVALID;
+    }
+    /* The node-ID's bytes must be there: the deserializer would read them as zeros, node-ID 0 */
+    if (anonymous || m.unique_id_hash != (pseudo_id & CYPHAL_PSEUDO_ID_MASK) || m.allocated_node_id.count != 1 ||
+        size < PNP_WITH_NODE_ID_BYTES || m.allocated_node_id.elements[0].value >= CYPHAL_NODE_IDS) {
+        return CYPHAL_PNP_OTHER;
+    }
+    *node_id = (uint8_t)m.allocated_node_id.elements[0].value;
+    return CYPHAL_PNP_ALLOCATED;
+}
+
+void cyphal_seen_clear(cyphal_seen_t *s)
+{
+    for (int i = 0; i < CYPHAL_NODE_IDS; i++) {
+        s->last_us[i] = INT64_MIN;
+    }
+}
+
+void cyphal_seen_frame(cyphal_seen_t *s, int source, int64_t stamp_us)
+{
+    if (source >= 0 && source < CYPHAL_NODE_IDS && stamp_us > s->last_us[source]) {
+        s->last_us[source] = stamp_us;
+    }
+}
+
+bool cyphal_seen_since(const cyphal_seen_t *s, uint8_t node_id, int64_t since_us)
+{
+    return node_id < CYPHAL_NODE_IDS && s->last_us[node_id] != INT64_MIN && s->last_us[node_id] >= since_us;
+}
+
+bool cyphal_pnp_in_use(const cyphal_seen_t *s, uint8_t node_id, int64_t at_us)
+{
+    return cyphal_seen_since(s, node_id, at_us - (int64_t)uavcan_node_Heartbeat_1_0_OFFLINE_TIMEOUT * 1000000);
+}
+
+cyphal_pnp_verdict_t cyphal_pnp_verdict(const cyphal_seen_t *s, const cyphal_listen_t *l, uint8_t node_id,
+                                        int64_t alloc_us)
+{
+    if (!cyphal_listen_over(l)) {
+        return CYPHAL_PNP_HOLD;
+    }
+    const int64_t at = alloc_us > l->until_us ? alloc_us : l->until_us;
+    return cyphal_pnp_in_use(s, node_id, at) ? CYPHAL_PNP_TAKEN : CYPHAL_PNP_TAKE;
 }
 
 /* Decimal digits at *p, advancing past them: false if there are none or too many */

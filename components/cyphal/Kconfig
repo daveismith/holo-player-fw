@@ -37,7 +37,8 @@ menu "Cyphal node (cyphal)"
             when there is any. Each start begins it empty. It holds the transmit queue (at most
             64 frames, 84 bytes each with the allocator's overhead: 5.4 KB) and the receive
             sessions (36 bytes for each node that has sent this board a GetInfo request: 4.6 KB
-            for 127). Measured 2026-11-20: 792 bytes at most over 500 GetInfo calls back to back.
+            for 127; and, while it waits for a node-ID, one for each allocator that answers).
+            Measured 2026-11-20: 792 bytes at most over 500 GetInfo calls back to back.
             `cyphal` shows how much it has held at most.
 
     config CYPHAL_TASK_PRIORITY
@@ -62,7 +63,9 @@ menu "Cyphal node (cyphal)"
             stack never used, over 500 GetInfo calls back to back, a clip, an update written over
             Wi-Fi, board restarts and every kind of collision stop (the listen, running, and in the
             middle of a response): 1,312 bytes used in most runs, 1,636 at most (924 never used),
-            after a log line (going online, or the collision warning). Log lines are the deepest
-            calls; the spread is interrupts' register spills.
+            after a log line (going online, or the collision warning). With plug-and-play, the
+            same day: 1,704 at most (856 never used), just after an allocation, whose log line is
+            written from inside the transmit path. Log lines are the deepest calls; the spread is
+            interrupts' register spills.
 
 endmenu

@@ -234,7 +234,10 @@ esp_err_t canbus_start(const canbus_config_t *config, canbus_handle_t *handle)
             .bus_off_indicator = -1,
         },
         .bit_timing = { .bitrate = c.bitrate, .sp_permill = 875 },
-        .fail_retry_cnt = -1,   /* CAN's own rule: retransmit until acknowledged or bus-off */
+        /* CAN's own rule: retransmit until acknowledged or bus-off. For every frame: anything else
+         * (single-shot, on the S3) is the whole node's, fixed until it is deleted; the driver has
+         * nothing per frame, which Cyphal's anonymous frames would want (cyphal.c, request()) */
+        .fail_retry_cnt = -1,
         .tx_queue_depth = CONFIG_CANBUS_TX_QUEUE_LEN,
         .flags = {
             .enable_self_test = c.mode == CANBUS_SELFTEST,

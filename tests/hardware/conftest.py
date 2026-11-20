@@ -20,7 +20,10 @@ Three rules from the bench, which the fixtures keep:
   * The adapter is opened and closed while the board sends nothing. Closing it while the board was
     sending wedged it on the bench, so every open and close happens just after `cyphal restart`,
     in the 2 s the node listens before it sends. The adapter is opened once a session, and closed
-    and opened again only where a test must (a restart of the board, 10 minutes alone).
+    and opened again only where a test must (a restart of the board, 10 minutes alone). So the
+    node always has its fixed node-ID when the adapter opens or closes: the plug-and-play tests
+    (test_pnp.py) switch it to plug-and-play once the adapter is open, and back once they have all
+    run, since a node waiting for a node-ID sends requests and so has no quiet 2 s.
   * One program holds the adapter at a time: stop cyphal_service first.
 
 Markers: `restarts` (restarts the node or the board; every test restarts the node at least as it
@@ -35,6 +38,7 @@ from __future__ import annotations
 
 import os
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -150,10 +154,21 @@ class Board:
         self._keep()
         self.con.s.write(line.encode() + b"\r")
         ok = self.con.wait_prompt(timeout)
+        if not ok and self._prompt_then_log():
+            # The command finished, and a log line came after its prompt (Wi-Fi joining, after a
+            # restart of the board): an empty line, safe to send, brings a prompt to end on
+            self.con.s.write(b"\r")
+            ok = self.con.wait_prompt(self.PROMPT_WAIT)
         text = self.con.take().replace("\r", "")
         if not ok:
             raise AssertionError(f"no prompt after {line!r}:\n{text}")
         return fs_xfer.strip_echo(text, line)
+
+    def _prompt_then_log(self) -> bool:
+        """Whether the output since the command's own line holds a prompt with more after it"""
+        text = fs_xfer.ANSI.sub(b"", self.con.buf).decode("utf-8", "replace").replace("\r", "")
+        after_echo = text.split("\n", 1)[1] if "\n" in text else ""
+        return re.search(r"(?:^|\n)[^\n]*\S+> ", after_echo) is not None
 
     def restart(self, timeout: float = 20) -> None:
         """`restart`, and wait for the console to come back"""
@@ -176,18 +191,41 @@ class Board:
         out = self.command("cyphal restart")
         assert "listening" in out, out
 
+    def plug_and_play(self) -> None:
+        """`cyphal id auto`, from the node's next start. Only with the adapter open (or closed for good):
+        the node is never quiet while it asks, and quiet() fails until it has a fixed node-ID again"""
+        out = self.command("cyphal id auto")
+        assert "plug-and-play" in out, out
+
+    def restart_asking(self) -> tuple[float, float]:
+        """`cyphal restart` with plug-and-play set: the node starts again, asking for a node-ID. When the
+        command was sent and when it came back, on asyncio's clock (time.monotonic()): the start is
+        between the two"""
+        t0 = time.monotonic()
+        out = self.command("cyphal restart")
+        t1 = time.monotonic()
+        assert "waiting for a node-ID" in out, out
+        return t0, t1
+
     def cyphal(self) -> dict:
         return parse_cyphal(self.command("cyphal"))
 
+    def in_state(self, state: str, node_id: int | None, end: float) -> dict | None:
+        """The status if the node is in `state` (on `node_id`, if given); None to look again, unless
+        time.monotonic() is past `end`: then the test fails. For wait_state() and until_state()"""
+        st = self.cyphal()
+        if st["state"] == state and (node_id is None or st["node_id"] == node_id):
+            return st
+        if time.monotonic() > end:
+            raise AssertionError(f"the node is {st['state']!r}, not {state!r}:\n{st['text']}")
+        return None
+
     def wait_state(self, state: str, node_id: int | None = None, timeout: float = 10) -> dict:
-        end = time.time() + timeout
-        while True:
-            st = self.cyphal()
-            if st["state"] == state and (node_id is None or st["node_id"] == node_id):
-                return st
-            if time.time() > end:
-                raise AssertionError(f"the node is {st['state']!r}, not {state!r}:\n{st['text']}")
+        """Blocking, for code that isn't a coroutine (ensure_node()); a test uses until_state()"""
+        end = time.monotonic() + timeout
+        while (st := self.in_state(state, node_id, end)) is None:
             time.sleep(0.5)
+        return st
 
     def firmware_version(self) -> str:
         m = re.search(r"App:\S+ (\S+)", self.command("version"))
@@ -205,7 +243,7 @@ def _int(pattern: str, text: str) -> int | None:
 
 
 def parse_cyphal(text: str) -> dict:
-    """`cyphal`'s report as a dict: state (off, failed, no-pnp, listening, online, in-use), node_id, ..."""
+    """`cyphal`'s report as a dict: state (off, failed, waiting, listening, online, in-use), node_id, ..."""
     first = text.strip().splitlines()[0] if text.strip() else ""
     st: dict = {"text": text, "node_id": None}
     if m := re.match(r"cyphal: node (\d+) \((fixed|allocated)\), ([a-z0-9_.]+), ", first):
@@ -214,16 +252,18 @@ def parse_cyphal(text: str) -> dict:
         st.update(state="listening", node_id=int(m.group(1)), name=m.group(2))
     elif m := re.match(r"cyphal: stopped: node-ID (\d+) is in use by another node, ([a-z0-9_.]+), ", first):
         st.update(state="in-use", node_id=int(m.group(1)), name=m.group(2))
-    elif first.startswith("cyphal: no node-ID"):
-        st["state"] = "no-pnp"
+    elif first.startswith("cyphal: waiting for a node-ID, "):
+        st["state"] = "waiting"
     elif first.startswith("cyphal: off"):
         st["state"] = "off"
     elif first.startswith("cyphal: not started"):
         st["state"] = "failed"
     else:
         st["state"] = "unknown"
-    if m := re.search(r"unique id ([0-9a-f]{32})", text):
+    if m := re.search(r"unique id ([0-9a-f]{32}), pseudo-ID ([0-9a-f]{12}) \((\d+)\)", text):
         st["unique_id"] = bytes.fromhex(m.group(1))
+        st["pseudo_id"] = int(m.group(2), 16)
+        assert st["pseudo_id"] == int(m.group(3)), "the pseudo-ID's hex and decimal differ"
     if m := re.search(r"bus: ([a-z-]+)", text):
         st["bus"] = m.group(1)
     for key, pattern in [
@@ -252,8 +292,9 @@ def ensure_node(board: Board, node_id: int, restart: bool = True) -> dict | None
         board.restart()
         st = board.cyphal()
     assert st["state"] not in ("off", "failed", "unknown"), st["text"]
-    if not (st["state"] in ("online", "listening") and st["node_id"] == node_id and "from the next start" not in
-            st["text"]):
+    # Running, or about to, on node_id as a fixed node-ID, with nothing else saved: not allocated it
+    fixed = st["state"] == "listening" or (st["state"] == "online" and st.get("how") == "fixed")
+    if not (fixed and st["node_id"] == node_id and "from the next start" not in st["text"]):
         out = board.command(f"cyphal id {node_id}")
         assert "fixed" in out, out
         if restart:
@@ -289,6 +330,7 @@ class Net:
         self.node: pycyphal.application.Node | None = None
         self.media: pycyphal.transport.can.media.pythoncan.PythonCANMedia | None = None
         self.closed_at = 0.0
+        self._capture: Capture | None = None
         Net.made.append(self)
 
     @staticmethod
@@ -322,7 +364,16 @@ class Net:
             self.node.close()
             self.node = None
             self.media = None
+            self._capture = None
             self.closed_at = time.monotonic()     # open() waits out the rest of REOPEN_S
+
+    def capture(self) -> Capture:
+        """Every frame on the bus from now until Capture.stop(). One Capture for each open of the
+        adapter, started again at each call: pycyphal can't end a capture once begun"""
+        assert self.node is not None
+        if self._capture is None:
+            self._capture = Capture(self.node)
+        return self._capture.start()
 
     async def send_raw(self, can_id: int, data: bytes) -> None:
         """One extended frame onto the bus through the pycyphal node's own adapter, as another node
@@ -409,8 +460,81 @@ async def heartbeats(node: pycyphal.application.Node, source: int, seconds: floa
     return got
 
 
+async def until_state(board: Board, state: str, node_id: int | None = None, timeout: float = 10) -> dict:
+    """Board.wait_state() for a test: between looks at the console the event loop runs, where
+    wait_state()'s sleep would hold it, and with it every frame pycyphal has to send or answer"""
+    end = time.monotonic() + timeout
+    while (st := board.in_state(state, node_id, end)) is None:
+        await asyncio.sleep(0.5)
+    return st
+
+
+HEARTBEAT = 7509
+WARNING = "cyphal: node-ID {} is in use by another node; Cyphal stopped"
+
+
+def heartbeat_frame(source: int, tid: int) -> tuple[int, bytes]:
+    """A heartbeat from `source`, as another node would send it: (CAN ID, data)"""
+    can_id = (4 << 26) | (3 << 21) | (HEARTBEAT << 8) | source     # nominal priority, a message
+    data = struct.pack("<IBBB", 1, 0, 0, 0) + bytes([0xE0 | (tid & 31)])   # one frame: start, end, toggle
+    return can_id, data
+
+
+def warnings(log: str, node_id: int) -> int:
+    """How many times the board warned that node_id is in use"""
+    return len(re.findall(re.escape(WARNING.format(node_id)), log))
+
+
 def gaps(beats: list[tuple[float, int, object]]) -> list[float]:
     return [b[0] - a[0] for a, b in zip(beats, beats[1:])]
+
+
+class Frame:
+    """A frame the adapter saw: when the adapter took it, on asyncio's clock (time.monotonic(): see
+    Capture.stop()); whether the harness sent it; and its Cyphal/CAN fields"""
+
+    def __init__(self, t_host: float, t_adapter: float, own: bool, can_id: int, data: bytes):
+        self.t_host, self.t_adapter, self.own, self.id, self.data = t_host, t_adapter, own, can_id, data
+        self.t = t_host
+        self.service = bool(can_id >> 25 & 1)
+        self.anonymous = not self.service and bool(can_id >> 24 & 1)
+        self.subject = None if self.service else can_id >> 8 & 0x1FFF
+        self.source = can_id & 0x7F       # an anonymous frame's is its discriminator, not a node-ID
+        self.tail = data[-1] if data else 0
+
+
+class Capture:
+    """Every frame on the bus, through the harness's adapter, from start() until stop() (Net.capture()).
+    pycyphal's capture can't be ended once begun, so the callback stays registered, once for each open
+    of the adapter, and keeps frames only between start() and stop().
+
+    pycyphal stamps a gs_usb adapter's frames with the adapter's clock, and the callback's own time is
+    late by as long as the event loop was busy (a console command blocks it for half a second). So
+    stop() puts the adapter's stamps on the computer's clock, by the frame that reached the callback
+    soonest after the adapter took it."""
+
+    def __init__(self, node: pycyphal.application.Node):
+        self.frames: list[Frame] = []
+        self.on = False
+        node.presentation.transport.begin_capture(self._keep)
+
+    def start(self) -> Capture:
+        self.frames = []
+        self.on = True
+        return self
+
+    def _keep(self, c) -> None:
+        if self.on:
+            self.frames.append(Frame(time.monotonic(), c.timestamp.monotonic_ns / 1e9, c.own, c.frame.identifier,
+                                     bytes(c.frame.data)))
+
+    def stop(self) -> list[Frame]:
+        self.on = False
+        if self.frames:
+            offset = min(f.t_host - f.t_adapter for f in self.frames)
+            for f in self.frames:
+                f.t = f.t_adapter + offset
+        return self.frames
 
 
 def expected_software_version(version: str) -> tuple[int, int, int]:

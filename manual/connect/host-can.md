@@ -1,10 +1,5 @@
 # Host link: CAN
 
-!!! note "What's in the firmware so far"
-    The Cyphal node runs with a fixed node-ID, set with `cyphal id`. Plug-and-play is not in the
-    firmware yet. The `can` command for [testing the wiring](../use/cyphal.md#testing-the-wiring-raw-frames)
-    works too.
-
 On CAN, the board is a node on a [Cyphal](https://opencyphal.org) bus: Cyphal/CAN, on classic CAN
 frames. It suits a build that already has a CAN bus through the body and dome, with other Cyphal
 nodes on it. [The board on Cyphal](../use/cyphal.md) covers what the node does once it's wired:
@@ -83,38 +78,55 @@ GPIO15, the host link's third pin, isn't used on CAN.
 
 ## Turning it on
 
-On the board's USB console, a node-ID first (plug-and-play is still to come), then the link:
+On the board's USB console:
 
 ```
-cyphal id 52
 link mode can
 restart
 ```
 
-After the restart, `cyphal` shows the node. It listens for 2 seconds, then runs:
+After the restart the node asks the bus for a node-ID by
+[plug-and-play](../use/cyphal.md#the-node-id), and `cyphal` shows it waiting until an allocator
+answers:
+
+```text
+cyphal: waiting for a node-ID, r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
+```
+
+then running on the node-ID it was given, within a second or two of the start:
+
+```text
+cyphal: node 2 (allocated), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
+```
+
+On a bus with no allocator, give it a fixed node-ID instead, any free one from 0 to 125:
+
+```
+cyphal id 52
+cyphal restart
+```
+
+It listens for 2 seconds, then runs:
 
 ```text
 cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
 ```
 
-With no node-ID set, it says so and sends nothing:
-
-```text
-cyphal: no node-ID: plug-and-play is not in this firmware yet, r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
-```
-
 ## A first test
 
 With a candleLight adapter on a computer, and the board the only other node, give
-`cyphal_service` a transport at the board's bitrate:
+`cyphal_service` a transport at the board's bitrate. Its allocator is on unless turned off; its
+database goes to `/var/lib/cyphal_service/` unless `pnp_db_path` says otherwise, which on macOS it
+has to, since that folder can't be created there without root:
 
 ```toml
 [[transport]]
-type    = "can"
-name    = "can-usb"
-driver  = "gsusb"
-node_id = 43
-bitrate = 1000000
+type        = "can"
+name        = "can-usb"
+driver      = "gsusb"
+node_id     = 43
+bitrate     = 1000000
+pnp_db_path = "can-usb-allocations.db"
 ```
 
 ```sh
@@ -122,23 +134,35 @@ cyphal_service --foreground --config cyphal.toml
 ```
 
 Start the board first, so that the service's heartbeats are acknowledged from the moment it opens
-the adapter. The service lists the board within a second or two:
+the adapter. The board asks for a node-ID, the service gives it the lowest one free in its
+database, and lists it within a second or two:
 
 ```text
 cyphal> nodes
 Transport: can-usb
   Node ID  Uptime(s)  Health     Mode
-  43       4          0          0
-  52       74         0          0
-cyphal> get-info can-usb 52
-Node 52  (r2.dome.holo.front)
+  2        4          0          0
+  43       15         0          0
+cyphal> get-info can-usb 2
+Node 2  (r2.dome.holo.front)
 Hardware : 1.0
 Software : 0.0
 Unique ID: 68:6f:6c:6f:70:6c:61:79:00:00:e4:b0:63:8c:2d:b0
+cyphal> pnp-list
+Transport: can-usb
+  Node ID  Unique ID (hex)                    Pseudo UID           Timestamp
+  2        686f6c6f706c61790000e4b0638c2db0   156728846609014      2026-11-20 09:27:15
+  43       7fda830fd867643c1f2cfe147645ebf8   NULL                 2026-04-04 23:43:52
 ```
 
-The service asks every node it sees for `GetInfo`, and records the node-ID and unique ID in its
-allocation database: `pnp-list` shows a row for the board even though its node-ID is fixed.
+The service records the board's [pseudo-ID](../use/cyphal.md#the-node-id) when it allocates the
+node-ID, then asks the board for `GetInfo` and fills in its unique ID. It gives the same node-ID to
+the same pseudo-ID from then on.
+
+The service also records every node it sees with a fixed node-ID, by its unique ID alone. A board
+it first saw that way keeps that row, and plug-and-play gives it a new one, with another node-ID:
+the service matches a plug-and-play request by its pseudo-ID only. To keep the old node-ID, give
+the board that one as a fixed node-ID, or remove the old row from the service's database.
 
 If the board doesn't appear, `cyphal` on its console says what the bus looks like from its side:
 

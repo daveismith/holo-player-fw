@@ -50,8 +50,8 @@ static void print_status(void)
         print_settings("  settings: ", &st.saved);
         break;
     default:
-        if (st.state == CYPHAL_NO_PNP) {
-            printf("cyphal: no node-ID: plug-and-play is not in this firmware yet");
+        if (st.state == CYPHAL_WAITING) {
+            printf("cyphal: waiting for a node-ID");
         } else if (st.state == CYPHAL_LISTENING) {
             printf("cyphal: listening, before going online as node %u (fixed)", st.node_id);
         } else if (st.state == CYPHAL_IN_USE) {
@@ -68,7 +68,8 @@ static void print_status(void)
     for (int i = 0; i < CYPHAL_UNIQUE_ID_SIZE; i++) {
         printf("%02x", st.unique_id[i]);
     }
-    printf("\n");
+    /* In hex and in decimal: allocators show it either way (cyphal_service's pnp-list in decimal) */
+    printf(", pseudo-ID %012llx (%llu)\n", (unsigned long long)st.pseudo_id, (unsigned long long)st.pseudo_id);
     if (st.state == CYPHAL_OFF || st.state == CYPHAL_FAILED) {
         return;
     }
@@ -129,7 +130,7 @@ static int cmd_cyphal(int argc, char **argv)
             return 1;
         }
         if (id == CYPHAL_NODE_ID_AUTO) {
-            snprintf(what, sizeof(what), "plug-and-play (not in this firmware yet: the node will send nothing)");
+            snprintf(what, sizeof(what), "plug-and-play");
         } else {
             snprintf(what, sizeof(what), "node-ID %u, fixed", id);
         }
@@ -177,7 +178,8 @@ void cyphal_register_commands(const char *how_to_start)
     s_how_to_start = how_to_start ? how_to_start : "not started by this firmware";
     const esp_console_cmd_t cmd = {
         .command = "cyphal",
-        .help = "The Cyphal node on the CAN bus: alone, its state, node-ID, name, unique ID, the bus and the counters. "
+        .help = "The Cyphal node on the CAN bus: alone, its state, node-ID, name, unique ID and plug-and-play pseudo-ID, "
+                "the bus and the counters. "
                 "`id` sets a fixed node-ID (or `auto`: plug-and-play), `name` the name GetInfo reports, `bitrate` the "
                 "bus's; each from the node's next start. `restart` starts it again with the settings as they are; "
                 "`reset` puts the settings back to the defaults.",

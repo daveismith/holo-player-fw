@@ -23,25 +23,31 @@ so the release tag is the version baked into the image and reported by `version`
 - **`tools/can_check.py`**, the computer's side, through a gs_usb adapter (candleLight,
   CANable): `listen`, `send`, `flood`, and `echo`, which sends numbered frames to a board
   running `can echo on` and checks that every one comes back, in order.
-- **A Cyphal node on CAN**, with a fixed node-ID. `link mode can` (and a restart) hands the host
-  link's pins A and B to it. It sends `uavcan.node.Heartbeat` once a second and answers
-  `uavcan.node.GetInfo` with its name (`r2.dome.holo.front` unless changed), the firmware's
-  version and commit, and a unique ID made from the chip's factory MAC address, which an
-  allocator will recognise across reflashes and settings wipes. Before going online it listens
-  2 s for another node with its node-ID, and if it ever hears one it stops sending, with one
-  warning, until told to start again; the board keeps acknowledging the bus throughout.
-  Plug-and-play allocation is not in yet: `cyphal id auto` is saved, and the node then sends
-  nothing. Documented in the manual's *The board on Cyphal* and *Host link: CAN*.
-- **`cyphal`**: the node's state, node-ID, name, unique ID, the bus and its counters; `cyphal id`,
-  `cyphal name` and `cyphal bitrate` (saved, and in a configuration backup), `cyphal restart`
-  and `cyphal reset`.
+- **A Cyphal node on CAN**. `link mode can` (and a restart) hands the host link's pins A and B
+  to it. It gets its node-ID by plug-and-play (`uavcan.pnp.NodeIDAllocationData.1.0`, from any
+  allocator on the bus, asked for again at every start and never saved) or from a fixed setting.
+  It sends `uavcan.node.Heartbeat` once a second and answers `uavcan.node.GetInfo` with its name
+  (`r2.dome.holo.front` unless changed), the firmware's version and commit, and a unique ID made
+  from the chip's factory MAC address, so that an allocator gives the same node-ID across
+  reflashes and settings wipes. With a fixed node-ID it listens 2 s for another node with it
+  before going online; with plug-and-play it listens at least 1 s from its start (a heartbeat's
+  longest period) before taking up an allocated node-ID, and doesn't if another node was heard on
+  it in that time or in the last 3 s; and if it ever hears its node-ID from another node it stops
+  sending, with one warning, until told to start again. The board keeps acknowledging the bus
+  throughout.
+  Documented in the manual's *The board on Cyphal* and *Host link: CAN*.
+- **`cyphal`**: the node's state, node-ID, name, unique ID and plug-and-play pseudo-ID, the bus
+  and its counters; `cyphal id` (a fixed node-ID, or `auto` for plug-and-play), `cyphal name`
+  and `cyphal bitrate` (saved, and in a configuration backup), `cyphal restart` and
+  `cyphal reset`.
 - **libcanard** v4.0.0 (`external/libcanard`) and the DSDL (`external/public_regulated_data_types`)
   as submodules. A build needs libcanard (`git submodule update --init`); the DSDL is needed only
   by `tools/gen_dsdl.py` and the hardware tests. The C headers for the data types are generated
   by `tools/gen_dsdl.py` (Nunavut) and committed, so the build needs no Python packages.
-- **Tests**: `make unit-test` builds the node's unique ID, pseudo-ID, name rules and parsing with
-  the computer's compiler; `make can-test` runs the hardware tests in `tests/hardware/`
-  (pytest and pycyphal, through a gs_usb adapter; `make can-setup` makes their venv).
+- **Tests**: `make unit-test` builds the node's unique ID, pseudo-ID, name rules, parsing and
+  plug-and-play's request, reply, timing and in-use check with the computer's compiler;
+  `make can-test` runs the hardware tests in `tests/hardware/` (pytest and pycyphal, through a
+  gs_usb adapter, with pycyphal's allocator for plug-and-play; `make can-setup` makes their venv).
 
 ### Changed
 

@@ -175,7 +175,8 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.equal(refusal("can dump on"), null);
   assert.equal(groupOf("cyphal"), "CAN");
   assert.equal(danger("cyphal"), null);
-  assert.match(danger("cyphal restart"), /listens for 2 s/);
+  assert.match(danger("cyphal restart"), /fixed node-ID listens for 2 s/);
+  assert.match(danger("cyphal restart"), /plug-and-play asks for a node-ID again/);
   assert.match(danger("cyphal reset"), /defaults/);
   assert.ok(danger("cyphal id 52"));
   assert.ok(danger("cyphal name r2.dome.holo.top"));

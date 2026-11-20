@@ -3,24 +3,35 @@
  *
  * One task does everything libcanard is asked to do (libcanard is not thread-safe): it reads
  * frames from canbus's receive queue, runs the timers (the listen before going online, the
- * heartbeat, a look at the bus for bus-off) and hands libcanard's transmit queue to canbus one
- * frame at a time, in libcanard's priority order. It sleeps until its next timer or the next
- * frame. The console only starts and stops it (under s_lock: a stop wakes the task and waits for
- * it to end) and reads counters.
+ * plug-and-play request, the heartbeat, a look at the bus for bus-off) and hands libcanard's
+ * transmit queue to canbus one frame at a time, in libcanard's priority order. It sleeps until its
+ * next timer or the next frame. The console only starts and stops it (under s_lock: a stop wakes
+ * the task and waits for it to end) and reads counters.
  *
- * States: a start goes to LISTENING (a fixed node-ID) or NO_PNP (plug-and-play, not built yet);
- * LISTENING goes ONLINE after CYPHAL_LISTEN_MS, or IN_USE if a frame from its node-ID arrives
- * first; ONLINE goes IN_USE the same way. IN_USE and NO_PNP send nothing until the next start.
- * The controller runs in normal mode throughout, so the board always acknowledges other nodes'
- * frames, even while it sends nothing. Plug-and-play (phase 4) adds an anonymous WAITING state
- * whose allocation leads to go_online(), skipping the listen.
+ * States: a start goes to LISTENING (a fixed node-ID) or WAITING (plug-and-play); LISTENING goes
+ * ONLINE after CYPHAL_LISTEN_MS, or IN_USE if a frame from its node-ID arrives first; ONLINE goes
+ * IN_USE the same way. IN_USE sends nothing until the next start. The controller runs in normal
+ * mode throughout, so the board always acknowledges other nodes' frames, even while it sends
+ * nothing.
  *
- * Nothing is sent before every frame already received has been checked for our node-ID (D9):
- * the task empties the receive queue before it hands a frame to canbus, every time, after the
- * wait for room and just before the hand-over. So a frame from another node with our node-ID
- * stops the node before its next frame; the one frame already inside canbus still goes. The
- * listen ends by the frames' stamps, not by the clock (cyphal_listen_t): a task held off past
- * its end (a flash write stalls both cores) still checks the frames from before the end first.
+ * WAITING is anonymous: libcanard's node-ID is unset, the only subscription is to
+ * uavcan.pnp.NodeIDAllocationData.1.0, and the only transfers sent are its requests, single frames
+ * at random intervals, one queued at a time (the DSDL's rules A to D; cyphal_util.h). The node
+ * listens from its start, as a fixed node-ID does, but for a heartbeat's longest period
+ * (CYPHAL_PNP_LISTEN_US) and while it asks. An allocation for this board's pseudo-ID ends the
+ * asking (rule D: no more requests, and no more allocations heard, so the first wins) and is held,
+ * still WAITING, until that listen is over; then it goes ONLINE, unless the node-ID it gives has
+ * been heard on the bus within a heartbeat's offline timeout (cyphal_pnp_verdict()): then IN_USE, as
+ * a collision while running would be, without ever sending as that node-ID. Nothing is saved (D5).
+ *
+ * Nothing is sent before every frame already received has been checked for our node-ID (D9): the
+ * task empties the receive queue before it hands a frame to canbus, every time, after the wait for
+ * room and just before the hand-over. So a frame from another node with our node-ID stops the node
+ * before its next frame; the one frame already inside canbus still goes. Taking up an allocated
+ * node-ID is the same: the frames before that moment were counted as heard (cyphal_seen_t), and
+ * those after it in the queue are checked for the new node-ID before anything goes out as it.
+ * Both listens end by the frames' stamps, not by the clock (cyphal_listen_t): a task held off past
+ * the end (a flash write stalls both cores) still checks the frames from before the end first.
  *
  * Sending: canbus is started with one send slot, so libcanard's queue goes to the controller one
  * frame at a time and its priority order holds; canbus_wait_room() waits for that slot and wakes
@@ -42,6 +53,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -51,6 +63,7 @@
 #include "sdkconfig.h"
 #include "uavcan/node/GetInfo_1_0.h"
 #include "uavcan/node/Heartbeat_1_0.h"
+#include "uavcan/pnp/NodeIDAllocationData_1_0.h"
 
 static const char *TAG = "cyphal";
 
@@ -72,11 +85,17 @@ typedef struct {
     struct CanardInstance canard;
     struct CanardTxQueue txq;
     struct CanardRxSubscription getinfo;    /* must not move while subscribed: s_node is never freed */
+    struct CanardRxSubscription allocation; /* NodeIDAllocationData, while waiting; the same */
     uint8_t getinfo_response[uavcan_node_GetInfo_Response_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
     size_t getinfo_response_size;           /* serialized once per start: nothing in it changes */
-    uint8_t node_id;                        /* the one it runs, or listens, on */
-    CanardTransferID heartbeat_tid;
-    cyphal_listen_t listen;                 /* a fixed node-ID's, before going online */
+    uint8_t node_id;                        /* the one it runs, or listens, on; CYPHAL_NODE_ID_AUTO while waiting */
+    uint8_t allocator;                      /* the node that gave it, with plug-and-play (s_run.node_id AUTO) */
+    uint8_t held_id;                        /* allocated, while the listen goes on; CYPHAL_NODE_ID_AUTO for none */
+    int64_t held_us;                        /* the allocation's stamp */
+    CanardTransferID heartbeat_tid, request_tid;
+    cyphal_listen_t listen;                 /* from the start: a fixed node-ID's before going online, plug-and-play's before taking one up */
+    cyphal_seen_t seen;                     /* when each node-ID was last heard while waiting: an allocation's check */
+    int64_t next_request_us;                /* plug-and-play's request timer (Trequest), while waiting with nothing held */
     int64_t next_heartbeat_us, next_bus_check_us;
     uint32_t bus_off_seen;                  /* canbus's bus-off count, as last looked at */
 } node_t;
@@ -87,6 +106,7 @@ static cyphal_settings_t s_saved;       /* from the next start */
 static cyphal_settings_t s_run;         /* as the node started */
 static int s_tx = -1, s_rx = -1;        /* the pins of the last start */
 static uint8_t s_uid[CYPHAL_UNIQUE_ID_SIZE];
+static uint64_t s_pseudo_id;            /* plug-and-play's, from s_uid */
 static node_t *s_node;                  /* from the first start; never freed */
 static void *s_heap_mem;                /* CONFIG_CYPHAL_HEAP_SIZE bytes, from the first start */
 static multi_heap_handle_t s_heap;      /* in s_heap_mem, made again at each start */
@@ -278,16 +298,19 @@ esp_err_t cyphal_init(void)
         ESP_LOGE(TAG, "no factory MAC (%s): the unique ID ends in zeros", esp_err_to_name(err));
     }
     cyphal_unique_id(s_uid, CONFIG_CYPHAL_UNIQUE_ID_PREFIX, mac);
+    s_pseudo_id = cyphal_pseudo_id(s_uid);
     return ESP_OK;
 }
 
 /* ------------------------------------------------------------------ libcanard's heap */
 
-/* libcanard asks for max_align_t, 8 bytes here: the uint64_t in its queue items */
+/* libcanard asks for max_align_t, 8 bytes here: the uint64_t in its queue items. It asks for 0 bytes for
+ * an anonymous frame with nothing but its tail byte (canard.c, rxAcceptFrame) and takes NULL as out of
+ * memory, which multi_heap gives for 0: so a byte instead, a block heap_free() frees like any other */
 static void *heap_alloc(void *ref, size_t size)
 {
     (void)ref;
-    void *p = multi_heap_aligned_alloc(s_heap, size, 8);
+    void *p = multi_heap_aligned_alloc(s_heap, size > 0 ? size : 1, 8);
     if (p == NULL) {
         s_heap_failed++;
     }
@@ -361,22 +384,24 @@ static void push(node_t *n, const struct CanardTransferMetadata *meta, const voi
 
 /* An item and the rest of its transfer, out of the queue and freed: they are all still in it,
  * behind this one, since the frames of one transfer share a CAN ID and leave in order */
-static void drop_transfer(node_t *n, struct CanardTxQueueItem *item)
+static void free_transfer(node_t *n, struct CanardTxQueueItem *item)
 {
     while (item != NULL) {
         struct CanardTxQueueItem *next = item->next_in_transfer;
         canardTxFree(&n->txq, &n->canard, canardTxPop(&n->txq, item));
         item = next;
     }
-    s_tr_dropped++;
 }
 
-static void clear_tx(node_t *n)
+/* Everything queued, out and freed: how many transfers that was */
+static uint32_t clear_tx(node_t *n)
 {
+    uint32_t transfers = 0;
     struct CanardTxQueueItem *item;
-    while ((item = canardTxPeek(&n->txq)) != NULL) {
-        drop_transfer(n, item);
+    for (; (item = canardTxPeek(&n->txq)) != NULL; transfers++) {
+        free_transfer(n, item);
     }
+    return transfers;
 }
 
 static void heartbeat(node_t *n, int64_t now)
@@ -401,7 +426,34 @@ static void heartbeat(node_t *n, int64_t now)
     push(n, &meta, buf, size, now);
 }
 
-/* Heartbeat and GetInfo on n->node_id, from now: after the listen (or, in phase 4, an allocation) */
+/* Plug-and-play's request (rule B). Anonymous, so a single frame, whose CAN ID libcanard ends with a
+ * 7-bit discriminator made from the payload's CRC, as the spec asks: another allocatee, with another
+ * pseudo-ID, has another CAN ID 127 times in 128, and the two don't collide bit for bit.
+ *
+ * A limit: the frame is retransmitted until acknowledged, like every other. pycyphal (and, as recalled,
+ * the Cyphal/CAN spec) want anonymous frames sent without automatic retransmission, so that two
+ * allocatees whose requests do share a CAN ID collide once, not in lockstep until one of them is
+ * error-passive. IDF 6.1's TWAI driver can't do that for one frame: single-shot is the whole node's
+ * (twai_onchip_node_config_t.fail_retry_cnt, applied to every frame in esp_twai_onchip.c's
+ * _node_start_trans()), fixed until the node is deleted and made again. */
+static void request(node_t *n, int64_t now)
+{
+    uint8_t buf[uavcan_pnp_NodeIDAllocationData_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
+    const size_t size = cyphal_pnp_request(buf, sizeof(buf), s_pseudo_id);
+    if (size == 0) {
+        return;
+    }
+    const struct CanardTransferMetadata meta = {
+        .priority = CanardPriorityNominal,
+        .transfer_kind = CanardTransferKindMessage,
+        .port_id = uavcan_pnp_NodeIDAllocationData_1_0_FIXED_PORT_ID_,
+        .remote_node_id = CANARD_NODE_ID_UNSET,
+        .transfer_id = n->request_tid++,
+    };
+    push(n, &meta, buf, size, now);
+}
+
+/* Heartbeat and GetInfo on n->node_id, from now: after the listen, or an allocation */
 static void go_online(node_t *n, int64_t now)
 {
     n->canard.node_id = n->node_id;
@@ -410,16 +462,64 @@ static void go_online(node_t *n, int64_t now)
                       &n->getinfo);
     n->next_heartbeat_us = now;
     s_state = CYPHAL_ONLINE;
-    ESP_LOGI(TAG, "node %u (fixed): online", n->node_id);
+    if (s_run.node_id == CYPHAL_NODE_ID_AUTO) {     /* online with plug-and-play only by an allocation */
+        ESP_LOGI(TAG, "node %u (allocated by node %u): online", n->node_id, n->allocator);
+    } else {
+        ESP_LOGI(TAG, "node %u (fixed): online", n->node_id);
+    }
 }
 
 /* Another node has our node-ID: send nothing more, until the next start */
 static void stop_in_use(node_t *n)
 {
     s_state = CYPHAL_IN_USE;
-    clear_tx(n);
+    s_tr_dropped += clear_tx(n);
     n->canard.node_id = CANARD_NODE_ID_UNSET;
     ESP_LOGW(TAG, "node-ID %u is in use by another node; Cyphal stopped", n->node_id);
+}
+
+/* The node-ID an allocation gave, once the listen since the start is over (cyphal_pnp_verdict()):
+ * online on it, or stopped if another node has been heard with it lately (an allocator with a stale
+ * or wiped table), as a collision while running would stop it (D9), but without a frame sent as that
+ * node-ID. Until then nothing: still WAITING, asking no more */
+static void take_up(node_t *n, int64_t now)
+{
+    const cyphal_pnp_verdict_t v = cyphal_pnp_verdict(&n->seen, &n->listen, n->held_id, n->held_us);
+    if (v == CYPHAL_PNP_HOLD) {
+        return;
+    }
+    n->node_id = n->held_id;
+    n->held_id = CYPHAL_NODE_ID_AUTO;
+    if (v == CYPHAL_PNP_TAKEN) {
+        stop_in_use(n);
+    } else {
+        go_online(n, now);
+    }
+}
+
+/* A NodeIDAllocationData received while waiting: rules C and D */
+static void on_allocation(node_t *n, const struct CanardRxTransfer *t, int64_t now)
+{
+    uint8_t id = 0;
+    const cyphal_pnp_result_t r = cyphal_pnp_accept(t->payload.data, t->payload.size,
+                                                    t->metadata.remote_node_id == CANARD_NODE_ID_UNSET, s_pseudo_id, &id);
+    if (r == CYPHAL_PNP_INVALID) {
+        return;
+    }
+    n->next_request_us = now + cyphal_pnp_interval_us(esp_random());     /* rule C: any allocation message */
+    if (r != CYPHAL_PNP_ALLOCATED) {
+        return;
+    }
+    /* Rule D: the request timer stops (timers() asks only while nothing is held) and the subscription
+     * ends, so a later allocation, from this allocator or another, isn't heard. A request still queued is
+     * pointless; one already inside canbus still goes, and an allocator answers it with the same node-ID,
+     * which nobody is listening for any more */
+    canardRxUnsubscribe(&n->canard, CanardTransferKindMessage, uavcan_pnp_NodeIDAllocationData_1_0_FIXED_PORT_ID_);
+    clear_tx(n);
+    n->held_id = id;
+    n->held_us = now;
+    n->allocator = (uint8_t)t->metadata.remote_node_id;
+    take_up(n, now);
 }
 
 static void answer_getinfo(node_t *n, const struct CanardRxTransfer *t, int64_t now)
@@ -437,15 +537,20 @@ static void answer_getinfo(node_t *n, const struct CanardRxTransfer *t, int64_t 
 
 static void on_frame(node_t *n, const canbus_frame_t *f)
 {
-    cyphal_listen_frame(&n->listen, (int64_t)f->timestamp_us);
+    const int64_t stamp = (int64_t)f->timestamp_us;
+    cyphal_listen_frame(&n->listen, stamp);
     const cyphal_state_t state = s_state;
-    /* The controller never receives its own frames, so this is another node's (D9) */
-    if ((state == CYPHAL_LISTENING || state == CYPHAL_ONLINE) &&
-        cyphal_frame_source(f->id, f->ext, f->rtr, f->len) == n->node_id) {
+    if (state == CYPHAL_WAITING) {
+        /* For an allocation's check, made only while waiting (an allocation held included); waiting
+         * comes only at a start, which clears the table, so no frame from before it matters */
+        cyphal_seen_frame(&n->seen, cyphal_frame_source(f->id, f->ext, f->rtr, f->len), stamp);
+    } else if ((state == CYPHAL_LISTENING || state == CYPHAL_ONLINE) &&
+               cyphal_frame_source(f->id, f->ext, f->rtr, f->len) == n->node_id) {
+        /* The controller never receives its own frames, so this is another node's (D9) */
         stop_in_use(n);
         return;
     }
-    if (state != CYPHAL_ONLINE || !f->ext || f->rtr) {
+    if ((state != CYPHAL_ONLINE && state != CYPHAL_WAITING) || !f->ext || f->rtr) {
         return;
     }
     const struct CanardFrame frame = {
@@ -459,7 +564,9 @@ static void on_frame(node_t *n, const canbus_frame_t *f)
     }
     s_tr_received++;
     if (sub == &n->getinfo) {
-        answer_getinfo(n, &t, (int64_t)f->timestamp_us);    /* the response's deadline from the request's arrival */
+        answer_getinfo(n, &t, stamp);       /* the response's deadline from the request's arrival */
+    } else if (sub == &n->allocation) {
+        on_allocation(n, &t, stamp);
     }
     heap_free(NULL, t.payload.allocated_size, t.payload.data);     /* the instance's memory resource */
 }
@@ -501,7 +608,8 @@ static struct CanardTxQueueItem *next_due(node_t *n)
     const int64_t now = esp_timer_get_time();
     struct CanardTxQueueItem *item;
     while ((item = canardTxPeek(&n->txq)) != NULL && (int64_t)item->tx_deadline_usec < now) {
-        drop_transfer(n, item);
+        free_transfer(n, item);
+        s_tr_dropped++;
     }
     return item;
 }
@@ -557,6 +665,16 @@ static void timers(node_t *n, int64_t now)
     if (s_state == CYPHAL_LISTENING && cyphal_listen_over(&n->listen)) {
         go_online(n, now);
     }
+    if (s_state == CYPHAL_WAITING && n->held_id != CYPHAL_NODE_ID_AUTO) {
+        take_up(n, now);
+    } else if (s_state == CYPHAL_WAITING && now >= n->next_request_us) {
+        n->next_request_us = now + cyphal_pnp_interval_us(esp_random());     /* rule B */
+        /* Not while the last is still queued (requests are all a waiting node sends): nobody has
+         * acknowledged the one inside canbus, and another would only expire behind it */
+        if (canardTxPeek(&n->txq) == NULL) {
+            request(n, now);
+        }
+    }
     if (s_state == CYPHAL_ONLINE && now >= n->next_heartbeat_us) {
         heartbeat(n, now);
         n->next_heartbeat_us += HEARTBEAT_US;
@@ -574,8 +692,12 @@ static void timers(node_t *n, int64_t now)
 static TickType_t ticks_to_next(const node_t *n, int64_t now)
 {
     int64_t next = n->next_bus_check_us;
-    if (s_state == CYPHAL_LISTENING && cyphal_listen_wake_us(&n->listen) < next) {
+    const bool held = s_state == CYPHAL_WAITING && n->held_id != CYPHAL_NODE_ID_AUTO;
+    if ((s_state == CYPHAL_LISTENING || held) && cyphal_listen_wake_us(&n->listen) < next) {
         next = cyphal_listen_wake_us(&n->listen);
+    }
+    if (s_state == CYPHAL_WAITING && !held && n->next_request_us < next) {
+        next = n->next_request_us;
     }
     if (s_state == CYPHAL_ONLINE && n->next_heartbeat_us < next) {
         next = n->next_heartbeat_us;
@@ -590,13 +712,12 @@ static void node_task(void *arg)
     while (s_running) {
         /* What has come first (D9), then the timers, then the transmit queue */
         const bool drained = drain(n);
-        const int64_t now = esp_timer_get_time();
-        timers(n, now);
-        TickType_t wait = ticks_to_next(n, now);
+        timers(n, esp_timer_get_time());
         bool retry = false;
-        if (!drained || (canardTxPeek(&n->txq) != NULL && !flush(n, &retry))) {
-            wait = retry ? 1 : 0;       /* frames still to read, or to send */
-        }
+        const bool sent = drained && (canardTxPeek(&n->txq) == NULL || flush(n, &retry));
+        /* Frames still to read, or to send; else the next timer, as of after flush(): a frame it read
+         * may have changed the state (an allocation taken up makes a heartbeat due at once) */
+        const TickType_t wait = !sent ? (retry ? 1 : 0) : ticks_to_next(n, esp_timer_get_time());
         /* Asleep until the next timer or frame; a stop wakes it here (wake_task()) */
         canbus_frame_t f;
         s_receiving = true;
@@ -651,9 +772,27 @@ static esp_err_t start_locked(int tx, int rx)
     const int64_t now = esp_timer_get_time();
     s_started_us = now;
     n->node_id = s_run.node_id;
-    cyphal_listen_start(&n->listen, now, (int64_t)CYPHAL_LISTEN_MS * 1000);
+    n->held_id = CYPHAL_NODE_ID_AUTO;
+    cyphal_seen_clear(&n->seen);
     n->next_bus_check_us = now + BUS_CHECK_US;
-    s_state = s_run.node_id == CYPHAL_NODE_ID_AUTO ? CYPHAL_NO_PNP : CYPHAL_LISTENING;
+    /* Logged now, before the task can log what happens next. By the setting, not by s_state, which
+     * the task (at a higher priority) may change as soon as it exists */
+    if (s_run.node_id == CYPHAL_NODE_ID_AUTO) {
+        cyphal_listen_start(&n->listen, now, CYPHAL_PNP_LISTEN_US);
+        /* Rule A: subscribed, and the first request after a random Trequest, not at once */
+        canardRxSubscribe(&n->canard, CanardTransferKindMessage, uavcan_pnp_NodeIDAllocationData_1_0_FIXED_PORT_ID_,
+                          uavcan_pnp_NodeIDAllocationData_1_0_EXTENT_BYTES_, CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+                          &n->allocation);
+        n->next_request_us = now + cyphal_pnp_interval_us(esp_random());
+        s_state = CYPHAL_WAITING;
+        ESP_LOGI(TAG, "plug-and-play, %s, on GPIO%d (TX) and GPIO%d (RX): asking for a node-ID, pseudo-ID %012llx",
+                 s_run.name, tx, rx, (unsigned long long)s_pseudo_id);
+    } else {
+        cyphal_listen_start(&n->listen, now, (int64_t)CYPHAL_LISTEN_MS * 1000);
+        s_state = CYPHAL_LISTENING;
+        ESP_LOGI(TAG, "node %u (fixed), %s, on GPIO%d (TX) and GPIO%d (RX): listening for %d s first", n->node_id,
+                 s_run.name, tx, rx, CYPHAL_LISTEN_MS / 1000);
+    }
     s_running = true;
     if (xTaskCreatePinnedToCore(node_task, "cyphal", CONFIG_CYPHAL_TASK_STACK, n, CONFIG_CYPHAL_TASK_PRIORITY,
                                 &s_task, CONFIG_CYPHAL_TASK_CORE) != pdPASS) {
@@ -663,14 +802,8 @@ static esp_err_t start_locked(int tx, int rx)
         s_bus = 0;
         s_state = CYPHAL_FAILED;
         s_error = ESP_ERR_NO_MEM;
+        ESP_LOGW(TAG, "not started on GPIO%d and GPIO%d: no memory for its task", tx, rx);
         return ESP_ERR_NO_MEM;
-    }
-    if (s_state == CYPHAL_LISTENING) {
-        ESP_LOGI(TAG, "node %u (fixed), %s, on GPIO%d (TX) and GPIO%d (RX): listening for %d s first", n->node_id,
-                 s_run.name, tx, rx, CYPHAL_LISTEN_MS / 1000);
-    } else {
-        ESP_LOGW(TAG, "no node-ID set, and plug-and-play is not in this firmware yet: the node sends nothing "
-                 "(`cyphal id <0-127>`, then `cyphal restart`)");
     }
     return ESP_OK;
 }
@@ -771,9 +904,12 @@ void cyphal_status(cyphal_status_t *out)
     out->running = s_run;
     out->saved = s_saved;
     out->node_id = s_node != NULL && s_state != CYPHAL_OFF ? s_node->node_id : s_run.node_id;
+    /* With plug-and-play, ONLINE and IN_USE come only after an allocation */
+    out->allocated = s_run.node_id == CYPHAL_NODE_ID_AUTO && (s_state == CYPHAL_ONLINE || s_state == CYPHAL_IN_USE);
     out->tx_gpio = s_tx;
     out->rx_gpio = s_rx;
     memcpy(out->unique_id, s_uid, sizeof(s_uid));
+    out->pseudo_id = s_pseudo_id;
     if (s_task != NULL) {
         out->uptime_s = (uint32_t)((esp_timer_get_time() - s_started_us) / 1000000);
         out->stack_unused = uxTaskGetStackHighWaterMark(s_task);   /* bytes, in ESP-IDF */

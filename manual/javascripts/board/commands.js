@@ -164,7 +164,7 @@ export function danger(line) {
       if (sub === "echo" && rest[0] !== "off") return "The board sends every CAN frame it receives back onto the bus.";
       return null;
     case "cyphal":
-      if (sub === "restart") return "The Cyphal node stops and starts again with its saved settings: it is off the bus for a moment, and listens for 2 s before it sends.";
+      if (sub === "restart") return "The Cyphal node stops and starts again with its saved settings: it is off the bus for a moment, then with a fixed node-ID listens for 2 s before it sends, and with plug-and-play asks for a node-ID again, sending as one only after at least a second.";
       if (sub === "reset") return "This puts the Cyphal node's settings back to the defaults (plug-and-play, the default name, 1 Mbit/s), from its next start.";
       if (sub === "id" || sub === "name" || sub === "bitrate") return "This changes the Cyphal node's saved settings, from its next start.";
       return null;

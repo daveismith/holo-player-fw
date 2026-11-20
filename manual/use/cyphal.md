@@ -1,11 +1,5 @@
 # The board on Cyphal
 
-!!! note "What's in the firmware so far"
-    The node runs with a **fixed node-ID**: its heartbeat, `GetInfo`, the check for a node-ID
-    that is already taken, and the `cyphal` command. **Plug-and-play is not in the firmware
-    yet**: until it is, give the node a node-ID with `cyphal id`. Without one it starts the
-    controller, acknowledges the bus, and sends nothing.
-
 With a [CAN transceiver](../connect/host-can.md) on the host link's pins, the board is a node on
 a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal node does:
 
@@ -23,30 +17,39 @@ alongside it. UART, RS485 and CAN share the same pins, so only one of them runs 
 ## Turning it on
 
 ```
-cyphal id 52
 link mode can
 restart
 ```
 
-The node-ID first, while plug-and-play is still to come: 52 here, any free one from 0 to 125 on
-your bus. `link mode off` (or another transport) and a restart turn it off again.
+The node then asks the bus for a node-ID by plug-and-play. On a bus with no allocator, give it a
+fixed one first (`cyphal id 52`: any free one from 0 to 125 on your bus). `link mode off` (or
+another transport) and a restart turn it off again.
 
 ## The node-ID
 
 A node-ID is the board's address on the bus, from 0 to 127.
 
-**By plug-and-play**, which is how it starts out (*not in the firmware yet*: for now, a node with
-no fixed node-ID sends nothing, and `cyphal` says so). The board asks the bus for a node-ID, and an
+**By plug-and-play**, which is how it starts out. The board asks the bus for a node-ID, and an
 allocator on the bus gives it one. `cyphal_service` has an allocator, as does Yakut. The board
-keeps asking, about once a second, for as long as it takes: with no allocator on the bus, the
-rest of the board carries on as usual and `cyphal` shows it waiting.
+asks at random intervals of 0.15 to 1 second, for as long as it takes, and sends nothing else
+meanwhile: with no allocator on the bus, the rest of the board carries on as usual and `cyphal`
+shows it waiting.
 
 The allocator remembers which board it gave which node-ID, so a board gets the same one every
-time. The board itself doesn't save it. It asks again at every start, which takes a second or
-two.
+time. The board itself doesn't save it. It asks again at every start, and runs on its node-ID a
+second or two after the start: never sooner than one, for the [check](#a-node-id-that-is-already-taken)
+it makes first. It takes a node-ID from whichever node answers first: nothing in it expects a
+particular allocator.
 
 This is the plug-and-play of Cyphal v1 for classic CAN: `uavcan.pnp.NodeIDAllocationData.1.0`,
-on subject 8166.
+on subject 8166. A request has room for 48 bits of identity, not the whole unique ID, so the board
+asks with a **pseudo-ID**: the low 48 bits of the CRC-64/WE of its [unique ID](#the-unique-id).
+`cyphal` shows it in hex and in decimal; allocators show one or the other (`cyphal_service`'s
+`pnp-list`, decimal). It is fixed by the unique ID, so it doesn't change either. Cyphal's own tools
+send these requests without the CAN controller's automatic retransmission, so that two boards
+whose requests happen to share a CAN ID (one chance in 128) collide once rather than over and over;
+the board's CAN driver can't do that for some frames and not others, so its requests are retried
+until acknowledged, like every other frame it sends.
 
 **Fixed**, for a bus with no allocator:
 
@@ -66,6 +69,12 @@ on the bus that carries the board's own node-ID can only have come from another 
 
 - **With a fixed node-ID**, the node listens for 2 seconds before it sends anything. If it hears
   its node-ID in that time, it doesn't start.
+- **With an allocated node-ID**, the node listens from its start, all the while it asks, and
+  doesn't take up the node-ID it is given until it has listened for at least a second, the longest
+  a node may go between heartbeats, so that a node already using it has been heard. If the node-ID
+  has been heard on the bus since the start, and in the last 3 seconds (the time after which a node
+  that has gone quiet counts as gone), it doesn't start, and sends nothing as that node-ID. An
+  allocator whose records were lost could hand out a node-ID that way.
 - **Once running**, with a fixed or an allocated node-ID, hearing its own node-ID stops it at
   once. It sends nothing more, not even a heartbeat. (A frame it had already handed to the CAN
   controller still goes; the node hands over one at a time, so that is one frame at most.)
@@ -82,6 +91,7 @@ W (5123) cyphal: node-ID 52 is in use by another node; Cyphal stopped
 and `cyphal` shows why it stopped. The rest of the board is unaffected. The node stays stopped
 until it's given another node-ID or told to start again (`cyphal restart`), or the board
 restarts: it doesn't try again by itself, and a fixed node-ID never falls back to plug-and-play.
+An allocated one isn't asked for again either: the allocator would give the same node-ID.
 While stopped it still listens, so `cyphal` goes on counting the bus's traffic.
 
 The board can only notice a node that is on the bus and sending. An allocator may have set a
@@ -148,8 +158,8 @@ as a fixed one, or change the allocator's record.
 
 | Command | Does |
 |---|---|
-| `cyphal` | The node's state, its node-ID, name and unique ID, the bus's state, and the counters |
-| `cyphal id <0-127>\|auto` | A fixed node-ID, or plug-and-play (not in the firmware yet). From the node's next start |
+| `cyphal` | The node's state, its node-ID, name, unique ID and plug-and-play pseudo-ID, the bus's state, and the counters |
+| `cyphal id <0-127>\|auto` | A fixed node-ID, or plug-and-play. From the node's next start |
 | `cyphal name <name>\|--reset` | The name `GetInfo` reports. From the node's next start |
 | `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
 | `cyphal restart` | Stop the node and start it again, with the settings as they now are |
@@ -167,7 +177,7 @@ The pins are the host link's: `link pins` changes them.
 
 ```text
 cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
-  unique id 686f6c6f706c61790000e4b0638c2db0
+  unique id 686f6c6f706c61790000e4b0638c2db0, pseudo-ID 8e8b473a6a76 (156728846609014)
   bus: error-active, tx errors 0, rx errors 0, bus-off 0 times
   transfers: sent 51, received 29; frames: sent 253, received 143; dropped 0
   up 60 s; frames given to the controller 253, not sent 0, waiting 0; not read (queue full) 0
@@ -179,8 +189,7 @@ The first line starts with the node's state:
 | State | Means |
 |---|---|
 | `off` | The host link isn't set to CAN |
-| `no node-ID: plug-and-play is not in this firmware yet` | No fixed node-ID: the node acknowledges the bus and sends nothing. `cyphal id` gives it one |
-| `waiting for a node-ID` | Asking the bus for one; no allocator has answered yet (*when plug-and-play is in the firmware*) |
+| `waiting for a node-ID` | Asking the bus for one by plug-and-play, and no allocator has answered yet; or one has, and the node is still in the second it [listens](#a-node-id-that-is-already-taken) before taking it up |
 | `listening, before going online as node 52 (fixed)` | The 2 seconds before a node with a fixed node-ID starts |
 | `node 52 (allocated)` or `(fixed)` | Running |
 | `stopped: node-ID 52 is in use by another node` | [Stopped](#a-node-id-that-is-already-taken), until told to start again |
@@ -194,12 +203,14 @@ The bus's state is CAN's own:
 | `error-passive` | Many errors lately. A board alone on the bus sits here, since nobody acknowledges its frames |
 | `bus-off` | So many transmit errors that the controller has taken itself off the bus. The node brings it back by itself, and counts how often |
 
-`transfers` counts heartbeats and `GetInfo` responses sent, whole, and `GetInfo` requests
-received; `frames` counts what the controller sent and had acknowledged, and what it received.
-`dropped` counts transfers the board gave up on because the bus didn't take them in time (a
-second, a heartbeat's period). It rises while the board is alone on the bus, about once a second
-as each heartbeat expires, and shouldn't otherwise. The frame the controller was retrying then
-goes out when another node turns up, a little late.
+`transfers` counts what was sent, whole (heartbeats, `GetInfo` responses and plug-and-play
+requests) and what was received (`GetInfo` requests and plug-and-play messages); `frames` counts
+what the controller sent and had acknowledged, and what it received. `dropped` counts transfers
+the board gave up on because the bus didn't take them in time (a second, a heartbeat's period).
+It rises while the board is alone on the bus, about once a second as each heartbeat expires
+(a little less while it waits for a node-ID: each request expires in turn, and the next isn't
+queued until it has), and shouldn't otherwise. The frame the controller was retrying then goes out when another node turns up, a
+little late.
 
 The last two lines are for when something seems wrong: how long the node has run, frames it
 handed to the controller that were never sent (bus-off, or a restart of the node), frames that

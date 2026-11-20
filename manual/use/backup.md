@@ -37,7 +37,8 @@ The board's hostname (`web hostname`), its host link address and its Cyphal node
 node-ID are in a backup, so a replacement board restored from it answers to the same name and
 address. Setting up a *second* board from one's backup (`--other-board`, below) copies them too:
 give it its own name, address and node-ID afterwards (two nodes with one node-ID
-[stop](cyphal.md#a-node-id-that-is-already-taken)).
+[stop](cyphal.md#a-node-id-that-is-already-taken); with plug-and-play each board is given its
+own).
 
 ## Making one
 

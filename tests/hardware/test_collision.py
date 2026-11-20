@@ -9,25 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import math
-import re
-import struct
 
 import can
 import pycyphal.dsdl
 import pytest
 import uavcan.node.GetInfo_1_0 as GetInfo
 
-from .conftest import heartbeats
+from .conftest import heartbeat_frame, heartbeats, until_state, warnings
 
-HEARTBEAT = 7509
 GET_INFO = 430
-WARNING = "cyphal: node-ID {} is in use by another node; Cyphal stopped"
-
-
-def heartbeat_frame(source: int, tid: int) -> tuple[int, bytes]:
-    can_id = (4 << 26) | (3 << 21) | (HEARTBEAT << 8) | source     # nominal priority, a message
-    data = struct.pack("<IBBB", 1, 0, 0, 0) + bytes([0xE0 | (tid & 31)])   # one frame: start, end, toggle
-    return can_id, data
 
 
 def get_info_request_frame(source: int, destination: int, tid: int) -> tuple[int, bytes]:
@@ -40,10 +30,6 @@ def get_info_request_frame(source: int, destination: int, tid: int) -> tuple[int
 def is_get_info_response(can_id: int, source: int, destination: int) -> bool:
     return (can_id >> 24) & 3 == 2 and (can_id >> 14) & 0x1FF == GET_INFO and (can_id >> 7) & 0x7F == destination \
         and can_id & 0x7F == source
-
-
-def warnings(log: str, node_id: int) -> int:
-    return len(re.findall(re.escape(WARNING.format(node_id)), log))
 
 
 @pytest.mark.restarts
@@ -79,7 +65,7 @@ async def test_node_id_taken(node, net, board, dut_node_id):
 
         # Stopped again; another node-ID brings it back too
         await net.send_raw(*heartbeat_frame(dut_node_id, 1))
-        board.wait_state("in-use", dut_node_id, timeout=3)
+        await until_state(board, "in-use", dut_node_id, timeout=3)
         board.command(f"cyphal id {other}")
         board.command("cyphal restart")
         assert await heartbeats(node, other, 3.5), f"not sending as node {other}"
@@ -103,7 +89,7 @@ async def test_node_id_taken(node, net, board, dut_node_id):
     finally:
         board.command(f"cyphal id {dut_node_id}")
         board.command("cyphal restart")
-    board.wait_state("online", dut_node_id)
+    await until_state(board, "online", dut_node_id)
 
 
 # How long after the adapter takes the other node's frame it is surely on the bus and done: a
@@ -168,10 +154,10 @@ async def test_node_id_taken_mid_response(node, net, get_info, board, dut_node_i
             if answer and taken < answer[-1]:
                 break
             board.command("cyphal restart")
-            board.wait_state("online", dut_node_id)
+            await until_state(board, "online", dut_node_id)
         else:
             pytest.skip(f"no trial in which the board was answering when the other node's frame came: {trials}")
     finally:
         armed[0] = False
         board.command("cyphal restart")
-        board.wait_state("online", dut_node_id)
+        await until_state(board, "online", dut_node_id)

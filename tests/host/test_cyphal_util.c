@@ -1,6 +1,7 @@
 /*
  * Host-built tests for components/cyphal/cyphal_util.c: the parts of the Cyphal node with no
- * hardware in them. `make unit-test` builds and runs them with the computer's cc; no ESP-IDF.
+ * hardware in them. `make unit-test` builds and runs them with the computer's cc; no ESP-IDF (the
+ * committed Nunavut headers in components/cyphal/dsdl are plain C).
  */
 #include <inttypes.h>
 #include <stdio.h>
@@ -47,6 +48,11 @@ static void test_unique_id(void)
     CHECK(cyphal_pseudo_id(other) != cyphal_pseudo_id(uid));
     printf("  example board: unique id 686f6c6f706c61790000e4b0638c2db0, pseudo-ID 0x%012" PRIx64 "\n",
            cyphal_pseudo_id(uid));
+
+    /* The bench board (MAC 3c:0f:02:6f:2d:b0), whose pseudo-ID an allocator's table holds */
+    static const uint8_t bench_mac[6] = { 0x3c, 0x0f, 0x02, 0x6f, 0x2d, 0xb0 };
+    cyphal_unique_id(uid, "holoplay", bench_mac);
+    CHECK(cyphal_pseudo_id(uid) == 0x0b3af4648a21ull);
 }
 
 static void test_names(void)
@@ -250,6 +256,229 @@ static void test_listen(void)
     CHECK(l.checked_us == t0);
 }
 
+/* This board's pseudo-ID (the bench board, MAC 3c:0f:02:6f:2d:b0) */
+#define BENCH_PSEUDO_ID 0x0b3af4648a21ull
+
+/* A NodeIDAllocationData.1.0 as an allocator writes it: the 48-bit hash little-endian, the array's
+ * length, and each node-ID as a little-endian uint16 */
+static size_t allocation(uint8_t out[16], uint64_t hash, int count, uint16_t id)
+{
+    for (int i = 0; i < 6; i++) {
+        out[i] = (uint8_t)(hash >> (8 * i));
+    }
+    out[6] = (uint8_t)count;
+    out[7] = (uint8_t)id;
+    out[8] = (uint8_t)(id >> 8);
+    return count == 0 ? 7 : 9;
+}
+
+static void test_pnp_request(void)
+{
+    uint8_t req[16];
+    memset(req, 0xAA, sizeof(req));
+    /* 7 bytes and no more: libcanard sends an anonymous message only as a single frame */
+    CHECK(cyphal_pnp_request(req, sizeof(req), BENCH_PSEUDO_ID) == 7);
+    static const uint8_t want[7] = { 0x21, 0x8a, 0x64, 0xf4, 0x3a, 0x0b, 0x00 };
+    CHECK(memcmp(req, want, sizeof(want)) == 0);
+    CHECK(req[7] == 0xAA);
+    /* Bits above 48 are not part of it */
+    CHECK(cyphal_pnp_request(req, sizeof(req), BENCH_PSEUDO_ID | 0xFFFF000000000000ull) == 7);
+    CHECK(memcmp(req, want, sizeof(want)) == 0);
+    /* A buffer smaller than the type's: nothing */
+    CHECK(cyphal_pnp_request(req, 8, BENCH_PSEUDO_ID) == 0);
+    /* The request, read back as another allocatee would see it: anonymous, so not an allocation */
+    uint8_t id = 99;
+    CHECK(cyphal_pnp_accept(req, 7, true, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    CHECK(id == 99);
+}
+
+static void test_pnp_accept(void)
+{
+    uint8_t m[16];
+    uint8_t id;
+    size_t n;
+
+    /* Ours: a regular message, our pseudo-ID, one node-ID */
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 2);
+    id = 99;
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_ALLOCATED && id == 2);
+    /* 0 and 127 are node-IDs like any other; the caller's bits above 48 are ignored */
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 0);
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_ALLOCATED && id == 0);
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 127);
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID | (1ull << 60), &id) == CYPHAL_PNP_ALLOCATED && id == 127);
+    /* Bytes past the type's 9 (an extent from a newer minor version) are ignored */
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 45);
+    m[9] = 0x55;
+    CHECK(cyphal_pnp_accept(m, 10, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_ALLOCATED && id == 45);
+
+    /* Rule C only (an allocation message, not ours): the timer restarts, nothing is taken */
+    id = 99;
+    n = allocation(m, BENCH_PSEUDO_ID ^ 1, 1, 2);       /* another node's allocation */
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 2);           /* anonymous: an allocatee, whatever it carries */
+    CHECK(cyphal_pnp_accept(m, n, true, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    n = allocation(m, 0x123456789abcull, 0, 0);         /* another allocatee's request */
+    CHECK(cyphal_pnp_accept(m, n, true, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    n = allocation(m, BENCH_PSEUDO_ID, 0, 0);           /* a regular reply with no node-ID */
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 128);         /* node-IDs a CAN node can't have */
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 0xFFFF);
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    /* Cut short: what is missing reads as zeros (the array empty), as the spec's implicit extension says;
+     * but an array of one whose node-ID's bytes are missing, or half there, is not an allocation of node 0 */
+    id = 99;
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 2);
+    CHECK(cyphal_pnp_accept(m, 6, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    CHECK(cyphal_pnp_accept(m, 7, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);    /* the node-ID's bytes gone */
+    CHECK(cyphal_pnp_accept(m, 8, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);    /* one of its two */
+    CHECK(cyphal_pnp_accept(m, 3, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    CHECK(cyphal_pnp_accept(m, 0, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_OTHER);
+    CHECK(id == 99);
+    n = allocation(m, BENCH_PSEUDO_ID, 1, 0);           /* node 0, whole: taken */
+    m[7] = m[8] = 0;
+    CHECK(cyphal_pnp_accept(m, 9, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_ALLOCATED && id == 0);
+
+    /* Malformed: an array longer than its capacity of 1 can't be read; ignored, no timer restart */
+    id = 99;
+    n = allocation(m, BENCH_PSEUDO_ID, 2, 2);
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_INVALID);
+    n = allocation(m, BENCH_PSEUDO_ID, 255, 2);
+    CHECK(cyphal_pnp_accept(m, n, false, BENCH_PSEUDO_ID, &id) == CYPHAL_PNP_INVALID);
+    CHECK(id == 99);
+}
+
+static void test_pnp_interval(void)
+{
+    /* 150 ms to just under 1 s, whatever the random number */
+    CHECK(cyphal_pnp_interval_us(0) == CYPHAL_PNP_REQUEST_MIN_US);
+    CHECK(cyphal_pnp_interval_us(CYPHAL_PNP_REQUEST_JITTER_US - 1) == 999999);
+    CHECK(cyphal_pnp_interval_us(CYPHAL_PNP_REQUEST_JITTER_US) == CYPHAL_PNP_REQUEST_MIN_US);
+    int64_t lo = INT64_MAX, hi = 0;
+    uint32_t r = 0x12345678;
+    for (int i = 0; i < 100000; i++) {
+        r = r * 1664525u + 1013904223u;
+        const int64_t t = cyphal_pnp_interval_us(r);
+        lo = t < lo ? t : lo;
+        hi = t > hi ? t : hi;
+    }
+    const int64_t top = cyphal_pnp_interval_us(UINT32_MAX);
+    CHECK(lo >= 150000 && hi < 1000000 && top >= 150000 && top < 1000000);
+    CHECK(lo < 160000 && hi > 990000);      /* and it uses the whole range */
+}
+
+static void test_seen(void)
+{
+    cyphal_seen_t s;
+    cyphal_seen_clear(&s);
+    /* Never heard: not even with a window reaching back before the board started */
+    CHECK(!cyphal_seen_since(&s, 52, INT64_MIN + 1));
+    CHECK(!cyphal_seen_since(&s, 52, -3000000));
+    cyphal_seen_frame(&s, -1, 5000000);             /* no source: ignored */
+    for (int i = 0; i < CYPHAL_NODE_IDS; i++) {
+        CHECK(!cyphal_seen_since(&s, (uint8_t)i, -3000000));
+    }
+    cyphal_seen_frame(&s, 52, 5000000);
+    CHECK(cyphal_seen_since(&s, 52, 5000000 - 3000000));
+    CHECK(cyphal_seen_since(&s, 52, 5000000));
+    CHECK(!cyphal_seen_since(&s, 52, 5000001));
+    CHECK(!cyphal_seen_since(&s, 53, 0));
+    cyphal_seen_frame(&s, 52, 4000000);             /* an older stamp doesn't move it back */
+    CHECK(cyphal_seen_since(&s, 52, 4500000));
+    cyphal_seen_frame(&s, 127, 1);
+    cyphal_seen_frame(&s, 0, 1);
+    CHECK(cyphal_seen_since(&s, 127, 0) && cyphal_seen_since(&s, 0, 1));
+    CHECK(!cyphal_seen_since(&s, 128, INT64_MIN + 1));      /* not a node-ID */
+    cyphal_seen_frame(&s, 128, 9000000);                    /* nor is this */
+    cyphal_seen_clear(&s);
+    CHECK(!cyphal_seen_since(&s, 52, 0));
+}
+
+/* An allocated node-ID heard in the 3 s before the allocation (a heartbeat's offline timeout) is another
+ * node's: in use. Heard longer ago, or never, or only another node-ID heard: the node goes online. */
+static void test_pnp_in_use(void)
+{
+    cyphal_seen_t s;
+    cyphal_seen_clear(&s);
+    CHECK(!cyphal_pnp_in_use(&s, 125, 0));                  /* never heard, the board just started */
+    CHECK(!cyphal_pnp_in_use(&s, 125, 10000000));
+    cyphal_seen_frame(&s, 125, 7000000);
+    cyphal_seen_frame(&s, 124, 9999999);
+    CHECK(cyphal_pnp_in_use(&s, 125, 7000000));             /* heard in the same instant */
+    CHECK(cyphal_pnp_in_use(&s, 125, 9999999));
+    CHECK(cyphal_pnp_in_use(&s, 125, 10000000));            /* 3 s exactly */
+    CHECK(!cyphal_pnp_in_use(&s, 125, 10000001));           /* 3 s and a microsecond */
+    CHECK(!cyphal_pnp_in_use(&s, 123, 10000000));           /* another node-ID heard */
+    CHECK(cyphal_pnp_in_use(&s, 124, 12999999));
+    /* Heard soon after the board started: the window reaches back before esp_timer's zero */
+    cyphal_seen_clear(&s);
+    cyphal_seen_frame(&s, 2, 100);
+    CHECK(cyphal_pnp_in_use(&s, 2, 200000));
+    CHECK(!cyphal_pnp_in_use(&s, 3, 200000));
+}
+
+/* The node fed a frame as cyphal.c's on_frame() does: the listen and the table both */
+static void heard(cyphal_listen_t *l, cyphal_seen_t *s, int source, int64_t stamp)
+{
+    cyphal_listen_frame(l, stamp);
+    cyphal_seen_frame(s, source, stamp);
+}
+
+/* An allocated node-ID is held until the node has listened a heartbeat period since its start (started at
+ * 10 s here), then taken up unless another node was heard with it */
+static void test_pnp_verdict(void)
+{
+    const int64_t T0 = 10000000, END = T0 + CYPHAL_PNP_LISTEN_US;
+    CHECK(CYPHAL_PNP_LISTEN_US == 1000000);
+    cyphal_listen_t l;
+    cyphal_seen_t s;
+
+    /* The allocation 0.3 s after the start, nobody else on the bus: held until the listen's end, by the
+     * frames' stamps or an empty read after it, never by the allocation's own */
+    cyphal_listen_start(&l, T0, CYPHAL_PNP_LISTEN_US);
+    cyphal_seen_clear(&s);
+    heard(&l, &s, 43, T0 + 300000);                         /* the allocator's reply */
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_HOLD);
+    heard(&l, &s, 43, END - 1);                             /* the allocator's heartbeat */
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_HOLD);
+    cyphal_listen_empty(&l, END + CYPHAL_RX_SLACK_US - 1);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_HOLD);
+    cyphal_listen_empty(&l, END + CYPHAL_RX_SLACK_US);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_TAKE);
+    /* or a frame stamped at the end */
+    cyphal_listen_start(&l, T0, CYPHAL_PNP_LISTEN_US);
+    heard(&l, &s, 43, END);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_TAKE);
+
+    /* Another node with it, heard only after the allocation, during the hold: in use. Without the hold the
+     * board would have gone online at 0.3 s and sent as it until that node's frame stopped it */
+    cyphal_listen_start(&l, T0, CYPHAL_PNP_LISTEN_US);
+    cyphal_seen_clear(&s);
+    heard(&l, &s, 125, T0 + 900000);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_HOLD);
+    heard(&l, &s, 43, END + 5);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_TAKEN);
+    CHECK(cyphal_pnp_verdict(&s, &l, 124, T0 + 300000) == CYPHAL_PNP_TAKE);    /* another node-ID: free */
+    /* heard just after the end, in a frame checked before the verdict: in use too */
+    cyphal_listen_start(&l, T0, CYPHAL_PNP_LISTEN_US);
+    cyphal_seen_clear(&s);
+    heard(&l, &s, 125, END + 200);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 300000) == CYPHAL_PNP_TAKEN);
+
+    /* An allocation after the listen is over (no allocator until then) is decided at once, against the 3 s
+     * before it: a node heard 2.5 s earlier is still there, one heard 3.5 s earlier has gone */
+    cyphal_listen_start(&l, T0, CYPHAL_PNP_LISTEN_US);
+    cyphal_seen_clear(&s);
+    heard(&l, &s, 125, T0 + 500000);
+    heard(&l, &s, 43, T0 + 3000000);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 3000000) == CYPHAL_PNP_TAKEN);
+    heard(&l, &s, 43, T0 + 4000000);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 3500000) == CYPHAL_PNP_TAKEN);   /* 3 s exactly */
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 3500001) == CYPHAL_PNP_TAKE);
+    CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 4000000) == CYPHAL_PNP_TAKE);
+}
+
 int main(void)
 {
     test_crc64we();
@@ -259,6 +488,12 @@ int main(void)
     test_software_version();
     test_settings_equal();
     test_listen();
+    test_pnp_request();
+    test_pnp_accept();
+    test_pnp_interval();
+    test_seen();
+    test_pnp_in_use();
+    test_pnp_verdict();
     printf("cyphal_util: %d checks, %d failed\n", s_checks, s_failed);
     return s_failed ? 1 : 0;
 }

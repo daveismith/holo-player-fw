@@ -1,7 +1,8 @@
 /*
  * cyphal -- a Cyphal/CAN node on the board's CAN controller (canbus.h), on libcanard: it takes a
- * node-ID, sends uavcan.node.Heartbeat once a second and answers uavcan.node.GetInfo, and stops
- * if another node turns out to have its node-ID (manual/use/cyphal.md).
+ * node-ID (fixed, or by plug-and-play), sends uavcan.node.Heartbeat once a second and answers
+ * uavcan.node.GetInfo, and stops if another node turns out to have its node-ID
+ * (manual/use/cyphal.md).
  *
  * The application decides when it runs and on which pins: on this board the host link hands it
  * pins A and B in `link mode can`. Nothing here knows about the board beyond canbus, so that the
@@ -13,8 +14,8 @@
  * namespace "cyphal", and apply from the node's next start. None is a credential or a counter,
  * so all three are in a configuration backup.
  *
- * Plug-and-play allocation (uavcan.pnp.NodeIDAllocationData) is not built yet: with no fixed
- * node-ID the node starts the controller, acknowledges the bus and sends nothing.
+ * Plug-and-play is uavcan.pnp.NodeIDAllocationData.1.0, as an allocatee that assumes nothing about
+ * who answers: the node-ID it is given is not saved, and is asked for again at every start.
  */
 #pragma once
 
@@ -34,7 +35,8 @@ extern "C" {
 typedef enum {
     CYPHAL_OFF,         /* not started: nobody gave it pins */
     CYPHAL_FAILED,      /* the controller would not start, or (a restart) stop: cyphal_status_t.error says why */
-    CYPHAL_NO_PNP,      /* no fixed node-ID, and plug-and-play is not built yet: sends nothing */
+    CYPHAL_WAITING,     /* plug-and-play: anonymous, asking for a node-ID until an allocator answers; then
+                         * holding it until CYPHAL_PNP_LISTEN_US after the start, still listening */
     CYPHAL_LISTENING,   /* a fixed node-ID, listening for another node with it before going online */
     CYPHAL_ONLINE,      /* heartbeat and GetInfo on node_id */
     CYPHAL_IN_USE,      /* stopped: another node has its node-ID. Until the next start */
@@ -46,16 +48,17 @@ typedef struct {
     cyphal_state_t state;
     esp_err_t error;                    /* CYPHAL_FAILED: what canbus_start(), or canbus_stop(), said */
     bool stop_failed;                   /* CYPHAL_FAILED: a restart's stop failed, and the controller still runs */
-    uint8_t node_id;                    /* the one it runs (or listens, or stopped) on */
-    bool allocated;                     /* node_id came from plug-and-play (never, yet) */
+    uint8_t node_id;                    /* the one it runs (or listens, or stopped) on; CYPHAL_NODE_ID_AUTO while waiting */
+    bool allocated;                     /* node_id came from plug-and-play */
     cyphal_settings_t running;          /* as the node started; zeros before the first start */
     cyphal_settings_t saved;            /* from the next start */
     int tx_gpio, rx_gpio;               /* -1 before the first start */
     uint8_t unique_id[CYPHAL_UNIQUE_ID_SIZE];
+    uint64_t pseudo_id;                 /* what plug-and-play asks with (cyphal_pseudo_id()) */
     uint32_t uptime_s;                  /* since the node started */
     /* Since the node started: */
-    uint32_t transfers_sent;            /* queued for the bus: heartbeats and GetInfo responses */
-    uint32_t transfers_received;        /* reassembled, CRC checked: GetInfo requests */
+    uint32_t transfers_sent;            /* queued for the bus: heartbeats, GetInfo responses, allocation requests */
+    uint32_t transfers_received;        /* reassembled, CRC checked: GetInfo requests, allocation messages */
     uint32_t transfers_dropped;         /* given up on: not on the bus by their deadline, or no room to queue */
     uint32_t frames_queued;             /* handed to the controller */
     /* libcanard's heap (CONFIG_CYPHAL_HEAP_SIZE), and the node task's stack */
@@ -67,7 +70,7 @@ typedef struct {
 esp_err_t cyphal_init(void);
 
 /* Start the node on these pins (TX, RX) with the saved settings: the controller at the saved
- * bitrate, then a fixed node-ID's listen, or (plug-and-play) nothing yet. The pins are the
+ * bitrate, then a fixed node-ID's listen, or plug-and-play's requests. The pins are the
  * caller's, checked as free. ESP_ERR_INVALID_STATE if it runs already; another error if the
  * controller would not start, which the status then shows. */
 esp_err_t cyphal_start(int tx_gpio, int rx_gpio);

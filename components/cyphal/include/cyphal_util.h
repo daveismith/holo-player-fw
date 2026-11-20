@@ -29,7 +29,8 @@ typedef struct {
 /* The same settings: the name compared as a string, whatever follows its terminator */
 bool cyphal_settings_equal(const cyphal_settings_t *a, const cyphal_settings_t *b);
 
-/* A fixed node-ID's listen before going online (D9), in esp_timer microseconds. It is over once
+/* The listen from the node's start before it sends as a node-ID (D9): a fixed node-ID's before going
+ * online, plug-and-play's before taking up an allocated one. In esp_timer microseconds. It is over once
  * every frame stamped before its end has been checked, not merely once the time has passed: a
  * node task held off past the end (a flash write stalls both cores) may still have frames from
  * before it in the receive queue, and one of them may carry its own node-ID. The queue is in
@@ -69,6 +70,71 @@ bool cyphal_name_valid(const char *name, char *why, size_t why_len);
  * message (its low bits are a pseudo-ID), or not a Cyphal frame at all (11-bit, remote, empty,
  * or a reserved bit set). */
 int cyphal_frame_source(uint32_t can_id, bool ext, bool rtr, uint8_t len);
+
+/* ------------------------------------------------------------------ plug-and-play */
+
+/* uavcan.pnp.NodeIDAllocationData.1.0 (subject 8166), the allocatee's side of its rules A to D: requests
+ * are anonymous single frames carrying the pseudo-ID, at random intervals (Trequest); the allocator
+ * answers with a regular message carrying the pseudo-ID and the node-ID. */
+#define CYPHAL_PNP_REQUEST_MIN_US     150000    /* Trequest: 150 ms, ... */
+#define CYPHAL_PNP_REQUEST_JITTER_US  850000    /* ... plus up to 850 ms at random: within the 0 to 1 s the spec gives */
+
+/* Trequest from a random number (esp_random() on the board): 150 ms to just under 1 s */
+int64_t cyphal_pnp_interval_us(uint32_t random);
+
+/* The request for a pseudo-ID (cyphal_pseudo_id()), serialized into `out`, which holds `size` bytes: at
+ * least uavcan_pnp_NodeIDAllocationData_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_. Its size (7: the pseudo-ID
+ * and an empty allocated_node_id, one anonymous frame), or 0 if `out` is smaller than that. */
+size_t cyphal_pnp_request(uint8_t *out, size_t size, uint64_t pseudo_id);
+
+typedef enum {
+    CYPHAL_PNP_INVALID,     /* not a NodeIDAllocationData.1.0 that can be read (an array longer than 1): ignored */
+    CYPHAL_PNP_OTHER,       /* an allocation message, but no node-ID for this node: rule C, the request timer restarts */
+    CYPHAL_PNP_ALLOCATED,   /* this node's node-ID: rule D */
+} cyphal_pnp_result_t;
+
+/* What a NodeIDAllocationData.1.0 transfer (its payload; `anonymous` if its source was) means to the node
+ * whose pseudo-ID is `pseudo_id`. It is this node's only from a regular source, for this pseudo-ID, with a
+ * node-ID populated, its bytes all there, and one a CAN node can have (0-127): then *node_id is it. Another
+ * node's request, another node's allocation, a reply with no node-ID, one cut short inside it (which the
+ * deserializer would read as zeros: node-ID 0) or one out of range are CYPHAL_PNP_OTHER. */
+cyphal_pnp_result_t cyphal_pnp_accept(const void *payload, size_t size, bool anonymous, uint64_t pseudo_id,
+                                      uint8_t *node_id);
+
+/* When each node-ID was last heard on the bus (a frame with it as the source), so that an allocated
+ * node-ID another node is visibly using is not taken up. In esp_timer microseconds, as the frames' stamps. */
+#define CYPHAL_NODE_IDS 128
+typedef struct {
+    int64_t last_us[CYPHAL_NODE_IDS];   /* INT64_MIN: never */
+} cyphal_seen_t;
+
+void cyphal_seen_clear(cyphal_seen_t *s);
+/* A frame from `source` (cyphal_frame_source(): -1, for none, is ignored) stamped stamp_us */
+void cyphal_seen_frame(cyphal_seen_t *s, int source, int64_t stamp_us);
+/* Whether node_id has been heard at or after since_us */
+bool cyphal_seen_since(const cyphal_seen_t *s, uint8_t node_id, int64_t since_us);
+/* Whether node_id, allocated to this node, is another node's as of at_us: heard within a heartbeat's offline
+ * timeout (3 s) before then, or at any time since. */
+bool cyphal_pnp_in_use(const cyphal_seen_t *s, uint8_t node_id, int64_t at_us);
+
+/* How long a node with plug-and-play listens from its start before it takes up an allocated node-ID: a
+ * heartbeat's longest period (uavcan.node.Heartbeat.1.0's MAX_PUBLICATION_PERIOD, 1 s), so that a node
+ * already on the bus with that node-ID has been heard at least once. An allocator answering the first
+ * request does so 0.15 to 1 s after the start (Trequest), which alone would be too short. */
+#define CYPHAL_PNP_LISTEN_US  1000000
+
+typedef enum {
+    CYPHAL_PNP_HOLD,    /* listened for less than CYPHAL_PNP_LISTEN_US since the start: keep the node-ID, keep listening */
+    CYPHAL_PNP_TAKE,    /* nobody heard with it: go online on it */
+    CYPHAL_PNP_TAKEN,   /* another node's (cyphal_pnp_in_use()): stop (IN_USE) without a frame sent as it */
+} cyphal_pnp_verdict_t;
+
+/* What to do with node_id, allocated to this node by a message stamped alloc_us. `l` is the listen begun at
+ * the node's start for CYPHAL_PNP_LISTEN_US (cyphal_listen_start()) and fed every frame checked since, and
+ * `s` the sources of those frames. Held until the listen is over; then in use if heard within the offline
+ * timeout before the later of the allocation and the listen's end, or after. */
+cyphal_pnp_verdict_t cyphal_pnp_verdict(const cyphal_seen_t *s, const cyphal_listen_t *l, uint8_t node_id,
+                                        int64_t alloc_us);
 
 /* uavcan.node.GetInfo's software version and VCS revision from the firmware's version, which is
  * `git describe --always --tags --dirty`: a release (vMAJOR.MINOR.PATCH, or a -rcN pre-release)
