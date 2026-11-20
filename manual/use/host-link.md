@@ -19,7 +19,9 @@ touch the USB console or Wi-Fi: all three work at once.
 | [RS485](../connect/host-rs485.md) | A, B, GND, via a transceiver | up to 32, or more with low-load transceivers | JSON lines and native frames | Long runs through the body and dome, and several boards on one pair of wires |
 | [I2C](../connect/host-i2c.md) | SDA, SCL, IRQ, GND | many, one address each | native frames | A host that already has an I2C bus in the dome |
 
-CAN (with Cyphal) and plain GPIO triggers are planned for later.
+[CAN](../connect/host-can.md) is on its way, as a [Cyphal node](cyphal.md) that so far only
+identifies itself: it uses the same pins, through a CAN transceiver. Plain GPIO triggers are
+planned for later.
 
 **JSON lines** are the [HTTP API](../reference/http-api.md), one request a line:
 

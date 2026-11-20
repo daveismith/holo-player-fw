@@ -157,6 +157,29 @@ See [the host link](../use/host-link.md).
 | `link log [on\|off]` | Print everything the link sends and receives |
 | `link reset` | Back to the firmware's defaults |
 
+## CAN and Cyphal
+
+!!! note "Not in the firmware yet"
+    These commands are described ahead of the firmware, for review.
+
+See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-can.md).
+
+| Command | Does |
+|---|---|
+| `link mode can` | The host link's pins go to the Cyphal node, from the next restart |
+| `cyphal` | The node's state, its node-ID, name and unique ID, the bus's state, and the counters |
+| `cyphal id <0-127>\|auto` | A fixed node-ID, or one from the bus by plug-and-play. From the node's next start |
+| `cyphal name <name>\|--reset` | The name `uavcan.node.GetInfo` reports: `r2.dome.holo.front` until changed. From the node's next start |
+| `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
+| `cyphal restart` | Stop the node and start it again, with the settings as they now are: also how a node that stopped over a node-ID in use is started again |
+| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
+| `can` | Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received |
+| `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller. `--listen` receives without sending or acknowledging; `--selftest` receives its own frames and needs no second node |
+| `can stop` | Stop, and release the pins |
+| `can send <id>#<hex>` | Send one frame: an 11-bit ID as up to three hex digits, a 29-bit one as eight, and up to 8 data bytes |
+| `can dump [on\|off]` | Print every frame received |
+| `can recover` | Bring the controller back from bus-off |
+
 ## Networking
 
 Wi-Fi is what the [web app](../use/web.md) and [updates over Wi-Fi](../use/ota.md#updating-over-wi-fi)
