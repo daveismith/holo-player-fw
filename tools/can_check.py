@@ -44,11 +44,16 @@ except ImportError:
     sys.exit("can_check.py needs python-can and gs_usb: pip install python-can gs_usb")
 
 
-def open_bus(bitrate: int) -> can.BusABC:
+def patch_gs_usb_for_macos() -> None:
+    """gs_usb asks libusb to detach a kernel driver, which macOS refuses without root, though none
+    is attached: tell it there is none (the library itself is not patched). Also the hardware
+    tests' (tests/hardware/conftest.py)."""
     if platform.system() == "Darwin":
-        # gs_usb asks libusb to detach a kernel driver, which macOS refuses without root, though
-        # none is attached: tell it there is none (the library itself is not patched).
         usb.core.Device.is_kernel_driver_active = lambda self, interface: False
+
+
+def open_bus(bitrate: int) -> can.BusABC:
+    patch_gs_usb_for_macos()
     return can.Bus(interface="gs_usb", channel=0, bitrate=bitrate)
 
 

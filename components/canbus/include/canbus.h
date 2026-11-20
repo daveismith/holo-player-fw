@@ -2,7 +2,9 @@
  * canbus -- the ESP32-S3's one TWAI (CAN) controller, classic frames only: started on two pins
  * at a bitrate, frames in through a queue the ISR fills, frames out through a pool the ISR
  * empties, and the controller's error state. One owner at a time: the `can` bench command
- * (cmd_can.c) or, later, the Cyphal node. The pins are the caller's to choose and to guard.
+ * (cmd_can.c) or the Cyphal node (components/cyphal). canbus_start() gives the owner a handle,
+ * and only a call with it stops, sends, reads or recovers; the others can look (canbus_owner(),
+ * canbus_status()). The pins are the caller's to choose and to guard.
  *
  * Every frame the bus carries is accepted (the controller's one filter is left open), so a
  * protocol on top filters in software.
@@ -10,6 +12,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -31,8 +34,20 @@ typedef enum {
 typedef struct {
     int tx_gpio;
     int rx_gpio;
-    uint32_t bitrate;   /* bits/s; 0 for CANBUS_DEFAULT_BITRATE. Sample point 87.5 % asked for */
+    /* bits/s; 0 for CANBUS_DEFAULT_BITRATE. 87.5 % is asked for as the sample point; IDF 6.1's
+     * timing calculation makes it 85 % on the S3 at 125k, 250k, 500k and 1M: 20 quanta (sync 1,
+     * TSEG1 16, TSEG2 3; SJW 1) from the 80 MHz APB clock, since TSEG1 is 16 at most and the
+     * prescaler even, which rules out 87.5 % at 1 Mbit/s */
+    uint32_t bitrate;
     canbus_mode_t mode;
+    /* Who holds the controller, as a phrase for another user's refusal ("the Cyphal node"):
+     * wording only, kept as a pointer, so a static string. The handle is what canbus checks. */
+    const char *owner;
+    /* Frames canbus_send() lets wait inside canbus at once, 1 to CONFIG_CANBUS_TX_QUEUE_LEN; 0 for
+     * all of them. They leave in the order given and can't be taken back, so a protocol that
+     * orders its frames by priority and gives them deadlines (Cyphal) keeps this at 1 and its
+     * own queue in front: then one frame at most goes out late or out of order. */
+    int tx_slots;
 } canbus_config_t;
 
 /* In this order so that it packs into 24 bytes, the receive queue's item (checked in canbus.c) */
@@ -44,6 +59,10 @@ typedef struct {
     bool rtr;
     uint8_t data[8];
 } canbus_frame_t;
+
+/* The run canbus_start() began, for the calls only its owner may make; 0 is none. A handle from
+ * an earlier run is refused, as another owner's is. */
+typedef uint32_t canbus_handle_t;
 
 typedef enum {
     CANBUS_STOPPED,
@@ -73,38 +92,56 @@ typedef struct {
  * is harmless. canbus_start() calls it too, for a caller with nothing to register. */
 esp_err_t canbus_init(void);
 
-/* Take the controller and the two pins, and start. The pins are reset first, whatever was
- * driving them as GPIOs: the caller has checked that nothing else owns them. ESP_ERR_INVALID_STATE
- * if already started, ESP_ERR_NOT_FOUND if another driver holds the controller,
- * ESP_ERR_INVALID_ARG for pins or a bitrate the controller can't do. Frames queued from an
- * earlier run are discarded. */
-esp_err_t canbus_start(const canbus_config_t *config);
+/* Take the controller and the two pins, and start; *handle is the run's, for the calls below
+ * (0 on failure). The pins are reset first, whatever was driving them as GPIOs: the caller has
+ * checked that nothing else owns them. ESP_ERR_INVALID_STATE if already started,
+ * ESP_ERR_NOT_FOUND if another driver holds the controller, ESP_ERR_INVALID_ARG for pins or a
+ * bitrate the controller can't do. Frames queued from an earlier run are discarded. */
+esp_err_t canbus_start(const canbus_config_t *config, canbus_handle_t *handle);
+
+/* The calls below are the owner's: with any handle but the running one's they do nothing and
+ * return ESP_ERR_INVALID_STATE (canbus_receive(), false). */
 
 /* Stop, and leave the pins floating inputs. Frames not yet sent are dropped (counted in
- * tx_failed). Safe when stopped. If the driver will not let the node go, it is left running and
- * the error returned. */
-esp_err_t canbus_stop(void);
+ * tx_failed). If the driver will not let the node go, it is left running (the handle still
+ * good) and the error returned. */
+esp_err_t canbus_stop(canbus_handle_t handle);
 
-/* Queue one frame for sending, waiting up to `wait` for room (CONFIG_CANBUS_TX_QUEUE_LEN frames
- * are in flight at most). ESP_ERR_TIMEOUT when there was none, ESP_ERR_NOT_SUPPORTED in
- * listen-only, ESP_ERR_INVALID_STATE when stopped or bus-off. Frames go out in the order given. */
-esp_err_t canbus_send(const canbus_frame_t *frame, TickType_t wait);
+/* Queue one frame for sending, waiting up to `wait` for room (config.tx_slots frames are in
+ * flight at most; the wait ends as soon as one is done). ESP_ERR_TIMEOUT when there was none,
+ * ESP_ERR_NOT_SUPPORTED in listen-only, ESP_ERR_INVALID_STATE when stopped or bus-off. Frames go
+ * out in the order given. */
+esp_err_t canbus_send(canbus_handle_t handle, const canbus_frame_t *frame, TickType_t wait);
 
-/* The next received frame, waiting up to `wait`. False on timeout. One consumer at a time, and a
- * reader starts after its own successful canbus_start() (as cmd_can.c does): the queue
- * (CONFIG_CANBUS_RX_QUEUE_LEN frames) is made at the first start, and before it this returns
- * false at once. */
-bool canbus_receive(canbus_frame_t *frame, TickType_t wait);
+/* Wait up to `wait` for room to send one frame, without taking it: ESP_OK when canbus_send()
+ * with no wait will find room (for a single sending task), ESP_ERR_TIMEOUT when there was none.
+ * For a sender that must look at something between the wait and the frame, as the Cyphal node
+ * reads the frames that came meanwhile. */
+esp_err_t canbus_wait_room(canbus_handle_t handle, TickType_t wait);
+
+/* The next received frame, waiting up to `wait`. False on timeout. One consumer at a time: the
+ * owner, from after its canbus_start() until before its canbus_stop() (as cmd_can.c does). */
+bool canbus_receive(canbus_handle_t handle, canbus_frame_t *frame, TickType_t wait);
 
 /* Start the controller's way back from bus-off: it rejoins after 128 x 11 recessive bits.
  * ESP_ERR_INVALID_STATE if it isn't bus-off. The frame bus-off aborted is lost (counted in
  * tx_failed); the frames waiting behind it go out once the controller is back. */
-esp_err_t canbus_recover(void);
+esp_err_t canbus_recover(canbus_handle_t handle);
 
 /* State, error counters and frame counts. Callable from any task, started or not. */
 void canbus_status(canbus_status_t *out);
 
 bool canbus_running(void);
+
+/* config.owner of the run in progress, or NULL when stopped: for wording another user's refusal */
+const char *canbus_owner(void);
+
+/* A bitrate in words: "1 Mbit/s", "500 kbit/s", "33333 bit/s". Returns buf. */
+const char *canbus_format_bitrate(char *buf, size_t len, uint32_t bitrate);
+
+/* A bitrate as typed: digits, with k or m (either case) for thousands or millions: 1000000, 1000k
+ * and 1m are the same. False unless it is 10 kbit/s to 1 Mbit/s. */
+bool canbus_parse_bitrate(const char *s, uint32_t *bitrate);
 
 const char *canbus_state_name(canbus_state_t state);
 

@@ -7221,9 +7221,10 @@
               "off",
               "uart",
               "rs485",
-              "i2c"
+              "i2c",
+              "can"
             ],
-            "description": "The transport. `i2c` is described ahead of the firmware, which refuses it for now"
+            "description": "The transport. `can` hands pins A and B to the Cyphal node, which runs no host protocol on them (the manual's *The board on Cyphal*). `i2c` is described ahead of the firmware, which refuses it for now"
           },
           "protocol": {
             "type": "string",
@@ -7324,9 +7325,10 @@
               "off",
               "uart",
               "rs485",
-              "i2c"
+              "i2c",
+              "can"
             ],
-            "description": "The transport. `i2c` is described ahead of the firmware, which refuses it for now"
+            "description": "The transport. `can` hands pins A and B to the Cyphal node, which runs no host protocol on them (the manual's *The board on Cyphal*). `i2c` is described ahead of the firmware, which refuses it for now"
           },
           "protocol": {
             "type": "string",
@@ -7536,7 +7538,8 @@
                   "off",
                   "uart",
                   "rs485",
-                  "i2c"
+                  "i2c",
+                  "can"
                 ]
               },
               "protocol": {

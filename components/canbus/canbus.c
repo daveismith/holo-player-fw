@@ -11,9 +11,11 @@
  *
  * Sending: the driver queues pointers, not copies, so a frame must stay put until the ISR says it
  * is done. The pool holds CONFIG_CANBUS_TX_QUEUE_LEN of them; a free-list queue hands them out
- * and on_tx_done hands them back. The driver's own queue is as deep as the pool, so it never
- * refuses a frame for room, and every frame has the same priority, so they leave in the order
- * given. Every frame given to the driver ends counted once, as sent or as failed.
+ * and on_tx_done hands them back. Each start puts config.tx_slots of them in the free list (all,
+ * by default), which is how a user limits the frames waiting inside canbus. The driver's own
+ * queue is as deep as the pool, so it never refuses a frame for room, and every frame has the
+ * same priority, so they leave in the order given. Every frame given to the driver ends counted
+ * once, as sent or as failed.
  *
  * Bus-off (IDF 6.1's esp_twai_onchip.c and twai_hal_v1.c, read 2026-11-19). The S3 has one TX
  * buffer. Bus-off is reached only by transmit errors, so a frame is in that buffer when it comes;
@@ -28,6 +30,9 @@
  * driver calls before it refills the buffer. A slot the driver still held when the node was
  * deleted is reclaimed by canbus_stop(), and counted failed too.
  */
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "canbus.h"
 #include "esp_attr.h"
@@ -53,10 +58,12 @@ typedef struct {
 static SemaphoreHandle_t s_lock;    /* start, stop, send, recover and status against each other */
 static twai_node_handle_t s_node;
 static canbus_config_t s_config;
+static canbus_handle_t s_handle;    /* the running one's, or the last run's once stopped; never 0 after a start */
 static QueueHandle_t s_rxq;         /* canbus_frame_t, filled by on_rx_done; never deleted */
 static QueueHandle_t s_free;        /* slot_t *, free send slots; never deleted */
 static slot_t *s_slots;             /* CONFIG_CANBUS_TX_QUEUE_LEN of them; never freed */
 static uint32_t s_seq;              /* the next slot_t.seq; under s_lock */
+static int s_tx_slots;              /* slots this run hands out: config.tx_slots, or all */
 static volatile bool s_owed;        /* bus-off aborted the frame in the TX buffer, and no TX-done yet */
 
 _Static_assert(sizeof(canbus_frame_t) == 24, "canbus_frame_t is the receive queue's item: keep it 24 bytes");
@@ -181,17 +188,33 @@ static esp_err_t make_queues(void)
         s_slots = heap_caps_calloc(CONFIG_CANBUS_TX_QUEUE_LEN, sizeof(slot_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     }
     if (s_free == NULL && s_slots != NULL) {
-        s_free = xQueueCreate(CONFIG_CANBUS_TX_QUEUE_LEN, sizeof(slot_t *));
-        for (int i = 0; s_free != NULL && i < CONFIG_CANBUS_TX_QUEUE_LEN; i++) {
-            slot_t *slot = &s_slots[i];
-            xQueueSend(s_free, &slot, 0);
-        }
+        s_free = xQueueCreate(CONFIG_CANBUS_TX_QUEUE_LEN, sizeof(slot_t *));    /* filled by each start */
     }
     return s_rxq && s_free ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
-esp_err_t canbus_start(const canbus_config_t *config)
+/* The free list with this run's slots. None is in flight: the last stop took them all back, and
+ * nobody sends while stopped. */
+static void fill_free(int slots)
 {
+    s_tx_slots = slots > 0 && slots < CONFIG_CANBUS_TX_QUEUE_LEN ? slots : CONFIG_CANBUS_TX_QUEUE_LEN;
+    xQueueReset(s_free);
+    for (int i = 0; i < s_tx_slots; i++) {
+        slot_t *slot = &s_slots[i];
+        xQueueSend(s_free, &slot, 0);
+    }
+}
+
+/* The handle is the run in progress's: read without the lock by send and receive, whose callers
+ * are the owner's own tasks, which end before the owner stops */
+static bool owns(canbus_handle_t handle)
+{
+    return handle != 0 && s_node != NULL && handle == s_handle;
+}
+
+esp_err_t canbus_start(const canbus_config_t *config, canbus_handle_t *handle)
+{
+    *handle = 0;
     ESP_RETURN_ON_ERROR(canbus_init(), TAG, "no memory");
     xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_err_t err = s_node ? ESP_ERR_INVALID_STATE : make_queues();
@@ -238,13 +261,16 @@ esp_err_t canbus_start(const canbus_config_t *config)
     }
     if (err == ESP_OK) {
         xQueueReset(s_rxq);
+        fill_free(c.tx_slots);
         s_tx_frames = s_tx_failed = s_rx_frames = s_rx_dropped = s_bus_errors = s_bus_off = s_rx_peak = 0;
         s_owed = false;
         err = twai_node_enable(node);
     }
     if (err == ESP_OK) {
-        s_node = node;
+        s_handle = s_handle + 1 != 0 ? s_handle + 1 : 1;
         s_config = c;
+        s_node = node;
+        *handle = s_handle;
     } else if (node != NULL) {
         twai_node_delete(node);
     }
@@ -278,14 +304,14 @@ static void float_pin(int pin)
     }
 }
 
-esp_err_t canbus_stop(void)
+esp_err_t canbus_stop(canbus_handle_t handle)
 {
     if (s_lock == NULL) {
-        return ESP_OK;
+        return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    esp_err_t err = ESP_OK;
-    if (s_node != NULL) {
+    esp_err_t err = ESP_ERR_INVALID_STATE;
+    if (owns(handle)) {
         err = delete_node();
         if (err == ESP_OK) {
             s_node = NULL;
@@ -308,12 +334,12 @@ esp_err_t canbus_stop(void)
     return err;
 }
 
-esp_err_t canbus_send(const canbus_frame_t *frame, TickType_t wait)
+esp_err_t canbus_send(canbus_handle_t handle, const canbus_frame_t *frame, TickType_t wait)
 {
     if (frame->len > 8 || frame->id > (frame->ext ? CANBUS_EXT_ID_MAX : CANBUS_STD_ID_MAX)) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (s_node == NULL) {
+    if (!owns(handle)) {
         return ESP_ERR_INVALID_STATE;
     }
     if (s_config.mode == CANBUS_LISTEN) {
@@ -326,7 +352,7 @@ esp_err_t canbus_send(const canbus_frame_t *frame, TickType_t wait)
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_err_t err = ESP_ERR_INVALID_STATE;
-    if (s_node != NULL) {
+    if (owns(handle)) {
         memcpy(slot->data, frame->data, frame->len);
         slot->frame = (twai_frame_t){
             .header = {
@@ -350,21 +376,28 @@ esp_err_t canbus_send(const canbus_frame_t *frame, TickType_t wait)
     return err;
 }
 
-bool canbus_receive(canbus_frame_t *frame, TickType_t wait)
+esp_err_t canbus_wait_room(canbus_handle_t handle, TickType_t wait)
 {
-    if (s_rxq == NULL) {    /* never started */
-        return false;
+    if (!owns(handle)) {
+        return ESP_ERR_INVALID_STATE;
     }
-    return xQueueReceive(s_rxq, frame, wait) == pdTRUE;
+    slot_t *slot;
+    return xQueuePeek(s_free, &slot, wait) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 
-esp_err_t canbus_recover(void)
+bool canbus_receive(canbus_handle_t handle, canbus_frame_t *frame, TickType_t wait)
+{
+    /* A running handle means the queue exists: it is made at the first start */
+    return owns(handle) && xQueueReceive(s_rxq, frame, wait) == pdTRUE;
+}
+
+esp_err_t canbus_recover(canbus_handle_t handle)
 {
     if (s_lock == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    const esp_err_t err = s_node ? twai_node_recover(s_node) : ESP_ERR_INVALID_STATE;
+    const esp_err_t err = owns(handle) ? twai_node_recover(s_node) : ESP_ERR_INVALID_STATE;
     xSemaphoreGive(s_lock);
     return err;
 }
@@ -372,6 +405,11 @@ esp_err_t canbus_recover(void)
 bool canbus_running(void)
 {
     return s_node != NULL;
+}
+
+const char *canbus_owner(void)
+{
+    return s_node != NULL ? s_config.owner : NULL;
 }
 
 void canbus_status(canbus_status_t *out)
@@ -403,8 +441,43 @@ void canbus_status(canbus_status_t *out)
     out->rx_queue_peak = s_rx_peak;
     out->bus_errors = s_bus_errors;
     out->bus_off = s_bus_off;
-    out->tx_pending = s_free ? CONFIG_CANBUS_TX_QUEUE_LEN - uxQueueMessagesWaiting(s_free) : 0;
+    out->tx_pending = s_free ? s_tx_slots - uxQueueMessagesWaiting(s_free) : 0;
     xSemaphoreGive(s_lock);
+}
+
+const char *canbus_format_bitrate(char *buf, size_t len, uint32_t bitrate)
+{
+    if (bitrate % 1000000 == 0) {
+        snprintf(buf, len, "%lu Mbit/s", (unsigned long)(bitrate / 1000000));
+    } else if (bitrate % 1000 == 0) {
+        snprintf(buf, len, "%lu kbit/s", (unsigned long)(bitrate / 1000));
+    } else {
+        snprintf(buf, len, "%lu bit/s", (unsigned long)bitrate);
+    }
+    return buf;
+}
+
+bool canbus_parse_bitrate(const char *s, uint32_t *bitrate)
+{
+    char *end = NULL;
+    const unsigned long v = strtoul(s, &end, 10);
+    if (end == s || !isdigit((unsigned char)*s)) {
+        return false;
+    }
+    unsigned long unit = 1;
+    if (*end == 'k' || *end == 'K') {
+        unit = 1000;
+        end++;
+    } else if (*end == 'm' || *end == 'M') {
+        unit = 1000000;
+        end++;
+    }
+    /* Checked before multiplying, so that a large number can't wrap into range */
+    if (*end != '\0' || v > 1000000 / unit || v * unit < 10000) {
+        return false;
+    }
+    *bitrate = (uint32_t)(v * unit);
+    return true;
 }
 
 const char *canbus_state_name(canbus_state_t state)

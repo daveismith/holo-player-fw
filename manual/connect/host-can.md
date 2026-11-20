@@ -1,8 +1,9 @@
 # Host link: CAN
 
-!!! note "Not in the firmware yet"
-    This page describes the CAN link ahead of the firmware, for review. UART and RS485 work now,
-    as does the `can` command for [testing the wiring](../use/cyphal.md#testing-the-wiring-raw-frames).
+!!! note "What's in the firmware so far"
+    The Cyphal node runs with a fixed node-ID, set with `cyphal id`. Plug-and-play is not in the
+    firmware yet. The `can` command for [testing the wiring](../use/cyphal.md#testing-the-wiring-raw-frames)
+    works too.
 
 On CAN, the board is a node on a [Cyphal](https://opencyphal.org) bus: Cyphal/CAN, on classic CAN
 frames. It suits a build that already has a CAN bus through the body and dome, with other Cyphal
@@ -75,21 +76,31 @@ GPIO15, the host link's third pin, isn't used on CAN.
 - **Even two nodes on a short cable need both resistors.** At 1 Mbit/s an unterminated bus
   doesn't work.
 - **Connect the grounds.**
-- **Every node uses the same bitrate.** The board's is 1 Mbit/s unless changed.
+- **Every node uses the same bitrate.** The board's is 1 Mbit/s unless changed. It samples each
+  bit at 85 % of its length, at every bitrate it offers (20 time quanta; SJW 1): the nearest the
+  ESP32-S3's CAN controller comes to the 87.5 % that CANopen and Cyphal suggest. Nodes a few
+  percent apart work together on a short bus.
 
 ## Turning it on
 
-On the board's USB console:
+On the board's USB console, a node-ID first (plug-and-play is still to come), then the link:
 
-```text
+```
+cyphal id 52
 link mode can
 restart
 ```
 
-After the restart, `cyphal` shows the node. With nothing else on the bus it waits for a node-ID:
+After the restart, `cyphal` shows the node. It listens for 2 seconds, then runs:
 
 ```text
-cyphal: waiting for a node-ID, r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
+cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
+```
+
+With no node-ID set, it says so and sends nothing:
+
+```text
+cyphal: no node-ID: plug-and-play is not in this firmware yet, r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
 ```
 
 ## A first test
@@ -110,17 +121,24 @@ bitrate = 1000000
 cyphal_service --foreground --config cyphal.toml
 ```
 
-Within a few seconds the board has a node-ID, and the service lists it:
+Start the board first, so that the service's heartbeats are acknowledged from the moment it opens
+the adapter. The service lists the board within a second or two:
 
 ```text
 cyphal> nodes
 Transport: can-usb
   Node ID  Uptime(s)  Health     Mode
-  43       12         0          0
-  52       3          0          0
+  43       4          0          0
+  52       74         0          0
 cyphal> get-info can-usb 52
 Node 52  (r2.dome.holo.front)
+Hardware : 1.0
+Software : 0.0
+Unique ID: 68:6f:6c:6f:70:6c:61:79:00:00:e4:b0:63:8c:2d:b0
 ```
+
+The service asks every node it sees for `GetInfo`, and records the node-ID and unique ID in its
+allocation database: `pnp-list` shows a row for the board even though its node-ID is fixed.
 
 If the board doesn't appear, `cyphal` on its console says what the bus looks like from its side:
 
@@ -134,6 +152,7 @@ If the board doesn't appear, `cyphal` on its console says what the bus looks lik
   and the TXD wire.
 - **`stopped: node-ID … is in use by another node`:** see
   [a node-ID that is already taken](../use/cyphal.md#a-node-id-that-is-already-taken).
+  `cyphal_service` is node 43 in the configuration above, so a board given 43 stops this way.
 
 The `can` command tests the wiring below Cyphal: [raw frames](../use/cyphal.md#testing-the-wiring-raw-frames)
 in and out, and a self-test that needs no second node.

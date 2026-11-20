@@ -99,3 +99,16 @@ CONFIG_LITTLEFS_MMAP_PARTITION=y
 # 3 KB of IRAM (the TWAI HAL, the driver, its frame queue and our callbacks), taken whether or not
 # CAN is used; kept because the Cyphal node must keep receiving during flash writes.
 CONFIG_TWAI_ISR_CACHE_SAFE=y
+
+# The Cyphal node (components/cyphal): who this board is on the bus. The unique ID's prefix decides
+# the node-ID an allocator gives every board, so it is pinned here rather than left to the
+# component's default (manual/use/cyphal.md, "The unique ID"); the name is `cyphal name`'s default.
+# The component's defaults are generic, since it is meant to move to other firmware.
+CONFIG_CYPHAL_UNIQUE_ID_PREFIX="holoplay"
+CONFIG_CYPHAL_DEFAULT_NAME="r2.dome.holo.front"
+CONFIG_CYPHAL_HARDWARE_VERSION_MAJOR=1
+CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
+# Its task as `can`'s reader: over the video player's 5, which runs on the other core (1); core 0 is
+# the console's.
+CONFIG_CYPHAL_TASK_PRIORITY=6
+CONFIG_CYPHAL_TASK_CORE=0

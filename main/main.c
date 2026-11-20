@@ -34,6 +34,7 @@
 #include "cmd_system.h"
 #include "cmd_wifi.h"
 #include "cmd_can.h"
+#include "cyphal.h"
 #include "console_settings.h"
 #include "video_player.h"
 #include "web_server.h"
@@ -300,6 +301,7 @@ void app_main(void)
     const char *prompt = setup_prompt(PROMPT_STR ">");
 
     /* Register commands */
+    esp_err_t err;
     esp_console_register_help_command();
     register_system_common();
     /* The pins the host link holds, when it holds any, go with the board's own; then the two
@@ -356,11 +358,21 @@ void app_main(void)
     web_server_register_commands();
     scene_register_commands();
     settings_register_commands();
+    /* `link mode can` starts the Cyphal node on the link's pins A and B; named before `link`'s help */
+    hostlink_set_can_user(cyphal_start, "the Cyphal node", "cyphal");
     hostlink_register_commands();
     register_can_commands(&(const can_cmd_config_t){ .pins = can_pins, .on_pins = can_pins_held });
+    /* The Cyphal node: its settings now, its start from the host link's `can` mode, which hands it
+     * pins A and B (and keeps them in the `gpio` command's table above). Its NVS namespace,
+     * "cyphal", holds no credential, identity or counter, so a backup keeps all of it. */
+    err = cyphal_init();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "cyphal: %s", esp_err_to_name(err));
+    }
+    cyphal_register_commands("the host link isn't set to CAN: `link mode can`, then restart");
 
     /* Radio up in station mode, and the last network joined rejoined. */
-    esp_err_t err = wifi_known_start();
+    err = wifi_known_start();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "wifi: %s", esp_err_to_name(err));
     }

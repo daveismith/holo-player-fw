@@ -23,6 +23,34 @@ so the release tag is the version baked into the image and reported by `version`
 - **`tools/can_check.py`**, the computer's side, through a gs_usb adapter (candleLight,
   CANable): `listen`, `send`, `flood`, and `echo`, which sends numbered frames to a board
   running `can echo on` and checks that every one comes back, in order.
+- **A Cyphal node on CAN**, with a fixed node-ID. `link mode can` (and a restart) hands the host
+  link's pins A and B to it. It sends `uavcan.node.Heartbeat` once a second and answers
+  `uavcan.node.GetInfo` with its name (`r2.dome.holo.front` unless changed), the firmware's
+  version and commit, and a unique ID made from the chip's factory MAC address, which an
+  allocator will recognise across reflashes and settings wipes. Before going online it listens
+  2 s for another node with its node-ID, and if it ever hears one it stops sending, with one
+  warning, until told to start again; the board keeps acknowledging the bus throughout.
+  Plug-and-play allocation is not in yet: `cyphal id auto` is saved, and the node then sends
+  nothing. Documented in the manual's *The board on Cyphal* and *Host link: CAN*.
+- **`cyphal`**: the node's state, node-ID, name, unique ID, the bus and its counters; `cyphal id`,
+  `cyphal name` and `cyphal bitrate` (saved, and in a configuration backup), `cyphal restart`
+  and `cyphal reset`.
+- **libcanard** v4.0.0 (`external/libcanard`) and the DSDL (`external/public_regulated_data_types`)
+  as submodules. A build needs libcanard (`git submodule update --init`); the DSDL is needed only
+  by `tools/gen_dsdl.py` and the hardware tests. The C headers for the data types are generated
+  by `tools/gen_dsdl.py` (Nunavut) and committed, so the build needs no Python packages.
+- **Tests**: `make unit-test` builds the node's unique ID, pseudo-ID, name rules and parsing with
+  the computer's compiler; `make can-test` runs the hardware tests in `tests/hardware/`
+  (pytest and pycyphal, through a gs_usb adapter; `make can-setup` makes their venv).
+
+### Changed
+
+- `can` refuses to start, stop, send, recover, dump or echo while the Cyphal node holds the
+  controller; `can` alone still reports the bus. Before, `can stop` stopped the controller
+  whoever had started it.
+- The CAN controller's sample point is 85 % of the bit, not the 87.5 % asked for: IDF 6.1's timing
+  on the ESP32-S3 gives 20 time quanta at every bitrate, and 87.5 % is out of the controller's
+  reach at 1 Mbit/s. The manual says so.
 
 ## [1.1.0] - 2026-10-22
 

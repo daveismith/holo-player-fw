@@ -59,6 +59,8 @@ dist/
 # Virtual environment folders
 venv/
 .venv/
+# The hardware tests' venv (`make can-setup`)
+.venv-can/
 env/
 
 # Language Servers

@@ -19,9 +19,9 @@ touch the USB console or Wi-Fi: all three work at once.
 | [RS485](../connect/host-rs485.md) | A, B, GND, via a transceiver | up to 32, or more with low-load transceivers | JSON lines and native frames | Long runs through the body and dome, and several boards on one pair of wires |
 | [I2C](../connect/host-i2c.md) | SDA, SCL, IRQ, GND | many, one address each | native frames | A host that already has an I2C bus in the dome |
 
-[CAN](../connect/host-can.md) is on its way, as a [Cyphal node](cyphal.md) that so far only
-identifies itself: it uses the same pins, through a CAN transceiver. Plain GPIO triggers are
-planned for later.
+[CAN](../connect/host-can.md) gives the same pins, through a CAN transceiver, to a
+[Cyphal node](cyphal.md) (`link mode can`), which so far only identifies itself. Plain GPIO
+triggers are planned for later.
 
 **JSON lines** are the [HTTP API](../reference/http-api.md), one request a line:
 
@@ -87,7 +87,7 @@ after the reply, which is sent at the old one.
 | Command | Does |
 |---|---|
 | `link` | The transport, its pins and settings, the counters, and the events asked for |
-| `link mode <off\|uart\|rs485> [-b <baud>] [-a <address>]` | The transport, from the next restart. `-b` is the baud rate, `-a` the board's address: 1–223 |
+| `link mode <off\|uart\|rs485\|can> [-b <baud>] [-a <address>]` | The transport, from the next restart. `-b` is the baud rate, `-a` the board's address: 1–223. `can` hands the pins to the [Cyphal node](cyphal.md) |
 | `link proto <auto\|json\|native>` | What the board accepts on UART and RS485. I2C is always native |
 | `link address <1-223>` | The board's address on UART and RS485 |
 | `link groups [<group>…\|--clear]` | The groups it belongs to, 1–31, up to 8 |

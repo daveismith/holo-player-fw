@@ -1,8 +1,10 @@
 # The board on Cyphal
 
-!!! note "Not in the firmware yet"
-    This page describes the Cyphal node ahead of the firmware, for review. Its commands can't be
-    run yet, except `can`: [testing the wiring](#testing-the-wiring-raw-frames) works now.
+!!! note "What's in the firmware so far"
+    The node runs with a **fixed node-ID**: its heartbeat, `GetInfo`, the check for a node-ID
+    that is already taken, and the `cyphal` command. **Plug-and-play is not in the firmware
+    yet**: until it is, give the node a node-ID with `cyphal id`. Without one it starts the
+    controller, acknowledges the bus, and sends nothing.
 
 With a [CAN transceiver](../connect/host-can.md) on the host link's pins, the board is a node on
 a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal node does:
@@ -20,18 +22,21 @@ alongside it. UART, RS485 and CAN share the same pins, so only one of them runs 
 
 ## Turning it on
 
-```text
+```
+cyphal id 52
 link mode can
 restart
 ```
 
-`link mode off` (or another transport) and a restart turn it off again.
+The node-ID first, while plug-and-play is still to come: 52 here, any free one from 0 to 125 on
+your bus. `link mode off` (or another transport) and a restart turn it off again.
 
 ## The node-ID
 
 A node-ID is the board's address on the bus, from 0 to 127.
 
-**By plug-and-play**, which is how it starts out. The board asks the bus for a node-ID, and an
+**By plug-and-play**, which is how it starts out (*not in the firmware yet*: for now, a node with
+no fixed node-ID sends nothing, and `cyphal` says so). The board asks the bus for a node-ID, and an
 allocator on the bus gives it one. `cyphal_service` has an allocator, as does Yakut. The board
 keeps asking, about once a second, for as long as it takes: with no allocator on the bus, the
 rest of the board carries on as usual and `cyphal` shows it waiting.
@@ -45,7 +50,7 @@ on subject 8166.
 
 **Fixed**, for a bus with no allocator:
 
-```text
+```
 cyphal id 52
 cyphal id auto
 ```
@@ -62,7 +67,11 @@ on the bus that carries the board's own node-ID can only have come from another 
 - **With a fixed node-ID**, the node listens for 2 seconds before it sends anything. If it hears
   its node-ID in that time, it doesn't start.
 - **Once running**, with a fixed or an allocated node-ID, hearing its own node-ID stops it at
-  once. It sends nothing more, not even a heartbeat.
+  once. It sends nothing more, not even a heartbeat. (A frame it had already handed to the CAN
+  controller still goes; the node hands over one at a time, so that is one frame at most.)
+
+Listening or stopped, the board stays on the bus as an ordinary CAN controller: it acknowledges
+the other nodes' frames, as every node on a bus must, and only its own sending stops.
 
 Either way, the board logs a warning on the console:
 
@@ -90,8 +99,8 @@ nominal and its mode operational.
 |---|---|
 | `name` | The node's name: `r2.dome.holo.front` unless changed |
 | `unique_id` | 16 bytes that identify this board, below |
-| `software_version` | The release's major and minor version; 0.0 for a build that isn't a release |
-| `software_vcs_revision_id` | The commit the firmware was built from, when the build knows it |
+| `software_version` | The release's major and minor version (a pre-release such as `v1.2.0-rc1` counts); 0.0 for a build that isn't a release |
+| `software_vcs_revision_id` | The commit a build between releases was made from: the short hash in its version (`v1.1.0-2-gd9593bd` gives `0xd9593bd`). 0 in a release, whose version says which it is |
 | `hardware_version` | 1.0 |
 | `protocol_version` | 1.0 |
 
@@ -100,7 +109,7 @@ nominal and its mode operational.
 The name says what the node is. The default, `r2.dome.holo.front`, is for the front
 holoprojector of an R2 dome. A dome's other holos run the same firmware with another name:
 
-```text
+```
 cyphal name r2.dome.holo.top
 cyphal name --reset
 ```
@@ -110,7 +119,14 @@ apart by the end, with no table of node-IDs. Swapping the dots for slashes gives
 works in ROS: `/r2/dome/holo/front`.
 
 A name is 1 to 50 characters: lower-case letters, digits and `_`, in parts joined by `.`. A part
-can't be empty or start with a digit. The new name is reported when the node next starts.
+can't be empty or start with a digit. Anything else is refused with the reason, and the name stays
+as it was:
+
+```text
+cyphal: not a name: a part can't start with a digit: `1holo`
+```
+
+The new name is reported when the node next starts.
 
 ### The unique ID
 
@@ -133,25 +149,29 @@ as a fixed one, or change the allocator's record.
 | Command | Does |
 |---|---|
 | `cyphal` | The node's state, its node-ID, name and unique ID, the bus's state, and the counters |
-| `cyphal id <0-127>\|auto` | A fixed node-ID, or plug-and-play. From the node's next start |
+| `cyphal id <0-127>\|auto` | A fixed node-ID, or plug-and-play (not in the firmware yet). From the node's next start |
 | `cyphal name <name>\|--reset` | The name `GetInfo` reports. From the node's next start |
 | `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
 | `cyphal restart` | Stop the node and start it again, with the settings as they now are |
 | `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
 
 The settings are saved, and they are part of a [backup](backup.md): the node-ID setting, the name
-and the bitrate. A replacement board restored from a backup takes the old one's name and, if it
-was fixed, its node-ID.
+and the bitrate (NVS namespace `cyphal`: `node_id`, 255 for plug-and-play; `name`; `bitrate`). A
+replacement board restored from a backup takes the old one's name and, if it was fixed, its
+node-ID. `cyphal` shows a setting changed since the node started on a line of its own, until
+`cyphal restart`.
 
 The pins are the host link's: `link pins` changes them.
 
 ## Status
 
 ```text
-cyphal: node 52 (allocated), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
+cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
   unique id 686f6c6f706c61790000e4b0638c2db0
   bus: error-active, tx errors 0, rx errors 0, bus-off 0 times
-  transfers: sent 1234, received 56; frames: sent 1290, received 61; dropped 0
+  transfers: sent 51, received 29; frames: sent 253, received 143; dropped 0
+  up 60 s; frames given to the controller 253, not sent 0, waiting 0; not read (queue full) 0
+  memory: libcanard heap 120 of 16384 bytes (708 at most), stack 1248 bytes never used; internal heap 103347 free, 51192 lowest
 ```
 
 The first line starts with the node's state:
@@ -159,10 +179,12 @@ The first line starts with the node's state:
 | State | Means |
 |---|---|
 | `off` | The host link isn't set to CAN |
-| `waiting for a node-ID` | Asking the bus for one; no allocator has answered yet |
-| `listening` | The 2 seconds before a node with a fixed node-ID starts |
+| `no node-ID: plug-and-play is not in this firmware yet` | No fixed node-ID: the node acknowledges the bus and sends nothing. `cyphal id` gives it one |
+| `waiting for a node-ID` | Asking the bus for one; no allocator has answered yet (*when plug-and-play is in the firmware*) |
+| `listening, before going online as node 52 (fixed)` | The 2 seconds before a node with a fixed node-ID starts |
 | `node 52 (allocated)` or `(fixed)` | Running |
 | `stopped: node-ID 52 is in use by another node` | [Stopped](#a-node-id-that-is-already-taken), until told to start again |
+| `not started on GPIO21 and GPIO33: …` | The CAN controller didn't start: in use by `can`, say. Or, after `cyphal restart`, it `would not stop`: the node is stopped and the controller still runs. `cyphal restart` tries again |
 
 The bus's state is CAN's own:
 
@@ -172,14 +194,31 @@ The bus's state is CAN's own:
 | `error-passive` | Many errors lately. A board alone on the bus sits here, since nobody acknowledges its frames |
 | `bus-off` | So many transmit errors that the controller has taken itself off the bus. The node brings it back by itself, and counts how often |
 
-`dropped` counts transfers the board gave up on because the bus didn't take them in time. It
-rises while the board is alone on the bus, and shouldn't otherwise.
+`transfers` counts heartbeats and `GetInfo` responses sent, whole, and `GetInfo` requests
+received; `frames` counts what the controller sent and had acknowledged, and what it received.
+`dropped` counts transfers the board gave up on because the bus didn't take them in time (a
+second, a heartbeat's period). It rises while the board is alone on the bus, about once a second
+as each heartbeat expires, and shouldn't otherwise. The frame the controller was retrying then
+goes out when another node turns up, a little late.
+
+The last two lines are for when something seems wrong: how long the node has run, frames it
+handed to the controller that were never sent (bus-off, or a restart of the node), frames that
+arrived faster than they could be read, and the memory it uses. Its libcanard heap is 16 KB of
+PSRAM, reserved at its first start; the internal RAM it takes while it runs is its task's 2.5 KB
+stack and the CAN driver's queues (about 8 KB, kept once the controller has run, the same as for
+`can`).
 
 ## Testing the wiring: raw frames
 
 The `can` command works below Cyphal: plain CAN frames, for checking a transceiver and a bus. It
 uses the same pins and the same controller, so it runs only while the Cyphal node is off
-(`link mode off`), and the node won't start while it's running.
+(`link mode off`), and the node won't start while it's running. While the node holds the
+controller, `can` alone still reports the bus (its first line ends `for the Cyphal node`), and
+every `can` sub-command refuses:
+
+```text
+can: the controller is in use by the Cyphal node: `can` only reports while it is
+```
 
 | Command | Does |
 |---|---|

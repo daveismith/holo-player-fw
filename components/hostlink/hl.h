@@ -9,7 +9,8 @@
 #include "cJSON.h"
 #include "events.h"
 
-typedef enum { HL_OFF, HL_UART, HL_RS485, HL_I2C } hl_mode_t;
+/* HL_CAN only hands pins A and B to the application's CAN user: see hostlink_set_can_user() */
+typedef enum { HL_OFF, HL_UART, HL_RS485, HL_I2C, HL_CAN, HL_MODE_COUNT } hl_mode_t;
 typedef enum { HL_AUTO, HL_JSON, HL_NATIVE } hl_proto_t;
 
 #define HL_MAX_GROUPS   8

@@ -96,7 +96,7 @@ export default {
     async function loadLink() {
       const l = await ctx.api.get("/link");
       const s = l.settings;
-      const mode = h("select", {}, [["off", "Off"], ["uart", "UART"], ["rs485", "RS485"]].map(([v, t]) => h("option", { value: v }, t)));
+      const mode = h("select", {}, [["off", "Off"], ["uart", "UART"], ["rs485", "RS485"], ["can", "CAN (the Cyphal node)"]].map(([v, t]) => h("option", { value: v }, t)));
       mode.value = s.mode;
       const protocol = h("select", {}, [["auto", "JSON lines or native frames"], ["json", "JSON lines"], ["native", "Native frames"]]
         .map(([v, t]) => h("option", { value: v }, t)));

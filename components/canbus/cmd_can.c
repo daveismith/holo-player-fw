@@ -3,10 +3,12 @@
  * what `can echo` asks for and prints what `can dump` asks for. It is made at each `can start`
  * and ends at `can stop`, before the controller stops, so it holds no stack while `can` is
  * stopped and never takes frames meant for another user of canbus_receive().
+ *
+ * While another owner (the Cyphal node) holds the controller, `can` alone reports and every
+ * sub-command refuses: canbus would refuse them anyway, since `can` has no handle for that run.
  */
 #include <ctype.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "canbus.h"
 #include "cmd_can.h"
@@ -24,7 +26,11 @@
  * SEND_WAIT more if it is sending) */
 #define READ_WAIT   pdMS_TO_TICKS(50)
 
+/* canbus_config_t.owner for the runs `can start` begins */
+static const char OWNER[] = "the `can` command";
+
 static can_cmd_config_t s_cfg;
+static canbus_handle_t s_bus;           /* from `can start` to `can stop`; 0 while `can` holds nothing */
 static TaskHandle_t s_task;             /* the reader, from `can start` to `can stop` */
 static SemaphoreHandle_t s_task_ended;  /* given by the reader as it ends */
 static volatile bool s_reading;         /* the reader's to go on; `can stop` clears it */
@@ -51,7 +57,7 @@ static void bench_task(void *arg)
     (void)arg;
     canbus_frame_t f;
     while (s_reading) {
-        if (!canbus_receive(&f, READ_WAIT)) {
+        if (!canbus_receive(s_bus, &f, READ_WAIT)) {
             continue;
         }
         /* The echo first, so it doesn't wait behind the console. Not in a self-test, where it
@@ -59,7 +65,7 @@ static void bench_task(void *arg)
         if (s_echo && s_mode == CANBUS_NORMAL) {
             canbus_frame_t e = f;
             e.id = (e.id + 1) & (e.ext ? CANBUS_EXT_ID_MAX : CANBUS_STD_ID_MAX);
-            if (canbus_send(&e, SEND_WAIT) != ESP_OK) {
+            if (canbus_send(s_bus, &e, SEND_WAIT) != ESP_OK) {
                 s_echo_failed++;
             }
         }
@@ -94,15 +100,15 @@ static void stop_reader(void)
     s_task = NULL;
 }
 
-static void print_bitrate(uint32_t b)
+/* True, having said so, while someone other than `can` holds the controller */
+static bool held_by_other(void)
 {
-    if (b % 1000000 == 0) {
-        printf("%lu Mbit/s", (unsigned long)(b / 1000000));
-    } else if (b % 1000 == 0) {
-        printf("%lu kbit/s", (unsigned long)(b / 1000));
-    } else {
-        printf("%lu bit/s", (unsigned long)b);
+    const char *owner = canbus_owner();
+    if (s_bus != 0 || owner == NULL) {
+        return false;
     }
+    printf("can: the controller is in use by %s: `can` only reports while it is\n", owner);
+    return true;
 }
 
 static void print_status(void)
@@ -113,9 +119,14 @@ static void print_status(void)
     if (st.state == CANBUS_STOPPED) {
         printf("can: stopped\n");
     } else {
-        printf("can: running at ");
-        print_bitrate(st.config.bitrate);
-        printf(" on GPIO%d (TX), GPIO%d (RX), %s\n", st.config.tx_gpio, st.config.rx_gpio, MODES[st.config.mode]);
+        char rate[24];
+        printf("can: running at %s on GPIO%d (TX), GPIO%d (RX), %s",
+               canbus_format_bitrate(rate, sizeof(rate), st.config.bitrate), st.config.tx_gpio, st.config.rx_gpio,
+               MODES[st.config.mode]);
+        if (s_bus == 0 && st.config.owner != NULL) {
+            printf(", for %s", st.config.owner);
+        }
+        printf("\n");
         printf("  bus: %s, tx errors %u, rx errors %u, bus errors %lu, bus-off %lu times%s\n",
                canbus_state_name(st.state), st.tx_errors, st.rx_errors, (unsigned long)st.bus_errors,
                (unsigned long)st.bus_off,
@@ -133,30 +144,6 @@ static void print_status(void)
     }
     printf("; internal heap %u bytes free, %u lowest\n", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
            (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
-}
-
-/* 1000000, 1000k, 1m */
-static bool parse_bitrate(const char *s, uint32_t *out)
-{
-    char *end = NULL;
-    const unsigned long v = strtoul(s, &end, 10);
-    if (end == s || !isdigit((unsigned char)*s)) {
-        return false;
-    }
-    unsigned long unit = 1;
-    if (*end == 'k' || *end == 'K') {
-        unit = 1000;
-        end++;
-    } else if (*end == 'm' || *end == 'M') {
-        unit = 1000000;
-        end++;
-    }
-    /* Checked before multiplying, so that a large number can't wrap into range */
-    if (*end != '\0' || v > 1000000 / unit || v * unit < 10000) {
-        return false;
-    }
-    *out = (uint32_t)(v * unit);
-    return true;
 }
 
 static int hexval(char c)
@@ -204,10 +191,10 @@ static const char *parse_frame(const char *s, canbus_frame_t *f)
 
 static int can_start(int argc, char **argv)
 {
-    canbus_config_t c = { .mode = CANBUS_NORMAL };
+    canbus_config_t c = { .mode = CANBUS_NORMAL, .owner = OWNER };
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
-            if (!parse_bitrate(argv[++i], &c.bitrate)) {
+            if (!canbus_parse_bitrate(argv[++i], &c.bitrate)) {
                 printf("can: not a bitrate: %s (1000000, 500k, 1m; 10k to 1m)\n", argv[i]);
                 return 1;
             }
@@ -220,7 +207,10 @@ static int can_start(int argc, char **argv)
             return 1;
         }
     }
-    if (canbus_running()) {
+    if (held_by_other()) {
+        return 1;
+    }
+    if (s_bus != 0) {
         printf("can: already running (`can stop` first)\n");
         return 1;
     }
@@ -230,14 +220,15 @@ static int can_start(int argc, char **argv)
         return 1;
     }
     s_mode = c.mode;    /* before the first frame can reach the task */
-    const esp_err_t err = canbus_start(&c);
+    const esp_err_t err = canbus_start(&c, &s_bus);
     if (err != ESP_OK) {
         printf("can: not started: %s\n", err == ESP_ERR_NOT_FOUND ? "the controller is in use" :
                err == ESP_ERR_INVALID_ARG ? "the controller can't do that bitrate on those pins" : esp_err_to_name(err));
         return 1;
     }
     if (!start_reader()) {
-        canbus_stop();
+        canbus_stop(s_bus);
+        s_bus = 0;
         printf("can: no memory for its task\n");
         return 1;
     }
@@ -255,7 +246,7 @@ static int can_send(const char *arg)
         printf("can: %s\n", why);
         return 1;
     }
-    const esp_err_t err = canbus_send(&f, SEND_WAIT);
+    const esp_err_t err = canbus_send(s_bus, &f, SEND_WAIT);
     if (err == ESP_OK) {
         return 0;
     }
@@ -299,13 +290,20 @@ static int cmd_can(int argc, char **argv)
     if (strcmp(sub, "start") == 0) {
         return can_start(argc, argv);
     }
+    if (held_by_other()) {
+        return 1;
+    }
     if (strcmp(sub, "stop") == 0 && argc == 2) {
         canbus_status_t st;
         canbus_status(&st);
         /* A later `can start` begins quiet: it neither sends nor prints until asked again */
         s_echo = s_dump = false;
         stop_reader();
-        const esp_err_t err = canbus_stop();
+        if (s_bus == 0) {
+            printf("can: not running\n");
+            return 0;
+        }
+        const esp_err_t err = canbus_stop(s_bus);
         if (err != ESP_OK) {
             /* Still running, so the pins stay reserved; the reader is gone, so start it again */
             if (!start_reader()) {
@@ -314,10 +312,7 @@ static int cmd_can(int argc, char **argv)
             printf("can: not stopped: %s (try again)\n", esp_err_to_name(err));
             return 1;
         }
-        if (st.state == CANBUS_STOPPED) {
-            printf("can: not running\n");
-            return 0;
-        }
+        s_bus = 0;
         s_cfg.on_pins(st.config.tx_gpio, st.config.rx_gpio, false);
         printf("can: stopped; GPIO%d and GPIO%d released\n", st.config.tx_gpio, st.config.rx_gpio);
         return 0;
@@ -336,7 +331,7 @@ static int cmd_can(int argc, char **argv)
         return 0;
     }
     if (strcmp(sub, "recover") == 0 && argc == 2) {
-        const esp_err_t err = canbus_recover();
+        const esp_err_t err = canbus_recover(s_bus);
         if (err != ESP_OK) {
             printf("can: %s\n", canbus_running() ? "not bus-off: nothing to recover from" : "not running");
             return 1;

@@ -23,6 +23,8 @@ menu "CAN (canbus)"
         range 2 255
         help
             Frames given to canbus_send() and not yet on the bus. When they are all waiting
-            (nobody acknowledging, or bus-off), canbus_send() waits for room or times out.
+            (nobody acknowledging, or bus-off), canbus_send() waits for room or times out. The `can`
+            command uses them all; the Cyphal node one (canbus_config_t.tx_slots), keeping its
+            own queue in priority order in front.
 
 endmenu

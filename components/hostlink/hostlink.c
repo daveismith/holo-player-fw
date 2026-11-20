@@ -1,6 +1,9 @@
 /*
  * The host link's settings, routes and console command. See hostlink.h.
  *
+ * `can` mode runs nothing here: it hands pins A and B to the application's CAN user
+ * (hostlink_set_can_user()), so that the pins go through the link's checks and reservations.
+ *
  * The settings are LinkSettings (the OpenAPI description): the Kconfig defaults, overridden by
  * what was saved (NVS namespace "hostlink", key "cfg", as JSON). Changing the transport, the pins,
  * `attn`, the I2C address or `general_call` waits for a restart; the rest applies at once, a new
@@ -26,7 +29,8 @@ static const char *TAG = "hostlink";
 #define NVS_NS  "hostlink"
 #define NVS_KEY "cfg"
 
-const char *const HL_MODES[] = { "off", "uart", "rs485", "i2c" };
+const char *const HL_MODES[] = { "off", "uart", "rs485", "i2c", "can" };
+_Static_assert(sizeof(HL_MODES) / sizeof(HL_MODES[0]) == HL_MODE_COUNT, "a name for every mode");
 const char *const HL_PROTOS[] = { "auto", "json", "native" };
 
 static SemaphoreHandle_t s_lock;
@@ -36,9 +40,18 @@ static bool s_started;
 static hl_counters_t s_counters;
 static bool s_log;
 static int s_new_baud;              /* for the transport, after the reply now going out */
+static esp_err_t (*s_can_start)(int tx, int rx);    /* `can` mode's user */
+static const char *s_can_who = "the CAN user";      /* its name, in the link's words */
+static const char *s_can_status;                    /* the command that shows it, or NULL */
 
 /* P2's free pins, less what the firmware has claimed: the only ones the link may take */
 static const int FREE_PINS[] = { 15, 16, 17, 18, 21, 33 };
+
+/* Pin C, when the mode uses it: DE on RS485, ATTN on UART if turned on. -1 otherwise. */
+static int pin_c_used(const hl_settings_t *s)
+{
+    return s->mode == HL_RS485 || (s->mode == HL_UART && s->attn) ? s->pin_c : -1;
+}
 
 static void lock(void)
 {
@@ -200,13 +213,13 @@ static bool patch(hl_settings_t *s, const cJSON *patch, bool strict, int *status
     const cJSON *v;
     int n;
     if ((v = cJSON_GetObjectItem(patch, "mode")) != NULL) {
-        n = index_of(HL_MODES, 4, v);
+        n = index_of(HL_MODES, HL_MODE_COUNT, v);
         if (n == HL_I2C) {
-            snprintf(why, why_len, "the I2C link isn't in this firmware yet: off, uart or rs485");
+            snprintf(why, why_len, "the I2C link isn't in this firmware yet: off, uart, rs485 or can");
             return false;
         }
         if (n < 0) {
-            snprintf(why, why_len, "`mode` is off, uart or rs485");
+            snprintf(why, why_len, "`mode` is off, uart, rs485 or can");
             return false;
         }
         s->mode = (hl_mode_t)n;
@@ -436,7 +449,7 @@ static cJSON *link_json(void)
         cJSON *pins = cJSON_AddObjectToObject(r, "pins");
         cJSON_AddNumberToObject(pins, "a", run.pin_a);
         cJSON_AddNumberToObject(pins, "b", run.pin_b);
-        if (run.pin_c >= 0 && (run.mode == HL_RS485 || run.attn)) {
+        if (pin_c_used(&run) >= 0) {
             cJSON_AddNumberToObject(pins, "c", run.pin_c);
         } else {
             cJSON_AddNullToObject(pins, "c");
@@ -609,10 +622,10 @@ void hostlink_init(void)
 void hostlink_pins(int *a, int *b, int *c)
 {
     *a = *b = *c = -1;
-    if (s_saved.mode == HL_UART || s_saved.mode == HL_RS485) {
+    if (s_saved.mode == HL_UART || s_saved.mode == HL_RS485 || s_saved.mode == HL_CAN) {
         *a = s_saved.pin_a;
         *b = s_saved.pin_b;
-        *c = s_saved.mode == HL_RS485 || s_saved.attn ? s_saved.pin_c : -1;
+        *c = pin_c_used(&s_saved);
     }
 }
 
@@ -625,11 +638,14 @@ const char *hostlink_lend_pins(int *a, int *b)
     *b = s_saved.pin_b;
     if (s_started) {
         /* What the transport runs on, which a `link pins` since the start doesn't change */
-        const int c = s_run.mode == HL_RS485 || s_run.attn ? s_run.pin_c : -1;
+        const int c = pin_c_used(&s_run);
         const int used[] = { s_run.pin_a, s_run.pin_b, c };
         for (int i = 0; i < 3 && ret == NULL; i++) {
             if (used[i] >= 0 && (used[i] == *a || used[i] == *b)) {
-                if (c >= 0) {
+                if (s_run.mode == HL_CAN) {
+                    snprintf(why, sizeof(why), "%s has GPIO%d and GPIO%d (`link mode off`, then restart)", s_can_who,
+                             s_run.pin_a, s_run.pin_b);
+                } else if (c >= 0) {
                     snprintf(why, sizeof(why), "the host link is running on GPIO%d, GPIO%d and GPIO%d "
                              "(`link mode off`, then restart)", s_run.pin_a, s_run.pin_b, c);
                 } else {
@@ -644,6 +660,13 @@ const char *hostlink_lend_pins(int *a, int *b)
     return ret;
 }
 
+void hostlink_set_can_user(esp_err_t (*start)(int tx, int rx), const char *who, const char *status_cmd)
+{
+    s_can_start = start;
+    s_can_who = who ? who : s_can_who;
+    s_can_status = status_cmd;
+}
+
 esp_err_t hostlink_start(void)
 {
     hostlink_init();
@@ -652,7 +675,12 @@ esp_err_t hostlink_start(void)
         ESP_LOGI(TAG, "off (`link mode uart` turns it on)");
         return ESP_OK;
     }
-    const esp_err_t err = hl_uart_start(&s_run);
+    esp_err_t err;
+    if (s_run.mode == HL_CAN) {
+        err = s_can_start ? s_can_start(s_run.pin_a, s_run.pin_b) : ESP_ERR_NOT_SUPPORTED;
+    } else {
+        err = hl_uart_start(&s_run);
+    }
     lock();
     s_started = err == ESP_OK;
     unlock();
@@ -671,6 +699,12 @@ static void print_link(void)
     hl_running(&run);
     if (!s_started) {
         printf("link: off%s\n", s_saved.mode != HL_OFF ? "; from the next restart: " : "");
+    } else if (run.mode == HL_CAN) {
+        printf("link: can on GPIO%d (TX), GPIO%d (RX), for %s", run.pin_a, run.pin_b, s_can_who);
+        if (s_can_status != NULL) {
+            printf(" (`%s` shows it)", s_can_status);
+        }
+        printf("\n");
     } else {
         printf("link: %s on GPIO%d (TX), GPIO%d (RX)", HL_MODES[run.mode], run.pin_a, run.pin_b);
         if (run.mode == HL_RS485 && run.pin_c >= 0) {
@@ -685,7 +719,10 @@ static void print_link(void)
         printf("\n");
     }
     if (cJSON_IsTrue(cJSON_GetObjectItem(o, "restart_required")) || !s_started) {
-        if (s_saved.mode != HL_OFF) {
+        if (s_saved.mode == HL_CAN) {
+            printf("  saved: can on GPIO%d (TX), GPIO%d (RX), for %s -- from the next restart\n",
+                   s_saved.pin_a, s_saved.pin_b, s_can_who);
+        } else if (s_saved.mode != HL_OFF) {
             printf("  saved: %s on GPIO%d, GPIO%d, pin C %d -- from the next restart\n",
                    HL_MODES[s_saved.mode], s_saved.pin_a, s_saved.pin_b, s_saved.pin_c);
         }
@@ -806,7 +843,7 @@ static int cmd_link(int argc, char **argv)
         return 0;
     }
     cJSON_Delete(body);
-    printf("usage: link [mode <off|uart|rs485> [-b <baud>] [-a <address>] | proto <auto|json|native> | "
+    printf("usage: link [mode <off|uart|rs485|can> [-b <baud>] [-a <address>] | proto <auto|json|native> | "
            "address <1-223> | groups [<g>...|--clear] | pins <a> <b> <c> | events [<kind>...|--none] "
            "[--push|--keep] | log [on|off] | reset]\n");
     return 1;
@@ -814,12 +851,14 @@ static int cmd_link(int argc, char **argv)
 
 void hostlink_register_commands(void)
 {
+    static char help[384];     /* esp_console keeps the pointer */
+    snprintf(help, sizeof(help), "The host link: a controller on a wire, on P2's spare pins (UART, or RS485 through "
+             "a transceiver), or the pins handed to %s (`can`). Alone, what it is doing. The transport and its pins "
+             "take effect at the next restart; the rest at once. `link log` prints what goes in and out.", s_can_who);
     const esp_console_cmd_t cmd = {
         .command = "link",
-        .help = "The host link: a controller on a wire, on P2's spare pins (UART, or RS485 through a transceiver). "
-                "Alone, what it is doing. The transport and its pins take effect at the next restart; the rest at "
-                "once. `link log` prints what goes in and out.",
-        .hint = "[mode <off|uart|rs485> [-b <baud>] [-a <address>] | proto <auto|json|native> | address <n> | "
+        .help = help,
+        .hint = "[mode <off|uart|rs485|can> [-b <baud>] [-a <address>] | proto <auto|json|native> | address <n> | "
                 "groups [<g>...|--clear] | pins <a> <b> <c> | events [<kind>...|--none] [--push|--keep] | "
                 "log [on|off] | reset]",
         .func = cmd_link,
