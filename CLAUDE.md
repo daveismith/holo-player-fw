@@ -13,7 +13,8 @@ This file is the reasoning and the traps. What the firmware does is in `manual/`
 documentation site, `mkdocs.yml`), how a release is cut and versioned is `RELEASING.md`, and
 `README.md`'s Layout table says where each part lives: read those rather than restating them
 here. `pytest_console_advanced.py` is an unmodified upstream artefact of the `console_advanced`
-example this started from; there is no on-target test suite.
+example this started from. The tests are the board pages' JavaScript (`node --test`, in
+`make docs-check`) and the Cyphal node's (`tests/`, "CAN and Cyphal" below); nothing else has any.
 
 ## Toolchain
 
@@ -60,7 +61,10 @@ idf.py -p /dev/cu.wchusbserial5B910448341 flash
   The port does not change across a reset, so `idf.py flash monitor` works here.
 - Scripting the console means answering linenoise's `ESC[6n`/`ESC[5n` queries, which `fs_xfer`
   does. A clip's asynchronous output can land after the prompt and make a scripted sync time out
-  once (seen 2026-10-22); the board is fine, retry.
+  once (seen 2026-10-22); the board is fine, retry. A log line after a command's prompt (Wi-Fi
+  joining after a restart) leaves the output not ending at a prompt, and linenoise won't print
+  another: `tests/hardware`'s `Board.command` sends an empty line once the output goes quiet, and
+  then hands what came after the first prompt to its log.
 
 ## esp-console-kit
 
@@ -109,7 +113,11 @@ keeps an `Unreleased` section; nothing is tagged outside a release.
   reading the raw NVS partition with IDF's `nvs_tool.py` and searching an export, plain and hex,
   for every SSID and passphrase in it: none.
 - **The hostname and the host link's address stay in** (decided 2026-10-19 and 2026-10-22): a
-  replacement board restored from a backup takes the old one's place.
+  replacement board restored from a backup takes the old one's place. **So do the Cyphal node's
+  fixed node-ID and name** (NVS `cyphal`; 2026-11-20): the user's condition is that both can be
+  changed and erased, which `cyphal id <n>|auto`, `cyphal name <name>|--reset` and `cyphal reset`
+  do; keep that true. `manual/use/backup.md` tells the user that a second
+  board restored from the same backup needs its own node-ID.
 - **`nvs_import -` works over this UART console** (2026-10-22). No `stdin_refusal` is installed
   because stdin is always the console's; the host link has a UART of its own. If a second
   console ever shares stdin, install one.
@@ -139,10 +147,12 @@ would the kit servo's PCA9685 attach, were a board ever attached here).
 
 Internal RAM is not this board's constraint; PSRAM bandwidth is the video player's. Measured
 2026-10-22 with Wi-Fi and the web server up: 104 KB internal free at idle, 70 KB while a clip
-plays, 40 KB at the lowest. The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is
-deliberately off (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI
-with DMA, and the ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the
-kernel lock for ~2 ms tears nothing. `components/leds/leds.c` falls back to interrupt refills
+plays, 40 KB at the lowest. With the Cyphal node on the bus (2026-11-20, a 15-minute soak with a
+clip, the ring and the web app): 103.6 KB free idle, 61-70 KB under load, 39.8 KB at the lowest.
+The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
+(`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
+ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for
+~2 ms tears nothing. `components/leds/leds.c` falls back to interrupt refills
 when no channel is free, with a boot WARN (`RMT with DMA: ...; trying without`); wire the hook
 if that ever becomes the normal case.
 
@@ -156,8 +166,92 @@ on 20 s into every boot of a board told to stay off its network. Its test is
 another reason to skip it, change both. "No network" in the fallback means no network to
 rejoin (`wifi_known_list`'s `last`), not none saved.
 
+## CAN and Cyphal
+
+`link mode can` hands the host link's pins A and B to `components/cyphal`, a Cyphal/CAN node on
+`components/canbus` (the TWAI controller) and libcanard; `can` is the raw-frame bench command on the
+same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
+
+- **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`), built with the computer's
+  `cc`, no IDF. `make can-test`: pytest in `tests/hardware/` against the console and a gs_usb
+  adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
+  `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
+  test that uploads to the spare OTA slot without activating it, and asserts the board still boots
+  `ota_0`. About 15 minutes; stop cyphal_service first. The suite sets fixed node-ID 52 and leaves it.
+- **The adapter (CANable, candleLight firmware) is fragile.** Open and close it only while the
+  board sends nothing: inside a fixed node-ID's 2 s listen after `cyphal restart` (a plug-and-play
+  node is never quiet). The host sending unacknowledged (no node up, or a bitrate other than the
+  board's: never let it) or a close while the board sends degrades it and then wedges it: it goes on
+  acknowledging the bus and passes nothing to the computer. One program holds it at a time.
+- python-can's gs_usb asks macOS to detach a kernel driver, refused without root;
+  `can_check.patch_gs_usb_for_macos()` (the tests use it too) makes `is_kernel_driver_active` say
+  no. The library is not patched.
+- **After any python-can session, `tools/can_check.py flush` before cyphal_service**, or the
+  service's first read can overflow (python-can's 24-byte timestamped frames into its 20-byte
+  reads), macOS halts the pipe, the service never clears it and receives nothing ("Receive error"
+  in a tight loop). Not a cure every time: once on 2026-11-20 the service still received nothing
+  after a flush, and quitting it (in a listen) and repeating flush and start worked.
+- **The adapter hands frames to the computer out of order now and then**, so the service drops the
+  transfer: 10-15 % of its `get-info` calls time out. pycyphal gets 500 of 500. Not the board.
+- **Recovery** when the computer receives nothing while the board's `cyphal` shows frames sent and
+  acknowledged: `flush`; failing that `dfu-util -e` (kill it if it hangs), wait, then
+  `dfu-util -a 0 -s 0x08000000:16:leave -U <a new scratch file>` (reads 16 bytes, leaves DFU), and
+  `ioreg -p IOUSB` should show `canable gs_usb`. **Never `-D`**: it writes the adapter's firmware.
+  `!registered, !matched` in `ioreg` is macOS's accessory popup waiting for a click: ask the user.
+- **`link mode uart` with a CAN transceiver on the pins loops**: the transceiver returns TX on RX,
+  the link's `ready` comes back as a bad line, and so does each answer (bad lines ~40 a second).
+  Harmless with nothing else on the bus; `link mode can` and a restart end it. RS485 sends nothing
+  unasked and doesn't loop. No UART request has been made on this bench (no host serial port).
+- **Why not 87.5 %** (`manual/connect/host-can.md` has the 85 % sample point): TSEG1 at most 16
+  with an even prescaler from 80 MHz rules it out at 1 Mbit/s.
+- **libcanard is pinned at v4.0.0**: v5 can't send anonymous messages, which plug-and-play v1
+  needs. v4's anonymous transfers are single-frame (7 bytes); the request fits. Read the pinned
+  header, not memory, before writing against it.
+- **The DSDL C headers are generated and committed** (`components/cyphal/dsdl/`, from
+  `external/public_regulated_data_types` at `a229bb7`, by `tools/gen_dsdl.py` with Nunavut): the
+  build and the release image need no Python. Don't edit them by hand. Nunavut's `_initialize_()`
+  isn't used: GCC 15 raises false array-bounds errors in it under `-Werror`; zero is the default.
+- **Submodules**: `external/libcanard` (the build needs it) and
+  `external/public_regulated_data_types` (`gen_dsdl.py` and the tests). Clone `--recursive`.
+- **canbus has one owner at a time, by handle**: `canbus_start()` returns it, and stop, send,
+  receive and recover with any other are refused. `can` only reports while the node holds it.
+- **Nothing is sent before every received frame has been checked for our node-ID** (`cyphal.c`'s
+  header): the task empties the receive queue after the wait for room and just before each
+  hand-over, and canbus is started with one send slot, so one frame at most goes after a frame from
+  our node-ID arrives. Keep that order if the transmit path changes.
+- **Plug-and-play checks an allocated ID before taking it up** (`manual/use/cyphal.md`, "A node-ID
+  that is already taken"): an allocator that lost its records can hand out one in use. Online 1.1 s
+  after the node's start by the board's log against cyphal_service, 1.3-1.4 s after a
+  `cyphal restart` sent from the computer (the console's round trip included). Nothing is saved:
+  the allocator's database is the record. The service gives this board node 2 (pseudo-ID
+  `0b3af4648a21`); its row for 52 is from fixed-ID runs.
+- **Anonymous frames are retransmitted until acknowledged**: IDF 6.1's TWAI has no per-frame
+  one-shot (single-shot is the whole node's). Two allocatees whose requests share a CAN ID
+  (1 in 128) could collide in lockstep; running the controller single-shot while waiting would fix
+  it. Left for the user.
+- **The `gpio` table's host link entries are live** (`main.c`): `hostlink_start()` fills them
+  through `hostlink_set_on_pins()`'s callback, as `can` fills its own through `on_pins`, named for
+  the holder, empty if the start failed.
+
 ## Not tested on the board
 
 As of 2026-10-22: `import_note()`'s reminder (`main/main.c`) on a board with no saved network (it
 would mean erasing them); a real NVS wipe and restore; the guard clearing state here; the I2C
 host link (not built); an OTA from a release since the kit bump.
+
+CAN, as of 2026-11-20: flooding and a bitrate mismatch never reach bus-off on the bench, but moving
+CAN RX (link pin B) to the unconnected GPIO15 does, hands-free: `link pins 21 15 -1` and a restart
+(the adapter closed; the driver pulls RX up, so the controller never reads back its own dominant
+bits). Bus-off then comes within the first frame, every time. Seen that way: the node's recovery
+and back-off, `can recover`, and the send slots across a bus-off (each costs one frame, counted
+failed; none leaks). `link pins 21 33 15` and a restart put it back. Still by reading only: frames
+queued behind a bus-off going out after the recovery (the console can't queue a second in time).
+Done by hand the same day: the adapter unplugged for a minute (error-passive, no bus-off, node-ID
+kept; cyphal_service goes on running with a dead handle and has to be restarted), and CANH shorted
+to CANL for 5 s (4 bus-offs, the back-off as designed, error-active again 11 s after the first,
+one frame lost per bus-off, none leaked; the service logs `InvalidFrame` at 13,000 lines a second
+during the short and recovers without a flush). A second plug-and-play board on the same bus (the
+shoulder sensor, 6.3) was dropped from the plan and has never been tried; nor has bus-off from a
+short under `can`. By reading only: a failed controller stop in `cyphal restart`, the abort-delay race at a
+stop, a node start that fails at boot. Plug-and-play's hold while another node is heard on the
+allocated ID is proven by the host tests, not by timing on the bench.

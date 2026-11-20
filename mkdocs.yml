@@ -85,6 +85,7 @@ nav:
       - "Host link: UART": connect/host-uart.md
       - "Host link: RS485": connect/host-rs485.md
       - "Host link: I2C": connect/host-i2c.md
+      - "Host link: CAN": connect/host-can.md
   - Use:
       - Video clips: use/video.md
       - Images: use/images.md
@@ -96,6 +97,7 @@ nav:
       - The board over Wi-Fi: use/web.md
       - Updating the firmware: use/ota.md
       - The host link: use/host-link.md
+      - The board on Cyphal: use/cyphal.md
       - Troubleshooting: troubleshooting.md
   - Reference:
       - Console commands: reference/console.md

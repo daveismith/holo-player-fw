@@ -11,5 +11,5 @@ idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c" "h
                                      # any other IDF stops at its #error rather than going
                                      # on unguarded with at most a configure warning.
                                      i2c_bus_guard
-                                     web_server webui scenes hostlink
+                                     web_server webui scenes hostlink canbus cyphal
                        INCLUDE_DIRS ".")

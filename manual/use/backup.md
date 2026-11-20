@@ -1,7 +1,8 @@
 # Backing up the settings
 
 Everything the board remembers — its scenes and the one it starts with, the backlight and LED
-settings, the servo calibration, the host link, the web app's name and allowed sites — lives in
+settings, the servo calibration, the host link, the Cyphal node's settings, the web app's name
+and allowed sites — lives in
 its NVS partition, and a flash erase, a factory reset or a new firmware that changes how NVS is
 laid out can lose all of it. A **backup** is that configuration as one small text file
 (`.r2cfg`), which the board can write, check and restore by itself.
@@ -32,10 +33,12 @@ wifi_known      known           blob exclude  credential: the saved WiFi network
 13 entries in 7 namespaces: 5 in a backup, 8 excluded
 ```
 
-The board's hostname (`web hostname`) and its host link address are in a backup, so a
-replacement board restored from it answers to the same name and address. Setting up a *second*
-board from one's backup (`--other-board`, below) copies them too: give it its own name and
-address afterwards.
+The board's hostname (`web hostname`), its host link address and its Cyphal node's name and fixed
+node-ID are in a backup, so a replacement board restored from it answers to the same name and
+address. Setting up a *second* board from one's backup (`--other-board`, below) copies them too:
+give it its own name, address and node-ID afterwards (two nodes with one node-ID
+[stop](cyphal.md#a-node-id-that-is-already-taken); with plug-and-play each board is given its
+own).
 
 ## Making one
 

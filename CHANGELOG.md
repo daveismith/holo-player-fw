@@ -10,6 +10,76 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Added
+
+- **`can`**: plain CAN frames on the host link's pins A and B, for checking a CAN transceiver and
+  a bus before anything runs on it. `can start` takes the pins (1 Mbit/s unless `-b`; `--listen`
+  never drives the bus, `--selftest` hears its own frames with no second node), `can send`
+  sends one frame, `can dump` prints what arrives, `can echo` sends each frame back on the next
+  ID, and `can` alone shows the bus's state, its error counters and the frames sent, received
+  and dropped. `can recover` brings the controller back from bus-off; `can stop` gives the pins
+  back. It refuses to start while the host link runs on those pins, and `gpio` refuses them
+  while it runs. Documented in the manual's *The board on Cyphal*, "Testing the wiring".
+- **`tools/can_check.py`**, the computer's side, through a gs_usb adapter (candleLight,
+  CANable): `listen`, `send`, `flood`, and `echo`, which sends numbered frames to a board
+  running `can echo on` and checks that every one comes back, in order. `flush` empties the
+  adapter after a python-can session, so that the next program to open it (cyphal_service)
+  doesn't stall on a frame left for the computer.
+- **A Cyphal node on CAN**. `link mode can` (and a restart) hands the host link's pins A and B
+  to it. It gets its node-ID by plug-and-play (`uavcan.pnp.NodeIDAllocationData.1.0`, from any
+  allocator on the bus, asked for again at every start and never saved) or from a fixed setting.
+  It sends `uavcan.node.Heartbeat` once a second and answers `uavcan.node.GetInfo` with its name
+  (`r2.dome.holo.front` unless changed), the firmware's version and commit, and a unique ID made
+  from the chip's factory MAC address, so that an allocator gives the same node-ID across
+  reflashes and settings wipes. With a fixed node-ID it listens 2 s for another node with it
+  before going online; with plug-and-play it listens at least 1 s from its start (a heartbeat's
+  longest period) before taking up an allocated node-ID, and doesn't if another node was heard on
+  it in that time or in the last 3 s; and if it ever hears its node-ID from another node it stops
+  sending, with one warning, until told to start again. The board keeps acknowledging the bus
+  throughout.
+  Documented in the manual's *The board on Cyphal* and *Host link: CAN*.
+- **`cyphal`**: the node's state, node-ID, name, unique ID and plug-and-play pseudo-ID, the bus
+  and its counters; `cyphal id` (a fixed node-ID, or `auto` for plug-and-play), `cyphal name`
+  and `cyphal bitrate` (saved, and in a configuration backup), `cyphal restart` and
+  `cyphal reset`.
+- **Bus-off**: the node brings the controller back by itself, within a second; when bus-offs come
+  back to back (a board that can't see its own bits on the bus: a silent transceiver, or VIO, RXD
+  or TXD not connected), it waits 1, 2, 4, 8, 16 and then 30 s between recoveries until the bus
+  has stayed up for a minute, and logs the 1st, 2nd, 4th, 8th, ... bus-off in a row, not one a
+  second. `cyphal` shows the wait. The bus's state in `can` and `cyphal` is read from the error
+  counters beside it (`error-warning` at 96, `error-passive` at 128); `bus errors` counts every
+  error but lost arbitration, CRC errors on received frames included; and `can send` while
+  bus-off, or `can recover` when not, refuses without an error line from the driver.
+- **libcanard** v4.0.0 (`external/libcanard`) and the DSDL (`external/public_regulated_data_types`)
+  as submodules. A build needs libcanard (`git submodule update --init`); the DSDL is needed only
+  by `tools/gen_dsdl.py` and the hardware tests. The C headers for the data types are generated
+  by `tools/gen_dsdl.py` (Nunavut) and committed, so the build needs no Python packages.
+- **Tests**: `make unit-test` builds the node's unique ID, pseudo-ID, name rules, parsing and
+  plug-and-play's request, reply, timing and in-use check with the computer's compiler;
+  `make can-test` runs the hardware tests in `tests/hardware/` (pytest and pycyphal, through a
+  gs_usb adapter, with pycyphal's allocator for plug-and-play; `make can-setup` makes their venv).
+
+### Changed
+
+- **The host link on CAN** (`link mode can`): `link` shows the pins and who has them ("for the
+  Cyphal node"), and leaves out the protocol, baud rate, address, groups, events and counters,
+  which CAN doesn't use; they stay saved for UART and RS485, and the console says so when one is
+  changed. The web app's Host link card hides them while CAN is chosen. `GET /api/v1/link` is
+  unchanged, and its description says which fields CAN ignores.
+- **`gpio` names what holds a host link pin**: `host link UART TX`, `host link RS485 DE`, or
+  "CAN TX, for the Cyphal node", in place of `host link (A)`. They are reserved
+  from the moment the transport has started, and not at all if it failed to start: `link` then
+  says `off: can didn't start (...)`. A Cyphal node whose start failed is restarted only with the
+  board (`cyphal restart` says so), since it no longer has the pins.
+- `can` refuses to start, stop, send, recover, dump or echo while the Cyphal node holds the
+  controller; `can` alone still reports the bus. Before, `can stop` stopped the controller
+  whoever had started it.
+- The manual's Run buttons ask before running a `link` command that changes a setting (`link
+  mode`, `pins`, `reset`, `proto`, `address`, `groups`, `events`).
+- The CAN controller's sample point is 85 % of the bit, not the 87.5 % asked for: IDF 6.1's timing
+  on the ESP32-S3 gives 20 time quanta at every bitrate, and 87.5 % is out of the controller's
+  reach at 1 Mbit/s. The manual says so.
+
 ## [1.1.0] - 2026-10-22
 
 The board's settings can now be backed up to a small text file and restored, a backup never

@@ -96,7 +96,7 @@ export default {
     async function loadLink() {
       const l = await ctx.api.get("/link");
       const s = l.settings;
-      const mode = h("select", {}, [["off", "Off"], ["uart", "UART"], ["rs485", "RS485"]].map(([v, t]) => h("option", { value: v }, t)));
+      const mode = h("select", {}, [["off", "Off"], ["uart", "UART"], ["rs485", "RS485"], ["can", "CAN (the Cyphal node)"]].map(([v, t]) => h("option", { value: v }, t)));
       mode.value = s.mode;
       const protocol = h("select", {}, [["auto", "JSON lines or native frames"], ["json", "JSON lines"], ["native", "Native frames"]]
         .map(([v, t]) => h("option", { value: v }, t)));
@@ -106,25 +106,31 @@ export default {
       const address = h("input", { type: "number", min: 1, max: 223, value: s.address });
       const groups = h("input", { type: "text", value: s.groups.join(" "), placeholder: "none", autocomplete: "off" });
       const delay = h("input", { type: "number", min: 0, max: 50, value: s.reply_delay_ms });
+      // CAN hands the pins to the Cyphal node, which runs no host protocol: the protocol's settings
+      // stay saved for UART and RS485, but aren't shown or sent while CAN is chosen
+      const can = l.running.mode === "can";
       const running = l.running.mode === "off" ? "off"
-        : `${l.running.mode.toUpperCase()} on GPIO${l.running.pins.a} and GPIO${l.running.pins.b}${l.running.pins.c != null ? `, GPIO${l.running.pins.c}` : ""}`;
+        : `${l.running.mode.toUpperCase()} on GPIO${l.running.pins.a} and GPIO${l.running.pins.b}${l.running.pins.c != null ? `, GPIO${l.running.pins.c}` : ""}${can ? ", for the Cyphal node" : ""}`;
       const c = l.counters;
+      const serialFields = [field("Speaks", protocol), field("Baud rate", baud), field("Address", address, "1-223"),
+        field("Groups", groups, "RS485: up to 8 of 1-31"), field("Reply delay (ms)", delay, "RS485: 0-50")];
+      const showSerial = () => serialFields.forEach((f) => { f.hidden = mode.value === "can"; });
+      mode.addEventListener("change", showSerial);
+      showSerial();
       linkBox.replaceChildren(h("h2", {}, "Host link", l.restart_required ? chip("restart to apply", "warn") : null),
         h("p", { class: "muted hint" }, "A controller on a wire, on P2's spare pins: see ",
           h("a", { href: "https://davidiansmith.ca/holo-player-fw/latest/use/host-link/", target: "_blank" }, "the host link"), "."),
         facts([
           ["Now", running],
-          ["Requests", `${c.requests}${l.last_request_s != null ? `, the last ${Math.round(l.last_request_s)} s ago` : ""}`],
-          c.bad_lines || c.framing_errors || c.overruns ? ["Trouble", `${c.bad_lines} bad lines, ${c.framing_errors} framing errors, ${c.overruns} overruns`] : null,
-          ["Events", l.events.kinds.length ? `${l.events.kinds.join(", ")} (${l.events.push ? "pushed" : "kept"})` : "none asked for"],
+          can ? null : ["Requests", `${c.requests}${l.last_request_s != null ? `, the last ${Math.round(l.last_request_s)} s ago` : ""}`],
+          !can && (c.bad_lines || c.framing_errors || c.overruns) ? ["Trouble", `${c.bad_lines} bad lines, ${c.framing_errors} framing errors, ${c.overruns} overruns`] : null,
+          can ? null : ["Events", l.events.kinds.length ? `${l.events.kinds.join(", ")} (${l.events.push ? "pushed" : "kept"})` : "none asked for"],
         ].filter(Boolean)),
         h("div", { class: "fields", style: "margin-top:12px" },
-          field("Transport", mode, "From the next restart"), field("Speaks", protocol),
-          field("Baud rate", baud), field("Address", address, "1-223"),
-          field("Groups", groups, "RS485: up to 8 of 1-31"), field("Reply delay (ms)", delay, "RS485: 0-50")),
+          field("Transport", mode, "From the next restart"), ...serialFields),
         h("div", { class: "actions" },
           h("button", { class: "button primary", onclick: () => {
-            const body = {
+            const body = mode.value === "can" ? { mode: mode.value } : {
               mode: mode.value, protocol: protocol.value, baud: Number(baud.value), address: Number(address.value),
               groups: groups.value.split(/[\s,]+/).filter(Boolean).map(Number), reply_delay_ms: Number(delay.value),
             };

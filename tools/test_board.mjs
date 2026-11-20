@@ -164,6 +164,38 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.ok(danger("gpio set 4 1"));
   assert.ok(danger("restart"));
   assert.equal(danger("leds rainbow loop"), null);
+  assert.equal(groupOf("can"), "CAN");
+  assert.match(danger("can start"), /acknowledges/);
+  assert.match(danger("can start -b 500k --listen"), /listening only/);
+  assert.ok(danger("can send 123#DEADBEEF"));
+  assert.ok(danger("can echo on"));
+  assert.equal(danger("can echo off"), null);
+  assert.equal(danger("can"), null);
+  assert.equal(danger("can dump on"), null);
+  assert.equal(refusal("can dump on"), null);
+  assert.equal(groupOf("cyphal"), "CAN");
+  assert.equal(danger("cyphal"), null);
+  assert.match(danger("cyphal restart"), /fixed node-ID listens for 2 s/);
+  assert.match(danger("cyphal restart"), /plug-and-play asks for a node-ID again/);
+  assert.match(danger("cyphal reset"), /defaults/);
+  assert.ok(danger("cyphal id 52"));
+  assert.ok(danger("cyphal name r2.dome.holo.top"));
+  assert.ok(danger("cyphal bitrate 500k"));
+  assert.equal(refusal("cyphal restart"), null);
+  assert.equal(danger("link"), null);
+  assert.match(danger("link mode can"), /Cyphal node, which goes on the CAN bus/);
+  assert.match(danger("link mode uart -b 115200"), /next restart/);
+  assert.doesNotMatch(danger("link mode off"), /CAN/);
+  assert.match(danger("link pins 21 33 15"), /other pins/);
+  assert.match(danger("link reset"), /defaults/);
+  assert.ok(danger("link proto json"));
+  assert.ok(danger("link address 12"));
+  assert.ok(danger("link groups 1 2"));
+  assert.ok(danger("link groups --clear"));
+  assert.ok(danger("link events touch --push"));
+  assert.equal(danger("link events"), null);
+  assert.equal(danger("link log on"), null);
+  assert.equal(danger("link log off"), null);
 });
 
 test("quoting arguments for esp_console", () => {

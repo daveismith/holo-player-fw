@@ -23,7 +23,10 @@ Once published it lives at <https://daveismith.github.io/holo-player-fw/>; see
 
 ## Getting the source
 
-The shared console commands and the GIF decoder live in git submodules. Clone with:
+The shared console commands, the GIF decoder and the Cyphal/CAN transport (libcanard) live in
+git submodules, which the firmware needs to build. A fourth, Cyphal's public data types
+(`external/public_regulated_data_types`), is needed only to regenerate the node's C headers
+(`tools/gen_dsdl.py`) and to run its hardware tests (`tests/hardware/`). Clone with:
 
 ```sh
 git clone --recursive <url>
@@ -78,10 +81,19 @@ app is a front end for a JSON API that scripts can use too, described in OpenAPI
 | `components/scenes/` | Scenes (the screen, LEDs and holo saved together) and the settings the board starts with, kept in NVS; the `scene` and `settings` commands |
 | `web/` | The web app itself: plain ES modules and CSS, no build step (`tools/web_dev.py` serves it from disk against a real board) |
 | `components/leds/` | The NeoPixel strip on P2: Espressif's `led_strip`, the wipe and rainbow patterns, and the `leds` command |
+| `components/hostlink/` | The host link on P2's spare pins: its settings and transports (`hostlink.c`'s per-transport table), UART and RS485 (`hl_uart.c`), JSON lines and native frames, events, the `link` command and the `/link` routes; `can` mode hands pins A and B to the Cyphal node |
+| `components/canbus/` | The CAN (TWAI) controller through ESP-IDF's node driver (`canbus.h`: start, stop, send, a receive queue filled from the interrupt, error state, bus-off recovery, one owner at a time), and the `can` bench command on the host link's pins |
+| `components/cyphal/` | The Cyphal/CAN node on `canbus` and libcanard: node-ID, heartbeat, `GetInfo`, the node-ID-in-use stop, its settings, and the `cyphal` command. `dsdl/` holds the Nunavut-generated C headers (`tools/gen_dsdl.py` regenerates them); `cyphal_util.c` is the part the host tests build |
+| `components/libcanard/` | Packaging for `external/libcanard`, which is used unmodified |
 | `external/esp-console-kit/` | Submodule: `cmd_system`, `cmd_wifi`, `cmd_network`, `cmd_nvs`, `cmd_i2c`, `cmd_fs` (+ `tools/fs_xfer.py`; `ota_core`, the update session every transport shares), `web_server` (HTTP server, `/api/v1/ota`, `/api/v1/web`, pulls, long operations), `web_api` (`/api/v1/fs`, `/servos`, `/network`), `servo`, `holo`, `i2c_bus_guard` (a link-time patch for ESP-IDF 6.1.0's I2C driver) |
 | `external/AnimatedGIF/` | Submodule: [bitbank2/AnimatedGIF](https://github.com/bitbank2/AnimatedGIF), Apache-2.0, pinned to `c2478ec` |
+| `external/libcanard/` | Submodule: [OpenCyphal/libcanard](https://github.com/OpenCyphal/libcanard), MIT, pinned to `v4.0.0` (v5 can't send the anonymous transfers plug-and-play needs) |
+| `external/public_regulated_data_types/` | Submodule: the Cyphal DSDL, pinned to `a229bb7`, from which the C headers were generated and the hardware tests compile theirs |
+| `tests/` | `host/`: C tests of the node's pure parts, built with the computer's compiler (`make unit-test`). `hardware/`: pytest against a board and a gs_usb CAN adapter (`make can-test`; `requirements-can.txt`) |
 | `manual/` | The documentation site's pages (`mkdocs.yml`) |
 | `tools/` | `check_command_docs.py` (every command is documented), `check_api_docs.py` (the OpenAPI description matches the firmware's routes), `check_api_examples.py` (its examples match its schemas), `api_smoke.py` (a board's replies match the description), `web_dev.py` (the web app from disk), `check_version.py` (release tags), `web_install_manifest.py` (release images and the installer's firmware), `vendor_js.py` (vendored JavaScript), `offline_serve.py` (`serve.py` in the offline docs), and `test_installer.mjs` and `test_board.mjs` with their `fixtures/` (the pages' JavaScript) |
+| `tools/can_check.py` | The computer's side of `can`, through a gs_usb CAN adapter (python-can): `listen`, `send`, `echo` (numbered frames to a board running `can echo on`, checked as they come back), `flood`, and `flush`, which empties the adapter before another program (cyphal_service) opens it |
+| `tools/gen_dsdl.py` | Regenerates `components/cyphal/dsdl/` with Nunavut from the DSDL submodule |
 | `partitions.csv` | nvs, otadata, two 2.25 MB OTA slots, coredump, and an 11 MB LittleFS `storage` volume at `/data` |
 
 ## Versioning

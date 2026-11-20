@@ -115,8 +115,9 @@ else, and the fix for a board in a state you would rather not keep.
     The firmware builds with **ESP-IDF 6.1** for the `esp32s3` target. There is no Arduino
     path.
 
-    **1. Get the source.** Two things live in git submodules — the shared console commands,
-    and the GIF decoder — so clone recursively:
+    **1. Get the source.** Three things the build needs live in git submodules — the shared
+    console commands, the GIF decoder and libcanard, the Cyphal/CAN transport — so clone
+    recursively:
 
     ```sh
     git clone --recursive https://github.com/daveismith/holo-player-fw
@@ -129,8 +130,11 @@ else, and the fix for a board in a state you would rather not keep.
     ```
 
     Without them the build fails: at `main/CMakeLists.txt`, which requires the console
-    components by name, or at `components/animatedgif`, whose sources are the other
-    submodule.
+    components by name, or at `components/animatedgif` or `components/libcanard`, whose
+    sources are the other two. A fourth submodule, Cyphal's public data types
+    (`external/public_regulated_data_types`), isn't needed to build: only to regenerate the
+    Cyphal node's C headers (`tools/gen_dsdl.py`) and to run its hardware tests
+    (`tests/hardware/`).
 
     **2. Build.**
 

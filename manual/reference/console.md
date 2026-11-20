@@ -147,8 +147,8 @@ See [the host link](../use/host-link.md).
 
 | Command | Does |
 |---|---|
-| `link` | The transport, its pins and settings, the counters, and the events asked for |
-| `link mode <off\|uart\|rs485> [-b <baud>] [-a <address>]` | The transport, from the next restart; `-b` the baud rate, `-a` the address, 1–223 |
+| `link` | The transport, its pins and settings, the counters, and the events asked for. On CAN, the pins and who has them |
+| `link mode <off\|uart\|rs485\|can> [-b <baud>] [-a <address>]` | The transport, from the next restart; `-b` the baud rate, `-a` the address, 1–223. `can` gives the pins to the [Cyphal node](#can-and-cyphal) |
 | `link proto <auto\|json\|native>` | What UART and RS485 accept |
 | `link address <1-223>` | The board's address on UART and RS485 |
 | `link groups [<group>…\|--clear]` | The groups it acts for, 1–31, up to 8 |
@@ -156,6 +156,27 @@ See [the host link](../use/host-link.md).
 | `link events [<kind>…\|--none] [--push\|--keep]` | The events it reports from the start: `clip_ended`, `scene_ended`, `touch`, or a resource's changes (`screen`, `leds`, `scene`, …) |
 | `link log [on\|off]` | Print everything the link sends and receives |
 | `link reset` | Back to the firmware's defaults |
+
+## CAN and Cyphal
+
+See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-can.md).
+
+| Command | Does |
+|---|---|
+| `link mode can` | The host link's pins go to the Cyphal node, from the next restart |
+| `cyphal` | The node's state, its node-ID, name, unique ID and plug-and-play pseudo-ID, the bus's state, and the counters |
+| `cyphal id <0-127>\|auto` | A fixed node-ID, or one from the bus by plug-and-play. From the node's next start |
+| `cyphal name <name>\|--reset` | The name `uavcan.node.GetInfo` reports: `r2.dome.holo.front` until changed. From the node's next start |
+| `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
+| `cyphal restart` | Stop the node and start it again, with the settings as they now are: also how a node that stopped over a node-ID in use is started again |
+| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
+| `can` | Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received. While the node runs it only reports, and its sub-commands refuse |
+| `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller. `--listen` receives without sending or acknowledging; `--selftest` receives its own frames and needs no second node |
+| `can stop` | Stop, and release the pins; `dump` and `echo` go off |
+| `can send <id>#<hex>` | Send one frame: an 11-bit ID as up to three hex digits, a 29-bit one as eight, and up to 8 data bytes |
+| `can dump [on\|off]` | Print every frame received (`on` if neither is given) |
+| `can echo [on\|off]` | Send every frame received straight back, with 1 added to its ID: the other end of `tools/can_check.py echo` |
+| `can recover` | Bring the controller back from bus-off |
 
 ## Networking
 

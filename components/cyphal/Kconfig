@@ -1,0 +1,72 @@
+menu "Cyphal node (cyphal)"
+
+    config CYPHAL_DEFAULT_NAME
+        string "The node's name in uavcan.node.GetInfo, until `cyphal name` changes it"
+        default "node"
+        help
+            1 to 50 characters of a-z, 0-9, _ and ., with no empty part and no part starting with
+            a digit (manual/use/cyphal.md, "The name"). Checked at start: a default that breaks
+            the rules is replaced by "node", with a warning. A firmware sets its own in its
+            sdkconfig.defaults.
+
+    config CYPHAL_UNIQUE_ID_PREFIX
+        string "The unique ID's first 8 bytes: the firmware's name"
+        default "esp-node"
+        help
+            Exactly 8 characters. The unique ID is these 8 bytes, two zero bytes and the chip's
+            base MAC address (manual/use/cyphal.md, "The unique ID"). An allocator gives a node-ID
+            by unique ID, so changing this gives every board a new node-ID: a firmware pins its
+            own in its sdkconfig.defaults.
+
+    config CYPHAL_HARDWARE_VERSION_MAJOR
+        int "The hardware version GetInfo reports: major"
+        default 0
+        range 0 255
+
+    config CYPHAL_HARDWARE_VERSION_MINOR
+        int "The hardware version GetInfo reports: minor"
+        default 0
+        range 0 255
+
+    config CYPHAL_HEAP_SIZE
+        int "libcanard's heap (bytes, in PSRAM)"
+        default 16384
+        range 8192 131072
+        help
+            A heap of its own for libcanard, reserved at the node's first start and kept, in PSRAM
+            when there is any. Each start begins it empty. It holds the transmit queue (at most
+            64 frames, 84 bytes each with the allocator's overhead: 5.4 KB) and the receive
+            sessions (36 bytes for each node that has sent this board a GetInfo request: 4.6 KB
+            for 127; and, while it waits for a node-ID, one for each allocator that answers).
+            Measured 2026-11-20: 792 bytes at most over 500 GetInfo calls back to back.
+            `cyphal` shows how much it has held at most.
+
+    config CYPHAL_TASK_PRIORITY
+        int "The node task's priority"
+        default 5
+        range 1 24
+        help
+            The task reads the controller's receive queue (CONFIG_CANBUS_RX_QUEUE_LEN frames) and
+            keeps the heartbeat on time, so it should not wait behind a task that keeps a core
+            busy, such as a video player.
+
+    config CYPHAL_TASK_CORE
+        int "The core the node task runs on"
+        default 0
+        range 0 1
+
+    config CYPHAL_TASK_STACK
+        int "The node task's stack (bytes)"
+        default 2560
+        help
+            In internal RAM, while the node runs. Measured 2026-11-20 with `cyphal`'s report of the
+            stack never used, over 500 GetInfo calls back to back, a clip, an update written over
+            Wi-Fi, board restarts and every kind of collision stop (the listen, running, and in the
+            middle of a response): 1,312 bytes used in most runs, 1,636 at most (924 never used),
+            after a log line (going online, or the collision warning). With plug-and-play, the
+            same day: 1,756 at most (804 never used), just after an allocation, whose log line is
+            written from inside the transmit path; the same after a 15-minute soak with a clip, the
+            LED ring and the web app. Log lines are the deepest calls; the spread is
+            interrupts' register spills.
+
+endmenu
