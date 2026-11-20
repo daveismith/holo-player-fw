@@ -239,6 +239,31 @@ static bool take_hash(const char *s, uint64_t *out)
     return true;
 }
 
+void cyphal_busoff_init(cyphal_busoff_t *b)
+{
+    *b = (cyphal_busoff_t){ .recovered_us = INT64_MIN };
+}
+
+int64_t cyphal_busoff_seen(cyphal_busoff_t *b, int64_t now_us, bool *log)
+{
+    const bool back_to_back = b->recovered_us != INT64_MIN && now_us - b->recovered_us < CYPHAL_BUSOFF_STABLE_US;
+    if (!back_to_back) {
+        b->run = 1;
+        b->wait_us = 0;
+    } else {
+        b->run = b->run < UINT32_MAX ? b->run + 1 : b->run;
+        b->wait_us = b->wait_us == 0 ? CYPHAL_BUSOFF_FIRST_WAIT_US
+                     : b->wait_us >= CYPHAL_BUSOFF_MAX_WAIT_US / 2 ? CYPHAL_BUSOFF_MAX_WAIT_US : b->wait_us * 2;
+    }
+    *log = (b->run & (b->run - 1)) == 0;     /* 1, 2, 4, 8, ... */
+    return now_us + b->wait_us;
+}
+
+void cyphal_busoff_recovering(cyphal_busoff_t *b, int64_t now_us)
+{
+    b->recovered_us = now_us;
+}
+
 void cyphal_software_version(const char *version, uint8_t *major, uint8_t *minor, uint64_t *vcs_revision)
 {
     *major = *minor = 0;

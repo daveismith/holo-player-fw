@@ -1,8 +1,9 @@
 # The host link
 
 !!! note "What's in the firmware so far"
-    UART and RS485, with JSON lines, native frames and events. I2C is described here ahead of the
-    firmware. RS485 has been tried through a plain UART, not yet with a transceiver.
+    UART and RS485, with JSON lines, native frames and events, and CAN, which hands the pins to
+    the Cyphal node. I2C is described here ahead of the firmware. RS485 has been tried through a
+    plain UART, not yet with a transceiver.
 
 The host link lets another controller run the board over a wire: an Arduino or MarcDuino, a dome
 controller, another ESP32, or a Raspberry Pi. It plays scenes, shows clips, sets the LEDs and moves
@@ -35,15 +36,21 @@ POST /scenes/apply {"name":"cantina"}
 
 ## Pins
 
-| Role | Default | P2 pin | UART | RS485 | I2C |
-|---|---|---|---|---|---|
-| A | GPIO21 | 11 | TX (board → host) | DI of the transceiver | SDA |
-| B | GPIO33 | 12 | RX (host → board) | RO of the transceiver | SCL |
-| C | GPIO15 | 7 | ATTN, if turned on | DE and /RE of the transceiver | IRQ (open drain) |
+| Role | Default | P2 pin | UART | RS485 | I2C | CAN |
+|---|---|---|---|---|---|---|
+| A | GPIO21 | 11 | TX (board → host) | DI of the transceiver | SDA | TXD of the transceiver |
+| B | GPIO33 | 12 | RX (host → board) | RO of the transceiver | SCL | RXD of the transceiver |
+| C | GPIO15 | 7 | ATTN, if turned on | DE and /RE of the transceiver | IRQ (open drain) | not used |
 
 A GND wire, P2 pin 1 or 5, goes with every transport. The pins can be changed in the settings, to
 any of the free GPIOs that the LEDs and servos aren't using. While the link holds a pin, the `gpio`
-command refuses to drive it.
+command refuses to drive it, and says what has it:
+
+```text
+gpio 21 is reserved: CAN TX, for the Cyphal node (`link mode can`)
+```
+
+If the transport doesn't start, the link holds no pins, and `link` says so.
 
 Everything is 3.3 V, and **no pin takes 5 V**. Each transport's page says what to put between the
 board and a 5 V host.
@@ -77,6 +84,11 @@ curl -X PATCH -H "Content-Type: application/json" \
 
 **In the web app:** the Host link card on the Settings page.
 
+On CAN the board runs no host protocol: the pins go to the [Cyphal node](cyphal.md), whose
+`cyphal` command reports on it. The protocol, baud rate, address, groups, reply delay and events
+are kept for UART and RS485, and can still be changed, but CAN doesn't use them: `link` and the
+web app leave them out while the link is on CAN, and the console says so when one is changed.
+
 Changing the transport, the pins, `attn`, the I2C address or `general_call` waits for a restart,
 and the reply says so with `"restart_required": true`. The rest applies at once: the baud rate,
 the address and groups, the protocol, and the events it starts with. A new baud rate takes effect
@@ -86,7 +98,7 @@ after the reply, which is sent at the old one.
 
 | Command | Does |
 |---|---|
-| `link` | The transport, its pins and settings, the counters, and the events asked for |
+| `link` | The transport, its pins and settings, the counters, and the events asked for. On CAN, the pins and who has them |
 | `link mode <off\|uart\|rs485\|can> [-b <baud>] [-a <address>]` | The transport, from the next restart. `-b` is the baud rate, `-a` the board's address: 1–223. `can` hands the pins to the [Cyphal node](cyphal.md) |
 | `link proto <auto\|json\|native>` | What the board accepts on UART and RS485. I2C is always native |
 | `link address <1-223>` | The board's address on UART and RS485 |

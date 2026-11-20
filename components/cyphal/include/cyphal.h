@@ -61,6 +61,7 @@ typedef struct {
     uint32_t transfers_received;        /* reassembled, CRC checked: GetInfo requests, allocation messages */
     uint32_t transfers_dropped;         /* given up on: not on the bus by their deadline, or no room to queue */
     uint32_t frames_queued;             /* handed to the controller */
+    uint32_t recover_in_s;              /* bus-off, backing off: seconds until the node asks for the recovery; 0 otherwise */
     /* libcanard's heap (CONFIG_CYPHAL_HEAP_SIZE), and the node task's stack */
     uint32_t heap_used, heap_peak, heap_size, heap_failed;
     uint32_t stack_unused;              /* bytes of the task's stack never used, 0 when no task */
@@ -71,13 +72,15 @@ esp_err_t cyphal_init(void);
 
 /* Start the node on these pins (TX, RX) with the saved settings: the controller at the saved
  * bitrate, then a fixed node-ID's listen, or plug-and-play's requests. The pins are the
- * caller's, checked as free. ESP_ERR_INVALID_STATE if it runs already; another error if the
- * controller would not start, which the status then shows. */
+ * caller's, checked as free, and the node's from then on. ESP_ERR_INVALID_STATE if it runs
+ * already; another error if the controller would not start, which the status then shows: the
+ * pins are then the caller's again, and cyphal_restart() won't take them. */
 esp_err_t cyphal_start(int tx_gpio, int rx_gpio);
 
 /* Stop, then start again on the same pins with the settings as they are now: also how a node
- * stopped by a node-ID in use starts again. ESP_ERR_INVALID_STATE if it was never started (no
- * pins to start on); any other error if the stop or the start failed, which the status shows. */
+ * stopped by a node-ID in use starts again. ESP_ERR_INVALID_STATE if cyphal_start() never
+ * succeeded (no pins to start on); any other error if the stop or the start failed, which the
+ * status shows. */
 esp_err_t cyphal_restart(void);
 
 /* Settings, saved; each applies from the node's next start. A bad value is refused with

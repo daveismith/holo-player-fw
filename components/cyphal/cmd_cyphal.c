@@ -75,8 +75,12 @@ static void print_status(void)
     }
     canbus_status_t bus;
     canbus_status(&bus);
-    printf("  bus: %s, tx errors %u, rx errors %u, bus-off %lu times\n", canbus_state_name(bus.state), bus.tx_errors,
+    printf("  bus: %s, tx errors %u, rx errors %u, bus-off %lu times", canbus_state_name(bus.state), bus.tx_errors,
            bus.rx_errors, (unsigned long)bus.bus_off);
+    if (bus.state == CANBUS_BUS_OFF && st.recover_in_s > 0) {
+        printf(" (back to back: recovering in %lu s)", (unsigned long)st.recover_in_s);
+    }
+    printf("\n");
     printf("  transfers: sent %lu, received %lu; frames: sent %lu, received %lu; dropped %lu\n",
            (unsigned long)st.transfers_sent, (unsigned long)st.transfers_received, (unsigned long)bus.tx_frames,
            (unsigned long)bus.rx_frames, (unsigned long)st.transfers_dropped);
@@ -160,7 +164,13 @@ static int cmd_cyphal(int argc, char **argv)
     if (strcmp(sub, "restart") == 0 && argc == 2) {
         const esp_err_t err = cyphal_restart();
         if (err == ESP_ERR_INVALID_STATE) {
-            printf("cyphal: off, so there is nothing to restart (%s)\n", s_how_to_start);
+            cyphal_status_t st;
+            cyphal_status(&st);
+            if (st.state == CYPHAL_FAILED) {
+                printf("cyphal: it didn't start, so it has no pins to start again on: restart the board\n");
+            } else {
+                printf("cyphal: off, so there is nothing to restart (%s)\n", s_how_to_start);
+            }
             return 1;
         }
         print_status();

@@ -98,6 +98,8 @@ typedef struct {
     int64_t next_request_us;                /* plug-and-play's request timer (Trequest), while waiting with nothing held */
     int64_t next_heartbeat_us, next_bus_check_us;
     uint32_t bus_off_seen;                  /* canbus's bus-off count, as last looked at */
+    cyphal_busoff_t busoff;                 /* the recoveries' back-off */
+    int64_t recover_at_us;                  /* when to ask for the recovery, while bus-off */
 } node_t;
 
 static SemaphoreHandle_t s_lock;        /* settings, start, stop and status against each other */
@@ -105,6 +107,7 @@ static SemaphoreHandle_t s_task_ended;  /* given by the task as it ends */
 static cyphal_settings_t s_saved;       /* from the next start */
 static cyphal_settings_t s_run;         /* as the node started */
 static int s_tx = -1, s_rx = -1;        /* the pins of the last start */
+static bool s_given;                    /* cyphal_start() succeeded on them, so they are the node's to restart on */
 static uint8_t s_uid[CYPHAL_UNIQUE_ID_SIZE];
 static uint64_t s_pseudo_id;            /* plug-and-play's, from s_uid */
 static node_t *s_node;                  /* from the first start; never freed */
@@ -120,6 +123,7 @@ static volatile cyphal_state_t s_state = CYPHAL_OFF;
 static volatile esp_err_t s_error;
 static bool s_stop_failed;              /* CYPHAL_FAILED came from a restart's canbus_stop(); under s_lock */
 static volatile int64_t s_started_us;
+static volatile uint32_t s_recover_at_ms;   /* bus-off: when the node asks for the recovery, esp_timer ms; 0 for none waiting */
 /* Since the start; written by the task, read whole by anyone */
 static volatile uint32_t s_tr_sent, s_tr_received, s_tr_dropped, s_frames_queued, s_heap_failed;
 
@@ -571,17 +575,38 @@ static void on_frame(node_t *n, const canbus_frame_t *f)
     heap_free(NULL, t.payload.allocated_size, t.payload.data);     /* the instance's memory resource */
 }
 
-/* Bus-off: the node brings the controller back itself (canbus counts how often) */
-static void check_bus(node_t *n)
+/* Bus-off: the node brings the controller back itself (canbus counts how often), backing off when
+ * bus-offs come back to back (cyphal_busoff_seen()). Asked again at each look while still bus-off:
+ * a recovery needs 128 idle periods of 11 bits, which a busy bus can hold off. */
+static void check_bus(node_t *n, int64_t now)
 {
     canbus_status_t st;
     canbus_status(&st);
-    if (st.state == CANBUS_BUS_OFF) {
-        if (st.bus_off != n->bus_off_seen) {
-            n->bus_off_seen = st.bus_off;
+    if (st.state != CANBUS_BUS_OFF) {
+        s_recover_at_ms = 0;
+        return;
+    }
+    if (st.bus_off != n->bus_off_seen) {
+        n->bus_off_seen = st.bus_off;
+        bool log;
+        n->recover_at_us = cyphal_busoff_seen(&n->busoff, now, &log);
+        const int64_t wait_us = n->recover_at_us - now;
+        if (log && n->busoff.run == 1) {
             ESP_LOGW(TAG, "bus-off (%lu times since the start): recovering", (unsigned long)st.bus_off);
+        } else if (log) {
+            ESP_LOGW(TAG, "bus-off again, %lu times in a row (%lu since the start): recovering in %lld s; "
+                     "logged again at %lu in a row", (unsigned long)n->busoff.run, (unsigned long)st.bus_off,
+                     (long long)(wait_us / 1000000), (unsigned long)n->busoff.run * 2);
         }
-        canbus_recover(s_bus);
+    }
+    if (now >= n->recover_at_us) {
+        s_recover_at_ms = 0;
+        if (canbus_recover(s_bus) == ESP_OK) {
+            cyphal_busoff_recovering(&n->busoff, now);
+        }
+    } else {
+        const uint32_t at_ms = (uint32_t)(n->recover_at_us / 1000);
+        s_recover_at_ms = at_ms != 0 ? at_ms : 1;
     }
 }
 
@@ -684,7 +709,7 @@ static void timers(node_t *n, int64_t now)
     }
     if (now >= n->next_bus_check_us) {
         n->next_bus_check_us = now + BUS_CHECK_US;
-        check_bus(n);
+        check_bus(n, now);
     }
 }
 
@@ -775,6 +800,8 @@ static esp_err_t start_locked(int tx, int rx)
     n->held_id = CYPHAL_NODE_ID_AUTO;
     cyphal_seen_clear(&n->seen);
     n->next_bus_check_us = now + BUS_CHECK_US;
+    cyphal_busoff_init(&n->busoff);
+    s_recover_at_ms = 0;
     /* Logged now, before the task can log what happens next. By the setting, not by s_state, which
      * the task (at a higher priority) may change as soon as it exists */
     if (s_run.node_id == CYPHAL_NODE_ID_AUTO) {
@@ -866,6 +893,11 @@ esp_err_t cyphal_start(int tx_gpio, int rx_gpio)
     }
     lock();
     const esp_err_t err = start_locked(tx_gpio, rx_gpio);
+    /* A failed start gives the pins back (the application's caller then holds none), so a restart
+     * mustn't take them */
+    if (err == ESP_OK) {
+        s_given = true;
+    }
     unlock();
     return err;
 }
@@ -877,7 +909,7 @@ esp_err_t cyphal_restart(void)
     }
     lock();
     esp_err_t err = ESP_ERR_INVALID_STATE;
-    if (s_tx >= 0) {
+    if (s_given) {
         err = stop_locked();
         if (err == ESP_OK) {
             err = start_locked(s_tx, s_rx);
@@ -918,6 +950,11 @@ void cyphal_status(cyphal_status_t *out)
     out->transfers_received = s_tr_received;
     out->transfers_dropped = s_tr_dropped;
     out->frames_queued = s_frames_queued;
+    const uint32_t at_ms = s_recover_at_ms;
+    if (s_task != NULL && at_ms != 0) {
+        const int32_t left_ms = (int32_t)(at_ms - (uint32_t)(esp_timer_get_time() / 1000));
+        out->recover_in_s = left_ms > 0 ? (uint32_t)((left_ms + 999) / 1000) : 0;
+    }
     if (s_heap != NULL) {
         out->heap_used = s_heap_free0 - multi_heap_free_size(s_heap);
         out->heap_peak = s_heap_free0 - multi_heap_minimum_free_size(s_heap);

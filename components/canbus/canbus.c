@@ -48,6 +48,10 @@
 
 static const char *TAG = "canbus";
 
+/* CAN's error levels, on the larger of the two counters (canbus_state_t) */
+#define CANBUS_WARNING_LEVEL    96      /* the error warning limit IDF's HAL gives the controller (TWAI_HAL_INIT_EWL) */
+#define CANBUS_PASSIVE_LEVEL    128
+
 typedef struct {
     twai_frame_t frame;     /* first: the driver hands this pointer back in on_tx_done */
     uint8_t data[8];
@@ -159,9 +163,13 @@ static IRAM_ATTR bool on_error(twai_node_handle_t node, const twai_error_event_d
 {
     (void)node;
     (void)ctx;
-    twai_error_flags_t f = edata->err_flags;
-    f.arb_lost = 0;     /* losing arbitration is how CAN works, not an error */
-    if (f.val) {
+    /* The driver calls this for a bus error or a lost arbitration. Losing arbitration is how CAN
+     * works, not an error, so a call with that flag alone isn't counted. Every other is, flags or
+     * none: IDF 6.1's HAL (twai_hal_v1.c, twai_hal_get_events()) sets a flag only for a bit, form
+     * or stuff error, or an "other" error in the ACK slot, so a CRC error, say, comes with none. */
+    const twai_error_flags_t f = edata->err_flags;
+    const twai_error_flags_t arb_lost_alone = { .arb_lost = 1 };
+    if (f.val != arb_lost_alone.val) {
         s_bus_errors++;
     }
     return false;
@@ -203,6 +211,14 @@ static void fill_free(int slots)
         slot_t *slot = &s_slots[i];
         xQueueSend(s_free, &slot, 0);
     }
+}
+
+/* Whether the controller is bus-off, as the driver has it (it refuses to send while it is, and to
+ * recover while it isn't, with an error line each time). Under s_lock, with a node. */
+static bool bus_off_locked(void)
+{
+    twai_node_status_t st;
+    return twai_node_get_info(s_node, &st, NULL) == ESP_OK && st.state == TWAI_ERROR_BUS_OFF;
 }
 
 /* The handle is the run in progress's: read without the lock by send and receive, whose callers
@@ -355,7 +371,9 @@ esp_err_t canbus_send(canbus_handle_t handle, const canbus_frame_t *frame, TickT
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
     esp_err_t err = ESP_ERR_INVALID_STATE;
-    if (owns(handle)) {
+    /* Bus-off refused here rather than by the driver, which would log it: the node could ask every
+     * tick. Bus-off can still begin between this and the hand-over; then the driver refuses. */
+    if (owns(handle) && !bus_off_locked()) {
         memcpy(slot->data, frame->data, frame->len);
         slot->frame = (twai_frame_t){
             .header = {
@@ -400,7 +418,8 @@ esp_err_t canbus_recover(canbus_handle_t handle)
         return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    const esp_err_t err = owns(handle) ? twai_node_recover(s_node) : ESP_ERR_INVALID_STATE;
+    /* Not bus-off refused here, without the driver's error line */
+    const esp_err_t err = owns(handle) && bus_off_locked() ? twai_node_recover(s_node) : ESP_ERR_INVALID_STATE;
     xSemaphoreGive(s_lock);
     return err;
 }
@@ -426,13 +445,13 @@ void canbus_status(canbus_status_t *out)
     if (s_node != NULL) {
         twai_node_status_t st;
         if (twai_node_get_info(s_node, &st, NULL) == ESP_OK) {
-            static const canbus_state_t MAP[] = {
-                [TWAI_ERROR_ACTIVE] = CANBUS_ERROR_ACTIVE,
-                [TWAI_ERROR_WARNING] = CANBUS_ERROR_WARNING,
-                [TWAI_ERROR_PASSIVE] = CANBUS_ERROR_PASSIVE,
-                [TWAI_ERROR_BUS_OFF] = CANBUS_BUS_OFF,
-            };
-            out->state = MAP[st.state];
+            /* Bus-off as the driver has it. The rest from the counters just read: the driver's state
+             * changes on the way up (warning, passive) and at a recovery, but not when the counters
+             * fall back below the warning level, so it could contradict the counters beside it */
+            const unsigned worst = st.tx_error_count > st.rx_error_count ? st.tx_error_count : st.rx_error_count;
+            out->state = st.state == TWAI_ERROR_BUS_OFF ? CANBUS_BUS_OFF
+                         : worst >= CANBUS_PASSIVE_LEVEL ? CANBUS_ERROR_PASSIVE
+                         : worst >= CANBUS_WARNING_LEVEL ? CANBUS_ERROR_WARNING : CANBUS_ERROR_ACTIVE;
             out->tx_errors = st.tx_error_count;
             out->rx_errors = st.rx_error_count;
         }

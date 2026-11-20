@@ -108,7 +108,8 @@ CONFIG_CYPHAL_UNIQUE_ID_PREFIX="holoplay"
 CONFIG_CYPHAL_DEFAULT_NAME="r2.dome.holo.front"
 CONFIG_CYPHAL_HARDWARE_VERSION_MAJOR=1
 CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
-# Its task as `can`'s reader: over the video player's 5, which runs on the other core (1); core 0 is
-# the console's.
+# Its task reads the CAN receive queue and keeps the heartbeat on time, so it runs above the video
+# player's 5 (on core 1), on core 0 with the console. Measured 2026-11-20: the heartbeat's worst gap
+# 1.009 s through a clip with the LED ring, 1.023 s through an update over Wi-Fi.
 CONFIG_CYPHAL_TASK_PRIORITY=6
 CONFIG_CYPHAL_TASK_CORE=0

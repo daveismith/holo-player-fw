@@ -479,6 +479,56 @@ static void test_pnp_verdict(void)
     CHECK(cyphal_pnp_verdict(&s, &l, 125, T0 + 4000000) == CYPHAL_PNP_TAKE);
 }
 
+static void test_busoff(void)
+{
+    const int64_t S = 1000000;
+    cyphal_busoff_t b;
+    bool log = false;
+    cyphal_busoff_init(&b);
+
+    /* The first: at once, logged */
+    int64_t t = 100 * S;
+    CHECK(cyphal_busoff_seen(&b, t, &log) == t && log && b.run == 1);
+    cyphal_busoff_recovering(&b, t);
+
+    /* Back to back (the bus-off seen at the next look, a second later): 1, 2, 4, 8, 16, then 30 s at most */
+    const int64_t waits[] = { 1, 2, 4, 8, 16, 30, 30, 30 };
+    const bool logged[] = { true, false, true, false, false, false, true, false };    /* run 2, 3, 4, ... 9 */
+    for (size_t i = 0; i < sizeof(waits) / sizeof(waits[0]); i++) {
+        t += S;
+        const int64_t at = cyphal_busoff_seen(&b, t, &log);
+        CHECK(at == t + waits[i] * S);
+        CHECK(log == logged[i]);
+        CHECK(b.run == i + 2);
+        t = at;
+        cyphal_busoff_recovering(&b, t);
+    }
+    /* Logged ever further apart: the 16th, not the 15th */
+    for (int run = 10; run <= 16; run++) {
+        t += S;
+        t = cyphal_busoff_seen(&b, t, &log);
+        CHECK(log == (run == 16));
+        cyphal_busoff_recovering(&b, t);
+    }
+
+    /* Up for just under a minute after the last recovery: still back to back, at the cap */
+    CHECK(cyphal_busoff_seen(&b, t + CYPHAL_BUSOFF_STABLE_US - 1, &log) == t + CYPHAL_BUSOFF_STABLE_US - 1 + 30 * S);
+    t += CYPHAL_BUSOFF_STABLE_US - 1 + 30 * S;
+    cyphal_busoff_recovering(&b, t);
+    /* A minute up: a new run, at once and logged; the next back to back starts again at 1 s */
+    t += CYPHAL_BUSOFF_STABLE_US;
+    CHECK(cyphal_busoff_seen(&b, t, &log) == t && log && b.run == 1);
+    cyphal_busoff_recovering(&b, t);
+    CHECK(cyphal_busoff_seen(&b, t + S, &log) == t + 2 * S && log && b.run == 2);
+
+    /* A recovery asked for again (the bus-off outlasting it) counts from the last ask */
+    cyphal_busoff_init(&b);
+    CHECK(cyphal_busoff_seen(&b, 0, &log) == 0 && log);
+    cyphal_busoff_recovering(&b, 0);
+    cyphal_busoff_recovering(&b, 50 * S);
+    CHECK(cyphal_busoff_seen(&b, 60 * S, &log) == 61 * S);    /* 10 s after the last ask: back to back */
+}
+
 int main(void)
 {
     test_crc64we();
@@ -494,6 +544,7 @@ int main(void)
     test_seen();
     test_pnp_in_use();
     test_pnp_verdict();
+    test_busoff();
     printf("cyphal_util: %d checks, %d failed\n", s_checks, s_failed);
     return s_failed ? 1 : 0;
 }

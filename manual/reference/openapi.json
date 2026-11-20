@@ -7213,7 +7213,7 @@
           "general_call",
           "events"
         ],
-        "description": "The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once.",
+        "description": "The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once. With `mode` `can`, the protocol's settings (`protocol`, `baud`, `address`, `groups`, `reply_delay_ms`, `attn` and `events`) and pin C are kept for UART and RS485 and accepted as usual, but the Cyphal node doesn't use them.",
         "properties": {
           "mode": {
             "type": "string",
@@ -7317,7 +7317,7 @@
       },
       "LinkPatch": {
         "type": "object",
-        "description": "Only what changes. The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once.",
+        "description": "Only what changes. The link's saved settings. `mode`, `pins`, `attn`, `i2c_address` and `general_call` take effect at the next restart; the rest at once. With `mode` `can`, the protocol's settings (`protocol`, `baud`, `address`, `groups`, `reply_delay_ms`, `attn` and `events`) and pin C are kept for UART and RS485 and accepted as usual, but the Cyphal node doesn't use them.",
         "properties": {
           "mode": {
             "type": "string",
@@ -7530,7 +7530,7 @@
               "mode",
               "protocol"
             ],
-            "description": "What is running now, which differs from `settings` until a restart",
+            "description": "What is running now, which differs from `settings` until a restart. With `can`, `pins.a` and `pins.b` are the Cyphal node's TX and RX, `pins.c` is null, and `protocol` is the saved one, unused; `counters` and `last_request_s` stay at zero and null",
             "properties": {
               "mode": {
                 "type": "string",

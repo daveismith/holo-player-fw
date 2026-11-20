@@ -136,6 +136,32 @@ typedef enum {
 cyphal_pnp_verdict_t cyphal_pnp_verdict(const cyphal_seen_t *s, const cyphal_listen_t *l, uint8_t node_id,
                                         int64_t alloc_us);
 
+/* ------------------------------------------------------------------ bus-off */
+
+/* The node brings the controller back from bus-off itself, and backs off when the bus won't have it. The
+ * first bus-off of a run is recovered from at once (at the node's next look at the bus, within a second).
+ * One that comes within CYPHAL_BUSOFF_STABLE_US of the recovery before it is back to back: its recovery
+ * waits CYPHAL_BUSOFF_FIRST_WAIT_US, and each after that twice the one before, up to
+ * CYPHAL_BUSOFF_MAX_WAIT_US. A bus the node can't stay on at all (no working transceiver: it can't read
+ * its own bits back) then costs a moment's errors every 30 s, not a bus-off every second. Logged at the
+ * first bus-off of a run and then at the 2nd, 4th, 8th, ...: ever further apart. */
+#define CYPHAL_BUSOFF_FIRST_WAIT_US  1000000
+#define CYPHAL_BUSOFF_MAX_WAIT_US    30000000
+#define CYPHAL_BUSOFF_STABLE_US      60000000
+
+typedef struct {
+    int64_t recovered_us;   /* when the last recovery was asked for; INT64_MIN for none yet */
+    int64_t wait_us;        /* the wait before the last one, 0 when it was at once */
+    uint32_t run;           /* bus-offs back to back, the latest included; 0 before the first */
+} cyphal_busoff_t;
+
+void cyphal_busoff_init(cyphal_busoff_t *b);
+/* A new bus-off, seen at now_us: when to ask for its recovery (now_us, or later), and in *log whether to
+ * log it (the first of a run, then each power of two) */
+int64_t cyphal_busoff_seen(cyphal_busoff_t *b, int64_t now_us, bool *log);
+/* Its recovery asked for at now_us */
+void cyphal_busoff_recovering(cyphal_busoff_t *b, int64_t now_us);
+
 /* uavcan.node.GetInfo's software version and VCS revision from the firmware's version, which is
  * `git describe --always --tags --dirty`: a release (vMAJOR.MINOR.PATCH, or a -rcN pre-release)
  * gives its major and minor, anything else 0.0; a commit hash in it (`-g<hash>`, or a bare hash)

@@ -60,7 +60,7 @@ docs-serve:            ## serve the site locally with live reload
 docs-preview-versions: ## serve the local gh-pages branch with the version switcher (after mike deploy)
 	.venv/bin/mike serve
 
-unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, and plug-and-play's request, reply, timing and in-use check (cc only, no ESP-IDF)
+unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, plug-and-play's request, reply, timing and in-use check, and the bus-off back-off (cc only, no ESP-IDF)
 	@mkdir -p build/host-tests
 	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -Icomponents/cyphal/include -Icomponents/cyphal/dsdl -o build/host-tests/test_cyphal_util \
 	    tests/host/test_cyphal_util.c components/cyphal/cyphal_util.c

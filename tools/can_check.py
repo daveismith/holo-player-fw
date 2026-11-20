@@ -8,6 +8,8 @@ board's `can` command and the wiring under it (manual/use/cyphal.md, "Testing th
     tools/can_check.py echo -n 10000                  numbered frames to a board running
                                                       `can echo on`; count what comes back
     tools/can_check.py flood -t 10                    as fast as the adapter will send
+    tools/can_check.py flush                          empty the adapter for another program
+                                                      (run before cyphal_service after this or pytest)
 
 An ID of up to three hex digits is an 11-bit one, eight digits a 29-bit one, as on the board.
 `-b 500000` (or 500k) changes the bitrate; the board's default is 1 Mbit/s.
@@ -23,6 +25,13 @@ A frame the adapter could not send stays in it, retried, until some node acknowl
 across a close and reopen: run a board with `can start` (normal mode) once to clear it.
 
 Only one program can hold the adapter: stop cyphal_service (and any other CAN tool) first.
+
+`flush` is for the program that opens the adapter next. python-can asks a candleLight for
+timestamped frames (24 bytes each); a frame left waiting from that session then overflows a program
+that reads 20-byte untimestamped ones, as cyphal_service does, and macOS halts the endpoint, which
+that program never clears: it then receives nothing. `flush` starts the adapter without timestamps,
+reads whatever it holds for the computer with a 64-byte buffer for 0.3 s, and stops it. It sends
+nothing. Run it while the board is quiet, as any open and close.
 Needs python-can and gs_usb (`pip install python-can gs_usb`).
 """
 
@@ -55,6 +64,36 @@ def patch_gs_usb_for_macos() -> None:
 def open_bus(bitrate: int) -> can.BusABC:
     patch_gs_usb_for_macos()
     return can.Bus(interface="gs_usb", channel=0, bitrate=bitrate)
+
+
+def flush(bitrate: int) -> int:
+    """`flush` (the module's docstring): the adapter through the gs_usb library, not python-can"""
+    from gs_usb.constants import GS_CAN_MODE_NORMAL
+    from gs_usb.gs_usb import GsUsb
+    import usb.util
+
+    patch_gs_usb_for_macos()
+    devs = GsUsb.scan()
+    if not devs:
+        print("no gs_usb adapter found", file=sys.stderr)
+        return 1
+    dev = devs[0]
+    dev.set_bitrate(bitrate)
+    dev.start(GS_CAN_MODE_NORMAL)       # a USB reset, then START, with no timestamps
+    sizes: Counter = Counter()
+    t0 = time.monotonic()
+    failed = None
+    while time.monotonic() - t0 < 0.3:
+        try:
+            sizes[len(bytes(dev.gs_usb.read(0x81, 64, 50)))] += 1
+        except usb.core.USBError as e:
+            if "timed out" not in str(e).lower() and e.errno not in (60, 110):
+                failed = e
+                break
+    dev.stop()
+    usb.util.dispose_resources(dev.gs_usb)
+    print(f"flushed: {sum(sizes.values())} reads, by size {dict(sizes)}" + (f"; read error: {failed}" if failed else ""))
+    return 1 if failed else 0
 
 
 def parse_bitrate(s: str) -> int:
@@ -317,8 +356,11 @@ def main() -> int:
     p.add_argument("frame", type=parse_frame, nargs="?", default=parse_frame("7FF#0000000000000000"))
     p.add_argument("-t", "--time", type=float, default=10)
     p.add_argument("-n", "--count", type=int, default=0, help="frames, instead of seconds")
+    sub.add_parser("flush", help="empty the adapter for the next program (cyphal_service); sends nothing")
     args = ap.parse_args()
 
+    if args.op == "flush":
+        return flush(args.bitrate)
     bus = open_bus(args.bitrate)
     try:
         return {"listen": cmd_listen, "send": cmd_send, "echo": cmd_echo, "flood": cmd_flood}[args.op](bus, args)

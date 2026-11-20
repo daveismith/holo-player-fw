@@ -124,18 +124,28 @@ static const gpio_reserved_t s_gpio_reserved[] = {
 };
 
 /*
- * What the `gpio` command refuses: the table above, the host link's pins when it holds them,
- * and two entries for `can`'s pins, -1 (matching no pin) while it isn't running.
+ * What the `gpio` command refuses: the table above, then three entries for the pins the host link
+ * holds (its transport's, or the Cyphal node's in `link mode can`) and two for `can`'s, each -1
+ * (matching no pin) while nothing holds it, and named for whoever does.
  *
  * The kit's register_gpio() keeps this pointer, not a copy, and walks the table at each `gpio`;
- * can_pins_held() changes the two `can` entries after registration. So the table must stay
- * where it is and as long as it was registered, and only those two entries may change.
+ * link_pins_held() and can_pins_held() change their entries after registration. So the table must
+ * stay where it is and as long as it was registered, and only those five entries may change.
  */
-#define LINK_PIN_COUNT 3    /* the host link's A, B and C */
-#define CAN_PIN_COUNT  2    /* `can`'s TX and RX */
-static gpio_reserved_t s_reserved[sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]) + LINK_PIN_COUNT +
-                                  CAN_PIN_COUNT];
-static gpio_reserved_t *s_can_reserved;
+#define LINK_PIN_COUNT HOSTLINK_PIN_ROLES   /* the host link's A, B and C */
+#define CAN_PIN_COUNT  2                    /* `can`'s TX and RX */
+#define BOARD_PIN_COUNT (sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]))
+static gpio_reserved_t s_reserved[BOARD_PIN_COUNT + LINK_PIN_COUNT + CAN_PIN_COUNT];
+static gpio_reserved_t *const s_link_reserved = &s_reserved[BOARD_PIN_COUNT];
+static gpio_reserved_t *const s_can_reserved = &s_reserved[BOARD_PIN_COUNT + LINK_PIN_COUNT];
+
+/* From hostlink_start(), in app_main before the console's loop runs `gpio` */
+static void link_pins_held(const hostlink_pin_t pins[LINK_PIN_COUNT], bool held)
+{
+    for (int i = 0; i < LINK_PIN_COUNT; i++) {
+        s_link_reserved[i] = (gpio_reserved_t){ held ? pins[i].gpio : -1, pins[i].what };
+    }
+}
 
 /* `can` goes on the host link's pins A and B, and only while the link isn't running on them */
 static const char *can_pins(int *tx, int *rx)
@@ -143,7 +153,7 @@ static const char *can_pins(int *tx, int *rx)
     return hostlink_lend_pins(tx, rx);
 }
 
-/* Both run on the console's task, so `gpio` never sees the table half-changed */
+/* From `can` on the console's task, so `gpio` never sees the table half-changed */
 static void can_pins_held(int tx, int rx, bool held)
 {
     s_can_reserved[0] = (gpio_reserved_t){ held ? tx : -1, "CAN TX, while `can` runs" };
@@ -304,23 +314,12 @@ void app_main(void)
     esp_err_t err;
     esp_console_register_help_command();
     register_system_common();
-    /* The pins the host link holds, when it holds any, go with the board's own; then the two
-     * `can` fills in while it runs. */
-    hostlink_init();
-    size_t n_reserved = sizeof(s_gpio_reserved) / sizeof(s_gpio_reserved[0]);
+    /* The board's own pins; the host link's and `can`'s, none yet, are filled in as they are held */
     memcpy(s_reserved, s_gpio_reserved, sizeof(s_gpio_reserved));
-    int link_pins[LINK_PIN_COUNT];
-    static const char *const LINK_ROLES[LINK_PIN_COUNT] = { "host link (A)", "host link (B)", "host link (C)" };
-    hostlink_pins(&link_pins[0], &link_pins[1], &link_pins[2]);
-    for (int i = 0; i < LINK_PIN_COUNT; i++) {
-        if (link_pins[i] >= 0) {
-            s_reserved[n_reserved++] = (gpio_reserved_t){ link_pins[i], LINK_ROLES[i] };
-        }
+    for (size_t i = BOARD_PIN_COUNT; i < sizeof(s_reserved) / sizeof(s_reserved[0]); i++) {
+        s_reserved[i] = (gpio_reserved_t){ -1, NULL };
     }
-    s_can_reserved = &s_reserved[n_reserved];
-    s_can_reserved[0] = s_can_reserved[1] = (gpio_reserved_t){ -1, NULL };
-    n_reserved += CAN_PIN_COUNT;
-    register_gpio(s_reserved, n_reserved);
+    register_gpio(s_reserved, sizeof(s_reserved) / sizeof(s_reserved[0]));
 #if SOC_LIGHT_SLEEP_SUPPORTED
     register_system_light_sleep();
 #endif
@@ -358,18 +357,24 @@ void app_main(void)
     web_server_register_commands();
     scene_register_commands();
     settings_register_commands();
-    /* `link mode can` starts the Cyphal node on the link's pins A and B; named before `link`'s help */
+    /* The link's settings, which its routes and `link` read from now on. `link mode can` starts the
+     * Cyphal node on the link's pins A and B; named before `link`'s help */
+    hostlink_init();
     hostlink_set_can_user(cyphal_start, "the Cyphal node", "cyphal");
+    hostlink_set_on_pins(link_pins_held);
     hostlink_register_commands();
     register_can_commands(&(const can_cmd_config_t){ .pins = can_pins, .on_pins = can_pins_held });
     /* The Cyphal node: its settings now, its start from the host link's `can` mode, which hands it
-     * pins A and B (and keeps them in the `gpio` command's table above). Its NVS namespace,
-     * "cyphal", holds no credential, identity or counter, so a backup keeps all of it. */
+     * pins A and B (and names it in the `gpio` command's table above). Its NVS namespace,
+     * "cyphal", holds no credential or counter, but it does hold an identity on the bus: a fixed
+     * node-ID and the node's name. Both stay in a backup, as the hostname and the link's address
+     * do, so that a replacement board takes the old one's place (CLAUDE.md, "Configuration
+     * backup"); a second board restored from it needs its own node-ID (manual/use/backup.md). */
     err = cyphal_init();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "cyphal: %s", esp_err_to_name(err));
     }
-    cyphal_register_commands("the host link isn't set to CAN: `link mode can`, then restart");
+    cyphal_register_commands("the host link isn't running in CAN mode: `link mode can`, then restart");
 
     /* Radio up in station mode, and the last network joined rejoined. */
     err = wifi_known_start();

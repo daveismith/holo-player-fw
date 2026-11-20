@@ -38,7 +38,8 @@ shows it waiting.
 The allocator remembers which board it gave which node-ID, so a board gets the same one every
 time. The board itself doesn't save it. It asks again at every start, and runs on its node-ID a
 second or two after the start: never sooner than one, for the [check](#a-node-id-that-is-already-taken)
-it makes first. It takes a node-ID from whichever node answers first: nothing in it expects a
+it makes first. Against `cyphal_service` on the bench it was running 1.1 seconds after its start,
+and about 2 seconds after an allocator turned up on a bus where it had been waiting. It takes a node-ID from whichever node answers first: nothing in it expects a
 particular allocator.
 
 This is the plug-and-play of Cyphal v1 for classic CAN: `uavcan.pnp.NodeIDAllocationData.1.0`,
@@ -101,7 +102,9 @@ node-ID that clashes with it runs until the other node turns up.
 ## What it reports
 
 **Heartbeat**, once a second: the time since the node started, in seconds, with its health
-nominal and its mode operational.
+nominal and its mode operational. It keeps time while the board is busy: the longest gap measured
+on the bench was 1.02 seconds, during a firmware update over Wi-Fi, and 1.01 seconds while a clip
+played with the LED ring running. Other nodes count a node as gone after 3 seconds without one.
 
 **`GetInfo`:**
 
@@ -188,20 +191,55 @@ The first line starts with the node's state:
 
 | State | Means |
 |---|---|
-| `off` | The host link isn't set to CAN |
+| `off` | The host link isn't running in CAN mode: `link mode can`, then restart |
 | `waiting for a node-ID` | Asking the bus for one by plug-and-play, and no allocator has answered yet; or one has, and the node is still in the second it [listens](#a-node-id-that-is-already-taken) before taking it up |
 | `listening, before going online as node 52 (fixed)` | The 2 seconds before a node with a fixed node-ID starts |
 | `node 52 (allocated)` or `(fixed)` | Running |
 | `stopped: node-ID 52 is in use by another node` | [Stopped](#a-node-id-that-is-already-taken), until told to start again |
-| `not started on GPIO21 and GPIO33: …` | The CAN controller didn't start: in use by `can`, say. Or, after `cyphal restart`, it `would not stop`: the node is stopped and the controller still runs. `cyphal restart` tries again |
+| `not started on GPIO21 and GPIO33: …` | The CAN controller didn't start at the board's start (out of memory, say): the host link then holds no pins (`link` says `can didn't start`), and only a restart of the board tries again. Or a `cyphal restart` failed: the controller didn't start again, or `would not stop`, in which case the node is stopped and the controller still runs. `cyphal restart` tries again |
 
-The bus's state is CAN's own:
+The bus's state is CAN's own, read from the two error counters beside it (the larger of them):
 
 | State | Means |
 |---|---|
-| `error-active` | Normal |
-| `error-passive` | Many errors lately. A board alone on the bus sits here, since nobody acknowledges its frames |
-| `bus-off` | So many transmit errors that the controller has taken itself off the bus. The node brings it back by itself, and counts how often |
+| `error-active` | Normal: both counters under 96 |
+| `error-warning` | A counter at 96 or more: errors lately, not yet enough to change how the controller behaves |
+| `error-passive` | A counter at 128 or more: many errors lately. A board alone on the bus sits here, with `tx errors 128`, since nobody acknowledges its frames |
+| `bus-off` | So many transmit errors that the controller has taken itself off the bus. The node [brings it back](#bus-off) by itself, and counts how often |
+
+### Bus-off
+
+A controller goes bus-off when its frames keep failing in a way that is its own fault: it sends a
+bit and doesn't see that bit on the bus. On a working bus that is rare, and the node brings the
+controller back within a second, with a warning in the board's log:
+
+```text
+W (4663) cyphal: bus-off (1 times since the start): recovering
+```
+
+When the board can't see its own bits at all (the transceiver's S pin high, or its VIO, RXD or TXD
+not connected: [what to check](../connect/host-can.md#a-first-test)), every frame it sends takes it
+bus-off again within a moment of each recovery. So when a bus-off comes less than a minute after
+the recovery before it, the node waits before recovering: 1 s, then 2, 4, 8 and 16 s, and 30 s
+from then on, until the bus has stayed up for a minute. The log says so at the 2nd bus-off in a
+row, the 4th, the 8th, and so on, ever further apart:
+
+```text
+W (5663) cyphal: bus-off again, 2 times in a row (2 since the start): recovering in 1 s; logged again at 4 in a row
+W (10693) cyphal: bus-off again, 4 times in a row (4 since the start): recovering in 4 s; logged again at 8 in a row
+W (72883) cyphal: bus-off again, 8 times in a row (8 since the start): recovering in 30 s; logged again at 16 in a row
+```
+
+and `cyphal` shows the wait:
+
+```text
+  bus: bus-off, tx errors 128, rx errors 0, bus-off 7 times (back to back: recovering in 21 s)
+  transfers: sent 7, received 0; frames: sent 0, received 0; dropped 41
+  up 50 s; frames given to the controller 7, not sent 6, waiting 1; not read (queue full) 0
+```
+
+Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats due meanwhile expire
+(`dropped`, about one a second). The rest of the board runs as usual.
 
 `transfers` counts what was sent, whole (heartbeats, `GetInfo` responses and plug-and-play
 requests) and what was received (`GetInfo` requests and plug-and-play messages); `frames` counts
@@ -215,9 +253,10 @@ little late.
 The last two lines are for when something seems wrong: how long the node has run, frames it
 handed to the controller that were never sent (bus-off, or a restart of the node), frames that
 arrived faster than they could be read, and the memory it uses. Its libcanard heap is 16 KB of
-PSRAM, reserved at its first start; the internal RAM it takes while it runs is its task's 2.5 KB
-stack and the CAN driver's queues (about 8 KB, kept once the controller has run, the same as for
-`can`).
+PSRAM, reserved at its first start, of which it has used about 800 bytes at most (500 `GetInfo`
+requests back to back); the internal RAM it takes while it runs is its task's 2.5 KB stack, of which
+at most 1.8 KB has been used, and the CAN driver's queues (about 8 KB, kept once the controller has
+run, the same as for `can`).
 
 ## Testing the wiring: raw frames
 
@@ -256,8 +295,10 @@ The frame comes back:
 can: 123 [4] DE AD BE EF
 ```
 
-`can stop` ends the self-test. A transceiver whose S pin is high (silent) fails it: the frame
-never comes back, and `tx errors` climb.
+`can stop` ends the self-test. A board that can't see its own bits on the bus fails it: the
+frame never comes back, and the controller goes bus-off at once (`can` reads `bus-off`, `bus-off 1
+times`, `waiting to send 1`). The transceiver's S pin high (silent), or its VIO, RXD or TXD not
+connected, does that.
 
 **With an adapter on the bus**, `can start` and `can dump on` show what it sends, and
 `can send 1ABCDEF0#0102` should arrive there. A frame that is sent but never acknowledged leaves
@@ -272,9 +313,13 @@ can: running at 1 Mbit/s on GPIO21 (TX), GPIO33 (RX), normal
   dump off, echo off; internal heap 107259 bytes free, 69388 lowest
 ```
 
-`bus errors` counts every error the controller has seen on the bus since `can start`. `send
-failed` counts frames that never made it: the one on the wire when the controller went bus-off,
-and any still waiting at `can stop`. Frames waiting behind a bus-off go out after `can recover`.
+`bus errors` counts every error the controller has seen on the bus since `can start`, not
+counting lost arbitration: thousands a second while nobody acknowledges, since each retry of the
+frame is one. `send failed` counts frames that never made it: the one on the wire when the
+controller went bus-off, and any still waiting at `can stop`. While the controller is bus-off,
+`can send` refuses (``can: bus-off: `can recover` first``); frames already waiting behind the bus-off
+go out after `can recover`, which brings the controller back once the bus has been idle for 128
+periods of 11 bits. Unlike the node, `can` never recovers by itself.
 `receive dropped` counts frames that arrived faster than the board could take them, which `can
 dump` causes on a busy bus: printing is slower than CAN. The queue between the controller and
 the board's reader holds 256 frames, enough to ride out a flash write on a bus full of 8-byte

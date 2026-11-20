@@ -163,6 +163,17 @@ export function danger(line) {
       if (sub === "send") return "This sends a frame on the CAN bus.";
       if (sub === "echo" && rest[0] !== "off") return "The board sends every CAN frame it receives back onto the bus.";
       return null;
+    case "link":
+      if (sub === "mode") {
+        return rest[0] === "can"
+          ? "This changes the host link's transport, from the board's next restart: `can` hands pins A and B to the Cyphal node, which goes on the CAN bus."
+          : "This changes the host link's transport, from the board's next restart.";
+      }
+      if (sub === "pins") return "This moves the host link to other pins, from the board's next restart. Check what is wired to them first.";
+      if (sub === "reset") return "This puts the host link's settings back to the firmware's defaults; the transport and pins from the board's next restart.";
+      if (sub === "proto" || sub === "address" || sub === "groups") return "This changes the host link's settings, at once.";
+      if (sub === "events" && rest.length) return "This changes the events the host link reports, at once.";
+      return null;
     case "cyphal":
       if (sub === "restart") return "The Cyphal node stops and starts again with its saved settings: it is off the bus for a moment, then with a fixed node-ID listens for 2 s before it sends, and with plug-and-play asks for a node-ID again, sending as one only after at least a second.";
       if (sub === "reset") return "This puts the Cyphal node's settings back to the defaults (plug-and-play, the default name, 1 Mbit/s), from its next start.";

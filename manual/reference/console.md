@@ -147,7 +147,7 @@ See [the host link](../use/host-link.md).
 
 | Command | Does |
 |---|---|
-| `link` | The transport, its pins and settings, the counters, and the events asked for |
+| `link` | The transport, its pins and settings, the counters, and the events asked for. On CAN, the pins and who has them |
 | `link mode <off\|uart\|rs485\|can> [-b <baud>] [-a <address>]` | The transport, from the next restart; `-b` the baud rate, `-a` the address, 1–223. `can` gives the pins to the [Cyphal node](#can-and-cyphal) |
 | `link proto <auto\|json\|native>` | What UART and RS485 accept |
 | `link address <1-223>` | The board's address on UART and RS485 |

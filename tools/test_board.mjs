@@ -182,6 +182,20 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.ok(danger("cyphal name r2.dome.holo.top"));
   assert.ok(danger("cyphal bitrate 500k"));
   assert.equal(refusal("cyphal restart"), null);
+  assert.equal(danger("link"), null);
+  assert.match(danger("link mode can"), /Cyphal node, which goes on the CAN bus/);
+  assert.match(danger("link mode uart -b 115200"), /next restart/);
+  assert.doesNotMatch(danger("link mode off"), /CAN/);
+  assert.match(danger("link pins 21 33 15"), /other pins/);
+  assert.match(danger("link reset"), /defaults/);
+  assert.ok(danger("link proto json"));
+  assert.ok(danger("link address 12"));
+  assert.ok(danger("link groups 1 2"));
+  assert.ok(danger("link groups --clear"));
+  assert.ok(danger("link events touch --push"));
+  assert.equal(danger("link events"), null);
+  assert.equal(danger("link log on"), null);
+  assert.equal(danger("link log off"), null);
 });
 
 test("quoting arguments for esp_console", () => {

@@ -97,6 +97,26 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items.sort(key=lambda item: item.get_closest_marker("slow") is not None)
 
 
+_exit_status = 0
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    global _exit_status
+    _exit_status = int(exitstatus)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """After a session in which an open found the adapter gone, Python's own teardown crashed once
+    (a segfault in gs_usb/libusb as the objects of the failed open were freed), turning a result
+    into exit 139. The results are reported by now, so in that case leave without the teardown,
+    with pytest's own exit status."""
+    if Net.open_failed:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(_exit_status)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--can-iface", default="gs_usb:0", help="python-can interface:channel (default gs_usb:0)")
     parser.addoption("--can-bitrate", default=1_000_000, type=int, help="bit/s (default 1000000)")
@@ -153,22 +173,61 @@ class Board:
             raise AssertionError(f"no console prompt before {line!r}; last output:\n{self.log[-500:]}")
         self._keep()
         self.con.s.write(line.encode() + b"\r")
-        ok = self.con.wait_prompt(timeout)
-        if not ok and self._prompt_then_log():
-            # The command finished, and a log line came after its prompt (Wi-Fi joining, after a
-            # restart of the board): an empty line, safe to send, brings a prompt to end on
-            self.con.s.write(b"\r")
-            ok = self.con.wait_prompt(self.PROMPT_WAIT)
+        ok, nudged = self._wait_end(timeout)
         text = self.con.take().replace("\r", "")
         if not ok:
             raise AssertionError(f"no prompt after {line!r}:\n{text}")
+        if nudged:
+            # The command's output ends at its prompt; what came after that (a log line, then the
+            # prompt the nudge brought) is the log's
+            text, rest = self._split_at_prompt(text)
+            self.log += rest
         return fs_xfer.strip_echo(text, line)
 
+    QUIET_S = 0.3       # no output for this long after a prompt and a log line: the log line is whole
+    # A prompt at the start of a line with more after it on the same line: a log line printed after it
+    PROMPT_THEN_LOG = re.compile(r"(?:^|\n)\S+> (?=\S)")
+
+    def _wait_end(self, timeout: float) -> tuple[bool, bool]:
+        """(whether the command's prompt came to be the last thing printed, whether it took a nudge).
+        The console's second trap: the command has finished, and a log line came after its prompt
+        (Wi-Fi joining, after a restart of the board), so the output doesn't end at a prompt and
+        linenoise won't print it again. Then an empty line, safe to send (the command is over), brings
+        a fresh prompt to end on."""
+        end = time.monotonic() + timeout
+        last_data = nudged_at = time.monotonic()
+        nudged = False
+        while time.monotonic() < end:
+            if self.con.pump():
+                last_data = time.monotonic()
+            if self.con.at_prompt():
+                return True, nudged
+            now = time.monotonic()
+            if now - last_data >= self.QUIET_S and now - nudged_at >= 2 * self.QUIET_S and self._prompt_then_log():
+                self.con.s.write(b"\r")
+                nudged, nudged_at = True, now
+                end = max(end, now + self.PROMPT_WAIT)
+        return False, nudged
+
+    @staticmethod
+    def _echo_end(text: str) -> int:
+        """Where the command's own line ends: its newline, from which a search for a prompt at the start
+        of a line after it begins"""
+        return text.find("\n") if "\n" in text else len(text)
+
     def _prompt_then_log(self) -> bool:
-        """Whether the output since the command's own line holds a prompt with more after it"""
+        """Whether the output since the command's own line holds a prompt with a log line after it"""
         text = fs_xfer.ANSI.sub(b"", self.con.buf).decode("utf-8", "replace").replace("\r", "")
-        after_echo = text.split("\n", 1)[1] if "\n" in text else ""
-        return re.search(r"(?:^|\n)[^\n]*\S+> ", after_echo) is not None
+        return self.PROMPT_THEN_LOG.search(text, self._echo_end(text)) is not None
+
+    @classmethod
+    def _split_at_prompt(cls, text: str) -> tuple[str, str]:
+        """(the echo, the output and its prompt; what came after that prompt), for output that took a
+        nudge to end"""
+        m = cls.PROMPT_THEN_LOG.search(text, cls._echo_end(text))
+        if m is None:
+            return text, ""
+        return text[:m.end()], text[m.end():]
 
     def restart(self, timeout: float = 20) -> None:
         """`restart`, and wait for the console to come back"""
@@ -322,7 +381,9 @@ class Net:
     made while the board is quiet (Board.quiet()). Close it before the board restarts."""
 
     REOPEN_S = 2.0      # the adapter resets as it closes: what it takes to come back on USB
+    BACK_S = 20.0       # how long an open keeps trying while the adapter is off USB
     made: list[Net] = []
+    open_failed = False     # an open found the adapter gone at least once: see pytest_unconfigure()
 
     def __init__(self, board: Board, iface: str, bitrate: int, local_node_id: int):
         self.board = board
@@ -336,14 +397,18 @@ class Net:
     @staticmethod
     def _retry(make):
         """python-can's gs_usb resets the adapter as it opens it, and the adapter goes off USB and
-        comes back: an open soon after a close can find it gone. Nothing is sent by a failed open."""
-        for attempt in range(5):
+        comes back: an open soon after a close can find it gone (ENODEV, errno 19). On the bench that
+        once lasted longer than five tries a second apart, so it is tried for BACK_S, every half
+        second. Nothing is sent by a failed open."""
+        end = time.monotonic() + Net.BACK_S
+        while True:
             try:
                 return make()
             except usb.core.USBError as e:
-                if e.errno != 19 or attempt == 4:
+                Net.open_failed = True
+                if e.errno != 19 or time.monotonic() > end:
                     raise
-                time.sleep(1.0)
+                time.sleep(0.5)
 
     async def open(self) -> pycyphal.application.Node:
         assert self.node is None

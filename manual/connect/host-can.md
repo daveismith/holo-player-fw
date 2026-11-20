@@ -43,7 +43,8 @@ host runs the board over [UART](host-uart.md), [RS485](host-rs485.md) or Wi-Fi.
 
 - **VIO to 3V3.** It sets the level of TXD and RXD. Left unconnected, the board receives nothing.
 - **S to GND.** S high is silent mode: the board hears the bus but never sends, and never
-  acknowledges anyone else's frames. Left unconnected, it may float high.
+  acknowledges anyone else's frames; its controller goes bus-off as soon as it tries. Left
+  unconnected, it may float high.
 - **5 V for VCC.** The part wants 4.5–5.5 V. P2's VSYS pin is not a 5 V rail: it is about 4.6 V on
   USB, which is just inside the range, and the cell's voltage on a battery, which is not. Take
   5 V from the bus's supply or a regulator.
@@ -166,14 +167,20 @@ the board that one as a fixed node-ID, or remove the old row from the service's 
 
 If the board doesn't appear, `cyphal` on its console says what the bus looks like from its side:
 
-- **`tx errors` climbing, and the state `error-passive`:** nobody is acknowledging the board's
-  frames. The adapter isn't open, the bitrates differ, CANH and CANL are swapped, or a
-  termination resistor is missing.
+- **`bus-off`, and `bus-off … times` going up while `frames: sent` doesn't move:** the board can't
+  see its own frames on the bus. A CAN controller reads back every bit it sends; when the bus
+  doesn't follow it, each try at a frame ends in an error, and it takes itself off the bus within
+  the first frame. Either the bus doesn't follow TXD (S isn't at GND, so the transceiver is
+  silent, or the TXD wire is loose) or RXD doesn't follow the bus (the RXD wire, or VIO, which
+  sets RXD's level). Check S, VIO, RXD and TXD. The node keeps [recovering](../use/cyphal.md#bus-off),
+  less and less often.
+- **`tx errors` at 128 and the state `error-passive`:** the board's frames get onto the bus but
+  nobody acknowledges them. The adapter isn't open, the bitrates differ, CANH and CANL are
+  swapped, or a termination resistor is missing.
 - **`rx errors` climbing:** frames arrive damaged. Usually the bitrate, then the termination.
-- **Nothing received and no errors:** the board hears nothing at all. Check VIO, the RXD wire,
-  and that the other node is sending.
-- **The other node sees nothing, and the board's counters don't move:** check that S is at GND,
-  and the TXD wire.
+- **`frames: sent` going up, `received` 0:** something on the bus acknowledges the board's frames
+  but sends nothing: an adapter that is open with no program sending, say. Check that
+  `cyphal_service`, or the other node, is running.
 - **`stopped: node-ID … is in use by another node`:** see
   [a node-ID that is already taken](../use/cyphal.md#a-node-id-that-is-already-taken).
   `cyphal_service` is node 43 in the configuration above, so a board given 43 stops this way.
