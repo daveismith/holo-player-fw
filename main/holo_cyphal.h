@@ -1,0 +1,27 @@
+/*
+ * The holo's own ports on the Cyphal node (components/cyphal; manual/reference/cyphal.md): what the node
+ * does with r2.holo.Motion, Light, the setpoint subscription, Status and Axes, as handlers for
+ * cyphal_app_t, and its poll. The pure parts are holo_cyphal_util.h.
+ */
+#pragma once
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "cyphal.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* cyphal_app_t.handlers and handler_count: the holo's ports built so far */
+extern const cyphal_handler_t HOLO_CYPHAL_HANDLERS[];
+extern const size_t HOLO_CYPHAL_HANDLER_COUNT;
+
+/* cyphal_app_t.poll: the setpoints carried out, Status and Axes published at their rates, the heartbeat's
+ * health kept */
+uint32_t holo_cyphal_poll(bool online);
+
+#ifdef __cplusplus
+}
+#endif

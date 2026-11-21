@@ -22,9 +22,11 @@ import uavcan.register.Name_1_0 as Name
 from .conftest import (Value, access, call, console_registers, heartbeats, natural16, natural32, plain,
                        reference_registers, register_names, string, until_state)
 
-# What the node has while online, in this phase: the holo's own ports are registers only so far
-PUBLISHED = {pycyphal.dsdl.get_fixed_port_id(t) for t in (Heartbeat, PortList)}
-SERVED = {pycyphal.dsdl.get_fixed_port_id(t) for t in (Access, RegisterList, GetInfo, ExecuteCommand)}
+# What the node has while online, with the holo's ports at their defaults: the node's own, and the holo's built so
+# far (status 2300, axes 2302; setpoint 2303; motion 100, light 101)
+PUBLISHED = {pycyphal.dsdl.get_fixed_port_id(t) for t in (Heartbeat, PortList)} | {2300, 2302}
+SUBSCRIBED = {2303}
+SERVED = {pycyphal.dsdl.get_fixed_port_id(t) for t in (Access, RegisterList, GetInfo, ExecuteCommand)} | {100, 101}
 
 
 async def test_list_and_read_every_register(node, board, dut_node_id):
@@ -134,9 +136,9 @@ async def test_worker_responses_prompt(node, board, dut_node_id):
 
 @pytest.mark.restarts
 async def test_port_register_and_port_list(node, net, board, dut_node_id):
-    """2.3: a port register written and the node restarted: the register holds the new number, and
-    uavcan.node.port.List lists what the node really has. None of the holo's own ports is built yet, so
-    neither the old number nor the new one is in it, and nothing is published on either"""
+    """2.3: a port register written and the node restarted: the register holds the new number, the new number
+    is in uavcan.node.port.List and the old one isn't, and Status goes out on the new subject and nothing on
+    the old"""
     name = "uavcan.pub.status.id"
     try:
         r = await access(node, dut_node_id, name, natural16(2310))
@@ -149,10 +151,10 @@ async def test_port_register_and_port_list(node, net, board, dut_node_id):
         r = await access(node, dut_node_id, "uavcan.srv.ring.id", Value(natural8=Natural8([104])))
         assert plain(r.value) == 104
 
-        cap = net.capture()
         sub = node.make_subscriber(PortList)
         board.command("cyphal restart")
         await until_state(board, "online", dut_node_id)
+        cap = net.capture()         # from the new start: the old one published Status on 2300 until it stopped
         loop = asyncio.get_running_loop()
         lists, end = [], loop.time() + 12.0
         while (left := end - loop.time()) > 0 and len(lists) < 2:
@@ -168,12 +170,14 @@ async def test_port_register_and_port_list(node, net, board, dut_node_id):
         print(f"\nport lists {period:.2f} s apart; {lists[0][1]}")
         assert 9.0 <= period <= 11.0, period
         for _, m in lists:
-            assert m.publishers.sparse_list is not None and {int(s.value) for s in m.publishers.sparse_list} == PUBLISHED
-            assert m.subscribers.sparse_list is not None and len(m.subscribers.sparse_list) == 0
+            assert m.publishers.sparse_list is not None
+            assert {int(s.value) for s in m.publishers.sparse_list} == PUBLISHED - {2300} | {2310}
+            assert m.subscribers.sparse_list is not None
+            assert {int(s.value) for s in m.subscribers.sparse_list} == SUBSCRIBED
             assert not m.clients.mask.any()
             assert {i for i, on in enumerate(m.servers.mask) if on} == SERVED
         subjects = {f.subject for f in frames if not f.own and f.source == dut_node_id and f.subject is not None}
-        assert not subjects & {2300, 2310}, f"the board published on {subjects & {2300, 2310}}"
+        assert 2310 in subjects and 2300 not in subjects, f"the board published on {sorted(subjects)}"
     finally:
         # From the console, which works whatever became of the node
         board.command(f"cyphal register {name} 2300")

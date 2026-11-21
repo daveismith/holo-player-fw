@@ -9,18 +9,38 @@
 #include "video_player.h"
 #include "board_api.h"
 
+/* Each scene_err_t's HTTP status and JSON error: SCENE_OK's none, and any not here 500 failed */
+static const struct { int status; const char *error; } SCENE_ERRORS[] = {
+    [SCENE_BAD] = { 400, "bad_request" }, [SCENE_BAD_PATH] = { 400, "bad_path" }, [SCENE_MISSING] = { 404, "not_found" },
+    [SCENE_UNPLAYABLE] = { 422, "not_playable" }, [SCENE_NOT_READY] = { 409, "not_ready" },
+    [SCENE_FULL] = { 409, "full" }, [SCENE_TAKEN] = { 409, "slot_taken" },
+};
+
+static void scene_error_of(int err, int *status, const char **error)
+{
+    const bool known = err > SCENE_OK && (size_t)err < sizeof(SCENE_ERRORS) / sizeof(SCENE_ERRORS[0]) &&
+                       SCENE_ERRORS[err].error != NULL;
+    *status = known ? SCENE_ERRORS[err].status : 500;
+    *error = known ? SCENE_ERRORS[err].error : "failed";
+}
+
 api_reply_t api_scene_error(int err, const char *why)
 {
-    switch ((scene_err_t)err) {
-    case SCENE_BAD:        return api_error(400, "bad_request", "%s", why);
-    case SCENE_BAD_PATH:   return api_error(400, "bad_path", "%s", why);
-    case SCENE_MISSING:    return api_error(404, "not_found", "%s", why);
-    case SCENE_UNPLAYABLE: return api_error(422, "not_playable", "%s", why);
-    case SCENE_NOT_READY:  return api_error(409, "not_ready", "%s", why);
-    case SCENE_FULL:       return api_error(409, "full", "%s", why);
-    case SCENE_TAKEN:      return api_error(409, "slot_taken", "%s", why);
-    default:               return api_error(500, "failed", "%s", why);
+    int status;
+    const char *error;
+    scene_error_of(err, &status, &error);
+    return api_error(status, error, "%s", why);
+}
+
+api_code_t api_scene_code(int err)
+{
+    if (err == SCENE_OK) {
+        return API_CODE_OK;
     }
+    int status;
+    const char *error;
+    scene_error_of(err, &status, &error);
+    return api_code_of(status, error);
 }
 
 /* The query's scene name: false with the error in `err`. */

@@ -114,14 +114,85 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
 
 /* ------------------------------------------------------------------ the LEDs */
 
-static const char *const LED_MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
+scene_err_t scene_leds_change(const scene_leds_t *c, bool dry, char *why, size_t why_len)
+{
+    uint32_t ms = 0;
+    if (c->has_brightness && !leds_brightness_ok(c->brightness)) {
+        return BAD(SCENE_BAD, "`brightness` is %d..%d", LEDS_BRIGHTNESS_MIN, LEDS_BRIGHTNESS_MAX);
+    }
+    if (c->has_period && !leds_period_ok(c->period_ms)) {
+        return BAD(SCENE_BAD, "`period_ms` is %d..%d", LEDS_PERIOD_MIN_MS, LEDS_PERIOD_MAX_MS);
+    }
+    if (c->has_level && !leds_level_ok(c->level)) {
+        return BAD(SCENE_BAD, "`level` is 0..%d", LEDS_LEVEL_MAX);
+    }
+    if (c->has_time && !leds_timed_ms(c->time_s, &ms)) {
+        return BAD(SCENE_BAD, "`time_s` is 0.1..3600");
+    }
+    if (c->has_mode && (c->mode < 0 || c->mode >= LEDS_MODES)) {
+        return BAD(SCENE_BAD, "`mode` is off, solid, wipe, rainbow, flicker, pulse or blink");
+    }
+    if (dry) {
+        return SCENE_OK;
+    }
+
+    if (c->has_brightness) {
+        leds_set_brightness(c->brightness);
+    }
+    if (!c->has_mode && !c->has_colour && !c->has_loop && !c->has_period && !c->has_level && !c->has_time) {
+        return SCENE_OK;        /* the brightness alone: what is running carries on */
+    }
+    leds_state_t st;
+    leds_state(&st);
+    leds_setting_t s = st.now;
+    if (c->has_mode) {
+        /* A new mode starts fresh: looping only if asked, at its default period, at full level */
+        s.mode = (leds_mode_t)c->mode;
+        s.loop = false;
+        s.period_ms = 0;
+        s.level = 100;
+    }
+    if (c->has_colour) {
+        memcpy(s.rgb, c->rgb, 3);
+    } else if (s.rgb[0] == 0 && s.rgb[1] == 0 && s.rgb[2] == 0) {
+        s.rgb[0] = s.rgb[1] = s.rgb[2] = 255;     /* never given one: white, as `leds wipe` */
+    }
+    if (c->has_loop) {
+        s.loop = c->loop;
+    }
+    if (c->has_period) {
+        s.period_ms = (uint16_t)c->period_ms;
+    }
+    if (c->has_level) {
+        s.level = (uint8_t)c->level;
+    }
+    const esp_err_t err = c->has_time ? leds_set_timed(&s, ms, c->leia) : leds_set(&s);
+    if (err != ESP_OK) {
+        return BAD(SCENE_FAILED, "%s", esp_err_to_name(err));
+    }
+    return SCENE_OK;
+}
+
+/* A whole number, if present: false when present and not one. */
+static bool get_int(const cJSON *o, const char *key, int *out)
+{
+    const cJSON *v = cJSON_GetObjectItem(o, key);
+    if (v == NULL) {
+        return true;
+    }
+    if (!cJSON_IsNumber(v) || v->valuedouble != floor(v->valuedouble) || fabs(v->valuedouble) > 1e9) {
+        return false;
+    }
+    *out = (int)v->valuedouble;
+    return true;
+}
 
 scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_len)
 {
-    static const char *const KEYS[] = { "mode", "colour", "loop", "brightness" };
+    static const char *const KEYS[] = { "mode", "colour", "loop", "brightness", "period_ms", "level", "time_s" };
     const char *bad = NULL;
     if (!cJSON_IsObject(patch) || patch->child == NULL) {
-        return BAD(SCENE_BAD, "send mode, colour, loop or brightness");
+        return BAD(SCENE_BAD, "send mode, colour, loop, brightness, period_ms, level or time_s");
     }
     if (!only_keys(patch, KEYS, sizeof(KEYS) / sizeof(KEYS[0]), &bad)) {
         return BAD(SCENE_BAD, "unknown field `%s`", bad);
@@ -130,57 +201,37 @@ scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_le
     const cJSON *colour = cJSON_GetObjectItem(patch, "colour");
     const cJSON *loop = cJSON_GetObjectItem(patch, "loop");
     const cJSON *bright = cJSON_GetObjectItem(patch, "brightness");
-
-    uint8_t rgb[3];
-    bool cur_loop = false;
-    leds_mode_t m = leds_mode(rgb, &cur_loop);
-    if (mode != NULL) {
-        int found = -1;
-        for (int i = 0; cJSON_IsString(mode) && i < 5; i++) {
-            if (strcmp(mode->valuestring, LED_MODES[i]) == 0) {
-                found = i;
-            }
-        }
-        if (found < 0) {
-            return BAD(SCENE_BAD, "`mode` is off, solid, wipe, rainbow or flicker");
-        }
-        m = (leds_mode_t)found;
+    const cJSON *time = cJSON_GetObjectItem(patch, "time_s");
+    scene_leds_t c = {
+        .has_mode = mode != NULL, .has_colour = colour != NULL, .has_loop = loop != NULL,
+        .has_brightness = bright != NULL, .has_period = cJSON_GetObjectItem(patch, "period_ms") != NULL,
+        .has_level = cJSON_GetObjectItem(patch, "level") != NULL, .has_time = time != NULL,
+    };
+    leds_mode_t m;
+    if (mode != NULL && !(cJSON_IsString(mode) && leds_mode_of(mode->valuestring, &m))) {
+        return BAD(SCENE_BAD, "`mode` is off, solid, wipe, rainbow, flicker, pulse or blink");
     }
-    if (colour != NULL && !(cJSON_IsString(colour) && board_parse_rgb(colour->valuestring, rgb))) {
+    c.mode = mode != NULL ? (int)m : 0;
+    if (colour != NULL && !(cJSON_IsString(colour) && board_parse_rgb(colour->valuestring, c.rgb))) {
         return BAD(SCENE_BAD, "not a colour: '%s' (#rrggbb, R,G,B, or a name: red, orange, ...)",
                    cJSON_IsString(colour) ? colour->valuestring : "?");
     }
     if (loop != NULL && !cJSON_IsBool(loop)) {
         return BAD(SCENE_BAD, "`loop` is true or false");
     }
-    if (bright != NULL && !(cJSON_IsNumber(bright) && bright->valuedouble >= 1 && bright->valuedouble <= 100)) {
-        return BAD(SCENE_BAD, "`brightness` is 1..100");
+    c.loop = cJSON_IsTrue(loop);
+    if (bright != NULL && !(cJSON_IsNumber(bright) && leds_brightness_ok(bright->valuedouble))) {
+        return BAD(SCENE_BAD, "`brightness` is %d..%d", LEDS_BRIGHTNESS_MIN, LEDS_BRIGHTNESS_MAX);
     }
-    if (dry) {
-        return SCENE_OK;
+    c.brightness = bright != NULL ? (int)bright->valuedouble : 0;
+    if (!get_int(patch, "period_ms", &c.period_ms) || !get_int(patch, "level", &c.level)) {
+        return BAD(SCENE_BAD, "`period_ms` and `level` are whole numbers");
     }
-
-    if (bright != NULL) {
-        leds_set_brightness((int)bright->valuedouble);
+    if (time != NULL && !cJSON_IsNumber(time)) {
+        return BAD(SCENE_BAD, "`time_s` is 0.1..3600");
     }
-    if (mode == NULL && colour == NULL && loop == NULL) {
-        return SCENE_OK;        /* the brightness alone: what is running carries on */
-    }
-    if (colour == NULL && rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0) {
-        rgb[0] = rgb[1] = rgb[2] = 255;     /* never given one: white, as `leds wipe` */
-    }
-    /* A new mode starts fresh: looping only if asked. A colour alone keeps the pattern as it is. */
-    const bool lp = loop != NULL ? cJSON_IsTrue(loop) : mode == NULL && cur_loop;
-    esp_err_t err;
-    switch (m) {
-    case LEDS_OFF:     err = leds_off(); break;
-    case LEDS_SOLID:   err = leds_solid(rgb[0], rgb[1], rgb[2]); break;
-    default:           err = leds_play(m, rgb[0], rgb[1], rgb[2], lp); break;
-    }
-    if (err != ESP_OK) {
-        return BAD(SCENE_FAILED, "%s", esp_err_to_name(err));
-    }
-    return SCENE_OK;
+    c.time_s = time != NULL ? time->valuedouble : 0;
+    return scene_leds_change(&c, dry, why, why_len);
 }
 
 /* ------------------------------------------------------------------ the holo */
@@ -191,18 +242,27 @@ static const struct { const char *name; holo_motion_kind_t kind; } MOTIONS[] = {
     { "stop", HOLO_STOP }, { "off", HOLO_OFF },
 };
 
-/* A whole number, if present: false when present and not one. */
-static bool get_int(const cJSON *o, const char *key, int *out)
+#define MOTION_WORDS "`motion` is center, move, nudge, twitch, wag, nod, scan, circle, stop or off"
+
+scene_err_t scene_holo_change(const holo_motion_t *m, bool dry, char *why, size_t why_len)
 {
-    const cJSON *v = cJSON_GetObjectItem(o, key);
-    if (v == NULL) {
-        return true;
+    if ((unsigned)m->kind > HOLO_OFF) {
+        return BAD(SCENE_BAD, MOTION_WORDS);
     }
-    if (!cJSON_IsNumber(v) || v->valuedouble != floor(v->valuedouble)) {
-        return false;
+    if (!holo_motion_check(m, why, why_len)) {
+        return SCENE_BAD;
     }
-    *out = (int)v->valuedouble;
-    return true;
+    if (dry) {
+        return SCENE_OK;
+    }
+    const esp_err_t err = holo_motion(0, m, why, why_len);
+    if (err == ESP_ERR_INVALID_ARG) {
+        return SCENE_BAD;
+    }
+    if (err != ESP_OK) {
+        return SCENE_NOT_READY;     /* refused, or no holo: `why` says */
+    }
+    return SCENE_OK;
 }
 
 scene_err_t scene_do_holo(const cJSON *body, bool dry, char *why, size_t why_len)
@@ -226,7 +286,7 @@ scene_err_t scene_do_holo(const cJSON *body, bool dry, char *why, size_t why_len
         }
     }
     if (!found) {
-        return BAD(SCENE_BAD, "`motion` is center, move, nudge, twitch, wag, nod, scan, circle, stop or off");
+        return BAD(SCENE_BAD, MOTION_WORDS);
     }
     if (!get_int(body, "x", &m.x) || !get_int(body, "y", &m.y) || !get_int(body, "duration_ms", &m.duration_ms) ||
         !get_int(body, "range", &m.range) || !get_int(body, "count", &m.count) ||
@@ -262,18 +322,5 @@ scene_err_t scene_do_holo(const cJSON *body, bool dry, char *why, size_t why_len
         }
         m.time_s = (float)t->valuedouble;
     }
-    if (!holo_motion_check(&m, why, why_len)) {
-        return SCENE_BAD;
-    }
-    if (dry) {
-        return SCENE_OK;
-    }
-    const esp_err_t err = holo_motion(0, &m, why, why_len);
-    if (err == ESP_ERR_INVALID_ARG) {
-        return SCENE_BAD;
-    }
-    if (err != ESP_OK) {
-        return SCENE_NOT_READY;     /* refused, or no holo: `why` says */
-    }
-    return SCENE_OK;
+    return scene_holo_change(&m, dry, why, why_len);
 }

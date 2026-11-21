@@ -35,6 +35,7 @@
 #include "cmd_wifi.h"
 #include "cmd_can.h"
 #include "cyphal.h"
+#include "holo_cyphal.h"
 #include "r2/holo/ports.h"
 #include "console_settings.h"
 #include "video_player.h"
@@ -225,9 +226,10 @@ static esp_err_t backup_fetch(const char *url, size_t max_bytes, char **body, si
 /*
  * The Cyphal node's part of this board (components/cyphal; manual/reference/cyphal.md): the holo's
  * ports, whose IDs are registers with these defaults (r2_cyphal_dsdl's ports/holo.csv, through the
- * generated r2/holo/ports.h), and what uavcan.node.ExecuteCommand's restart, factory reset and
- * identify do, through the code the HTTP API's routes use (a restart as POST /api/v1/restart's, after
- * the response: ota_core_restart_after()). These run on the node's worker task.
+ * generated r2/holo/ports.h), what the node does with those built so far (holo_cyphal.c), and what
+ * uavcan.node.ExecuteCommand's restart, factory reset and identify do, through the code the HTTP API's
+ * routes use (a restart as POST /api/v1/restart's, after the response: ota_core_restart_after()). These
+ * run on the node's worker task.
  */
 static const cyphal_port_t s_holo_ports[] = { R2_HOLO_PORTS(CYPHAL_PORT_ENTRY) };
 _Static_assert(R2_HOLO_PORT_COUNT <= CYPHAL_PORTS_MAX, "the node keeps CYPHAL_PORTS_MAX ports' IDs at most");
@@ -249,12 +251,12 @@ static esp_err_t cyphal_factory_reset(void)
     return err;
 }
 
-/* Five seconds of the crosshair and the ring flickering white, as a scene that then restores what the
- * screen, the ring and the holo were doing. The ring has no blink yet */
+/* Five seconds of the crosshair and the ring blinking white, as a scene that then restores what the
+ * screen, the ring and the holo were doing */
 static esp_err_t cyphal_identify(void)
 {
     cJSON *scene = cJSON_Parse("{\"name\": \"identify\", \"screen\": {\"calibration\": true},"
-                               " \"leds\": {\"mode\": \"flicker\", \"colour\": \"white\"},"
+                               " \"leds\": {\"mode\": \"blink\", \"colour\": \"white\"},"
                                " \"then\": \"restore\", \"duration_s\": 5}");
     if (scene == NULL) {
         return ESP_ERR_NO_MEM;
@@ -425,6 +427,9 @@ void app_main(void)
         .restart = ota_core_restart_after,
         .factory_reset = cyphal_factory_reset,
         .identify = cyphal_identify,
+        .handlers = HOLO_CYPHAL_HANDLERS,
+        .handler_count = HOLO_CYPHAL_HANDLER_COUNT,
+        .poll = holo_cyphal_poll,
     });
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "cyphal: %s", esp_err_to_name(err));

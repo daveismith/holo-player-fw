@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "api_codes.h"
 #include "api_core.h"
 #include "cJSON.h"
 #include "esp_err.h"
@@ -34,6 +35,8 @@ cJSON *api_settings_json(const settings_t *s);
 
 /* A scene_err_t as the API's error: 400 bad_request or bad_path, 404, 422, 409, 500. */
 api_reply_t api_scene_error(int err, const char *why);
+/* The same as the host link's and Cyphal's code, without the reply: api_code_of() of it, OK for SCENE_OK */
+api_code_t api_scene_code(int err);
 
 /* `rel`, from the volume's root, as an absolute path: false with 400 bad_path in `err`. */
 bool api_fs_path(const char *rel, char *abs, size_t abs_len, api_reply_t *err);

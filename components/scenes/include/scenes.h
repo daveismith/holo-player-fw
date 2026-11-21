@@ -7,7 +7,8 @@
  *   {"name": "cantina", "description": "...",
  *    "screen": {"path": "/clips/cantina.mov", "loop": true} | {"colour": "#ff8000"}
  *              | {"calibration": true} | {"clear": true},
- *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30},
+ *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30, "period_ms": 2000,
+ *               "level": 100, "time_s": 5},
  *    "holo":   {"motion": "twitch", "range": 50, ...},
  *    "then": "stay" | "restore" | "off", "duration_s": 30, "slot": 3}
  * Each part is optional; a part left out leaves that alone. A scene ends when its clip has played
@@ -20,6 +21,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "cJSON.h"
+#include "holo.h"
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -52,6 +54,35 @@ typedef enum {
 scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *why, size_t why_len);
 scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_len);
 scene_err_t scene_do_holo(const cJSON *motion, bool dry, char *why, size_t why_len);
+
+/*
+ * A change to the LEDs, as PATCH /leds and a scene's `leds` take it, each field optional (has_*):
+ * scene_do_leds() reads one from JSON; the Cyphal node's r2.holo.Light builds one, and adds `leia`. A
+ * new mode starts at its default period, at level 100, once (looping only if asked); a colour, loop,
+ * period or level alone restarts the mode running with it; the brightness alone changes nothing else.
+ * With a time, a timed setting that goes back to what the ring was doing (leds_set_timed()); without,
+ * for good, ending a timed one. The ranges are checked here, with the JSON API's messages.
+ */
+typedef struct {
+    bool has_mode, has_colour, has_loop, has_brightness, has_period, has_level, has_time;
+    int mode;                   /* a leds_mode_t */
+    uint8_t rgb[3];
+    bool loop;
+    int brightness;             /* 1..100 */
+    int period_ms;              /* 200..60000 */
+    int level;                  /* 0..100 */
+    double time_s;              /* 0.1..3600 */
+    bool leia;                  /* with a time: the timed setting is a leia's */
+} scene_leds_t;
+scene_err_t scene_leds_change(const scene_leds_t *change, bool dry, char *why, size_t why_len);
+
+/*
+ * A motion, as POST /holo/motion and a scene's `holo` take it once read from JSON (scene_do_holo()), or as the
+ * Cyphal node's r2.holo.Motion builds it: checked (a kind that is none, then holo_motion_check()'s ranges, each
+ * refused SCENE_BAD with the JSON API's words) and, unless dry, started on the holo (SCENE_NOT_READY, with the
+ * engine's words, when it can't move).
+ */
+scene_err_t scene_holo_change(const holo_motion_t *m, bool dry, char *why, size_t why_len);
 
 bool scene_name_ok(const char *name);
 

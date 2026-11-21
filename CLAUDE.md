@@ -65,6 +65,14 @@ idf.py -p /dev/cu.wchusbserial5B910448341 flash
   joining after a restart) leaves the output not ending at a prompt, and linenoise won't print
   another: `tests/hardware`'s `Board.command` sends an empty line once the output goes quiet, and
   then hands what came after the first prompt to its log.
+- **A console that echoes nothing and gives no prompt, on a board that otherwise runs** (HTTP, CAN, its
+  log lines all fine) is linenoise waiting for the answer to an `ESC[6n` it sent while no script was
+  reading (seen 2026-11-20 after a harness gave up mid-command): every key goes into parsing that
+  answer. Send a cursor report, `ESC[1;80R`, then a CR, and the prompt comes back. Seen again
+  2026-11-21 in the middle of `test_holo.py` with no harness giving up first (a command's echo came
+  twice, then nothing): there the first report drew another `ESC[999C ESC[6n`, which needed its own
+  answer before the CR brought the prompt. A session that ends with the console stuck can't make the
+  board quiet to close the adapter, which then wedged: recover it (below) before the next run.
 
 ## esp-console-kit
 
@@ -157,6 +165,15 @@ Internal RAM is not this board's constraint; PSRAM bandwidth is the video player
 2026-10-22 with Wi-Fi and the web server up: 104 KB internal free at idle, 70 KB while a clip
 plays, 40 KB at the lowest. With the Cyphal node on the bus (2026-11-20, a 15-minute soak with a
 clip, the ring and the web app): 103.6 KB free idle, 61-70 KB under load, 39.8 KB at the lowest.
+With the holo's Cyphal ports (2026-11-20, 10 minutes of motions, setpoint bursts and lights over
+Cyphal during a clip): 92-93 KB free idle, 50-62 KB under load, 39.9-40.5 KB at the lowest; the
+worker's stack 3,052 of 6,144 used, the node task's 1,356 of 3,072, libcanard's heap 2.2 KB at most.
+After the phase 3 clean-up (2026-11-21, Motion without JSON, the ring's task kept, 3 minutes): 92.4 KB
+free idle at boot, 58.5-59.2 KB at the end of the run, 40.3 KB at the lowest after the holo's tests
+and 38.4 KB after the register and command tests too (the ring's 3 KB stack is now held throughout,
+where it used to come and go); the worker's stack 1,912-2,064 used. `make api-smoke WRITE=1`
+takes the lowest to 23.4 KB, before and after: the kit's file routes (`PUT /fs/file`, then
+`GET /fs/entry?sha256` and `GET /fs/file`), each tens of KB of internal RAM for a moment, not Cyphal.
 The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
 (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
 ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for
@@ -186,7 +203,9 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
   `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
   test that uploads to the spare OTA slot without activating it, and asserts the board still boots
-  `ota_0`. About 15 minutes; stop cyphal_service first. The suite sets fixed node-ID 52 and leaves it.
+  `ota_0`. About 22 minutes with `--board-host` (estimated 2026-11-21: the holo's load test at its
+  default 3 minutes; 29 with `--holo-minutes 10`); stop cyphal_service first. The suite sets fixed
+  node-ID 52 and leaves it.
 - **The adapter (CANable, candleLight firmware) is fragile.** Open and close it only while the
   board sends nothing: inside a fixed node-ID's 2 s listen after `cyphal restart` (a plug-and-play
   node is never quiet). The host sending unacknowledged (no node up, or a bitrate other than the
@@ -202,6 +221,12 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   after a flush, and quitting it (in a listen) and repeating flush and start worked.
 - **The adapter hands frames to the computer out of order now and then**, so the service drops the
   transfer: 10-15 % of its `get-info` calls time out. pycyphal gets 500 of 500. Not the board.
+- **A degraded adapter loses frames both ways before it wedges** (2026-11-20, after a day of
+  sessions): `test_worker_responses_prompt` lost 1 to 22 of 420 calls, some requests never on the bus
+  (pycyphal's `out_frames` above the adapter's loopback count) and some responses the board sent and
+  had acknowledged never reaching the computer; the phase 2 firmware lost as many. The DFU reboot
+  below (detach, then leave) cleared it: 0 of 420. Compare `out_frames` with `in_frames_loopback`
+  before suspecting the board.
 - **Recovery** when the computer receives nothing while the board's `cyphal` shows frames sent and
   acknowledged: `flush`; failing that `dfu-util -e` (kill it if it hangs), wait, then
   `dfu-util -a 0 -s 0x08000000:16:leave -U <a new scratch file>` (reads 16 bytes, leaves DFU), and
@@ -278,6 +303,63 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **The `gpio` table's host link entries are live** (`main.c`): `hostlink_start()` fills them
   through `hostlink_set_on_pins()`'s callback, as `can` fills its own through `on_pins`, named for
   the holder, empty if the start failed.
+- **The holo's ports are the application's** (`main/holo_cyphal.c`, its pure parts
+  `holo_cyphal_util.c`, host-tested): `components/cyphal` knows no board. `cyphal_app_t.handlers`
+  gives a port its decode (on the node's task, into a job slot), work (on the worker) and busy
+  answer, or a subscription's `on_message` (on the node's task: a copy into a mailbox and
+  `cyphal_wake_worker()`), or a published port's mailbox size and depth; `poll` runs on the worker
+  and builds Status and Axes, which `cyphal_publish()` drops into the node's mailboxes for the node's
+  task to send. A mailbox of depth 1 keeps the newest (Status, Axes); a deeper one is a queue that
+  refuses with `ESP_ERR_NOT_FINISHED` when full and never overwrites: that is for phase 4's `Event`,
+  whose happenings mustn't be lost unseen. No copy is made under a mailbox's spinlock: a publisher
+  claims a buffer, fills it and commits it, and the node's task pushes straight from the buffer it
+  took. A port without a handler is neither used nor in `port.List`. Nothing outside the node's task
+  touches libcanard; keep it so.
+- **The poll looks only at what can go.** Inside 250 ms of a Status and 100 ms of an Axes it builds
+  nothing and sleeps the rest; then it looks at the holo every 50 ms (`holo_status()` once a pass,
+  the holo part compared with the last sent, times aside). The ring is read again only when the
+  kit's `events` says `leds` changed (a listener of its own, one of `EVENTS_MAX_SINKS`; it must
+  never want `holo`, or `api_events.c`'s 250 ms JSON watcher starts), and for the time left when a
+  Status goes. Phase 4's screen and scene parts should come the same way, by their events.
+- **Motion runs the HTTP route's code** (`scene_holo_change()`, what `POST /api/v1/holo/motion` runs
+  once `scene_do_holo()` has read its JSON, with only the fields the motion uses): never a second
+  motion implementation, and no JSON on the way. Light runs `scene_leds_change()`, PATCH /leds's own
+  code, which takes a leia's mark JSON can't. A refusal's code comes from `api_scene_code()`, and the
+  host link's from `api_code_of()` (`components/board_api/api_codes.c`, host-tested): one mapping. Motion's `off` also turns the ring off (the holo's light
+  here); the HTTP and host link `off` don't, since a scene's holo part would undo its LED part.
+- **A setpoint is a direct move**: `holo_motion()` STOP if anything runs, then `servo_set_percentage()`
+  per axis, as the panel does for ROS joint commands. The engine's default axis hook only reads the
+  servo's pulse once *it* has placed the axis since boot, so the first setpoint after a boot goes
+  through the engine as a MOVE with duration 0; without that the engine would think the axes
+  unplaced and the next motion would start from the centre. A MOVE is whole percent, so the same
+  setpoint goes again the direct way once the engine has carried it out (`s_again`, polled 20 ms
+  apart, dropped if a newer setpoint, a motion or anything else asked of the engine comes first).
+- **The ring keeps its own light implementation** (decided 2026-11-20/21; the user was offered the
+  alternative, a light hook in the kit's holo engine driving the ring, and chose not to for now):
+  Light, pulse, blink, levels, timed modes and a leia's mark are `components/leds` and
+  `scene_leds_change()`, beside the engine's own light, which stays `none` here. So the console's
+  `holo led` and `holo leia`'s light do nothing on this board, and a kit change to the engine's light
+  doesn't reach the ring. Revisit only with the user.
+- **The light's level is a share of the ring's brightness** (decided in phase 3, a change from the
+  reviewed pages): Light's default level 100 would otherwise light a VSYS-powered ring at full.
+- **`r2.holo.MotionSpec`'s kind numbers are the host link's HOLO frame's**, not `holo_motion_kind_t`'s
+  (the engine has SCAN at 4): `holo_cyphal.c`'s `SPEC_OF_KIND[]` maps them, both ways. The DSDL's
+  comment says otherwise; it's only a comment.
+- **The ring's pattern task is made once and kept** (`components/leds/leds.c`): it sleeps on its
+  notification until a frame, a blink's edge or a timed setting's end, and a change or a brightness
+  wakes it. Its 3 KB stack is internal RAM from the first animated or timed setting on.
+- **A timed scan never ends** (found 2026-11-20, a kit bug, not fixed here): the kit's `holo.c`
+  `tick_holo()` looks at `motion_until` only while no segment is in flight, and a scan starts its next
+  segment the moment one ends. Console, HTTP and Cyphal alike; `test_holo.py`'s timed-scan case is a
+  strict xfail, so it fails once the kit is fixed and the pin bumped. Fix it in the kit.
+- **NOT_READY can't happen on this bench**: `holo_servos.c` sets `allow_uncalibrated`, and both servos
+  are MCPWM pins that always attach, so the holo is always ready and the heartbeat nominal. Status's
+  `calibrated` is the servo's saved endpoints, not the engine's notion.
+- **`make can-test ARGS=tests/hardware/test_holo.py` runs the whole suite** (the Makefile passes
+  `tests/hardware` as well): select with `-k` instead (`ARGS="-k test_holo"`). `test_holo.py`
+  compares each request with the same one over HTTP when `--board-host` is given (the `http`
+  fixture, `tools/api_smoke.py`'s `Board`, with `$HOLO_PASSWORD`). The holo's load test runs
+  `--holo-minutes` (3 by default); the phase gates run it with 10.
 
 ## Not tested on the board
 
@@ -302,3 +384,10 @@ short under `can`. By reading only: a failed controller stop in `cyphal restart`
 read by the task's last `drain()` (the task looks at `s_running` once more before it sleeps), a
 node start that fails at boot. Plug-and-play's hold while another node is heard on the allocated
 ID is proven by the host tests, not by timing on the bench.
+
+The holo on Cyphal, as of 2026-11-21: Motion's and a leia's refusals for an uncalibrated or
+unfitted axis, and Status and the heartbeat while the holo can't move (the bench's holo is always
+ready: see "NOT_READY can't happen on this bench" above); Motion `off` turning the ring off when
+the holo engine didn't start; a message dropped because the transmit queue was full (counted as
+dropped, not published): all by reading only. A timed scan's end can't be tested until the kit is
+fixed.

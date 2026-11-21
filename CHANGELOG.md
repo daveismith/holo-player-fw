@@ -67,11 +67,35 @@ so the release tag is the version baked into the image and reported by `version`
   one the board can't take leaves the register as it was, a port number another port has (the
   node's own included) among them. `uavcan.node.ExecuteCommand`'s factory reset is all or nothing. `uavcan.node.ExecuteCommand` restarts
   the board, resets it to the factory settings (every register and the board's settings, keeping
-  the scenes, files, servo calibration, network and host link), identifies it (the ring flickers
+  the scenes, files, servo calibration, network and host link), identifies it (the ring blinks
   white and the screen shows the crosshair for 5 s, then both go back) or stores (nothing to do);
-  other commands are refused. `uavcan.node.port.List` goes out every 10 s. The holo's own ports
-  are numbers only so far: none is served or published yet, and the port list says so.
-  Documented in the manual's *The board on Cyphal* and *Cyphal interface*.
+  other commands are refused. `uavcan.node.port.List` goes out every 10 s, with the ports the node
+  really has. Documented in the manual's *The board on Cyphal* and *Cyphal interface*.
+- **The holo on Cyphal** (`r2.holo.*`): `Motion` (service 100) starts any motion with every
+  parameter, through the code the HTTP API's `POST /holo/motion` runs, so it is refused in the same words;
+  its `off` lets the servos go limp and turns the ring off. `Light` (service 101) is the holo's light
+  on the LED ring: off, on, pulse, flicker, blink at a level and a period, an optional colour, a time
+  limit after which the ring goes back to what it was doing, and `leia` (a timed flicker at full and
+  the holo to the centre, which answers whether the centre ran). `Axes` subscribed (subject 2303) is
+  a stream of setpoints, each a direct move with no easing that stops the motion running; `Axes`
+  published (2302) is where the board has put the axes, ten times a second while they move and once a
+  second at rest. `Status` (2300) is the holo's motion and readiness, the last motion asked for, both
+  axes, and the ring with its timed mode, within 250 ms of a change and once a second (the screen and
+  scene parts come later). The heartbeat's health is advisory while the holo can't move. `cyphal`
+  counts the holo's requests and setpoints, and each port's messages queued for the bus with those a
+  newer one replaced before they were.
+- **The LED ring pulses and blinks**, and has the holo light's level and timed modes: `leds pulse`
+  and `leds blink` with `-p <ms>`; `-l <pct>` (a share of the brightness) on every mode but `off`, and
+  `-t <s>` (then back to what it was doing) on `colour`, `off`, `flicker`, `pulse` and `blink`. A
+  timed mode and a blink no longer wake the board 50 to 100 times a second, and the ring's task is made
+  once and kept. The web app's status card shows a level other than 100 and counts a timed mode's time
+  left down. `PATCH /api/v1/leds` and a
+  scene's `leds` take `pulse`, `blink`, `period_ms`, `level` and `time_s`; `GET /api/v1/leds` reports
+  `period_ms`, `level`, a timed mode (`timed`: its time left and what follows) and `leia`. The host
+  link's `LEDS` frame takes modes 5 (pulse) and 6 (blink) with an optional period after its flags,
+  and the status block reports them. The web app's Show and Scenes pages offer pulse and blink, and the
+  scene editor a pulse's or a blink's period, the level and a time. A
+  scene that restores the ring puts back a timed mode for the rest of its time.
 - **`cyphal register [<name> [<value>…]]`**: the same registers on the console, listed, read or
   written with the same checks. `cyphal` shows the services' counters and the worker that does
   their waiting (a register's write to flash, a restart, identify), so that the node's own task
@@ -108,6 +132,9 @@ so the release tag is the version baked into the image and reported by `version`
 - The Cyphal node's libcanard heap is 32 KB of PSRAM (was 16 KB), its transmit queue 160 frames
   (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 6 KB stack joins it at its
   first start.
+- `leds` shows a pulse's or a blink's period, a level other than 100, and a timed mode's time left
+  and what follows. `leds rainbow` keeps the ring's colour for the next mode that has one, rather than
+  forgetting it.
 
 ## [1.1.0] - 2026-10-22
 

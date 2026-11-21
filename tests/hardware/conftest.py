@@ -97,6 +97,7 @@ import uavcan.register.Value_1_0 as Value  # noqa: E402
 # workaround for macOS. No bytecode: the submodule stays clean.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(REPO / "tools"))
+import api_smoke  # noqa: E402
 import board_console  # noqa: E402
 import can_check  # noqa: E402
 
@@ -136,8 +137,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                      help="the board's console (default $ESPPORT, or the bench's CH343P)")
     parser.addoption("--dut-node-id", default=52, type=int, help="the fixed node-ID the board is given (default 52)")
     parser.addoption("--local-node-id", default=10, type=int, help="the test harness's node-ID (default 10)")
-    parser.addoption("--board-host", default=None, help="the board's address on Wi-Fi, for the `ota` tests")
+    parser.addoption("--board-host", default=None,
+                     help="the board's address on Wi-Fi, for the `ota` tests and the HTTP comparisons (an API password "
+                          "from $HOLO_PASSWORD)")
     parser.addoption("--clip", default="leia240.mjpeg.mov", help="a clip on the board for the load tests")
+    parser.addoption("--holo-minutes", default=3.0, type=float,
+                     help="how long the holo's load test runs (default 3; the phase gates run 10)")
 
 
 # --------------------------------------------------------------------------------------------- board
@@ -178,6 +183,10 @@ class Board(board_console.Console):
 
     def cyphal(self) -> dict:
         return parse_cyphal(self.command("cyphal"))
+
+    def first_line(self, command: str) -> str:
+        """A command's first line of output: `leds`'s setting, `screen`'s, ..."""
+        return self.command(command).strip().splitlines()[0]
 
     def in_state(self, state: str, node_id: int | None, end: float) -> dict | None:
         """The status if the node is in `state` (on `node_id`, if given); None to look again, unless
@@ -250,6 +259,12 @@ def parse_cyphal(text: str) -> dict:
                       r"bad (\d+); busy (\d+); port lists (\d+)", text):
         st["services"] = dict(zip(("register_reads", "register_writes", "register_refused", "register_lists",
                                    "commands", "commands_refused", "busy", "port_lists"), map(int, m.groups())))
+    if m := re.search(r"application: requests (\d+), messages (\d+); health (\w+)", text):
+        st["application"] = {"requests": int(m.group(1)), "messages": int(m.group(2)), "health": m.group(3)}
+    # Each published port: sent, and replaced by a newer one (or refused, a queue being full)
+    if m := re.search(r"published: (.*)", text):
+        st["published"] = {p.group(1): {"sent": int(p.group(2)), "lost": int(p.group(3))}
+                           for p in re.finditer(r"(\w+) (\d+) \((\d+) (?:replaced|refused, full)\)", m.group(1))}
     return st
 
 
@@ -285,6 +300,13 @@ def board(request: pytest.FixtureRequest) -> Board:
 @pytest.fixture(scope="session")
 def dut_node_id(request: pytest.FixtureRequest) -> int:
     return request.config.getoption("--dut-node-id")
+
+
+@pytest.fixture(scope="session")
+def http(request: pytest.FixtureRequest) -> api_smoke.Board | None:
+    """The board's HTTP API with --board-host (Board.call(method, path, body=...) -> (status, reply)), else None"""
+    host = request.config.getoption("--board-host")
+    return api_smoke.Board(host, os.environ.get("HOLO_PASSWORD")) if host else None
 
 
 # ------------------------------------------------------------------------------------------ the bus
@@ -492,8 +514,28 @@ def warnings(log: str, node_id: int) -> int:
     return len(re.findall(re.escape(WARNING.format(node_id)), log))
 
 
-def gaps(beats: list[tuple[float, int, object]]) -> list[float]:
-    return [b[0] - a[0] for a, b in zip(beats, beats[1:])]
+def gaps(beats: list) -> list[float]:
+    """The times between each and the next: heartbeats()' (their arrival first) or plain times"""
+    times = [b[0] if isinstance(b, tuple) else b for b in beats]
+    return [b - a for a, b in zip(times, times[1:])]
+
+
+class Beats:
+    """Every heartbeat from `server` in the background until close(), by its own stamp (pycyphal gives a gs_usb
+    adapter's frame the adapter's clock), for the gaps between them over minutes, which a console command holding
+    the event loop would otherwise stretch. heartbeats() is the same in the foreground, for a few seconds"""
+
+    def __init__(self, node: pycyphal.application.Node, server: int):
+        self.times: list[float] = []
+        self._sub = node.make_subscriber(Heartbeat)
+
+        async def keep(msg, transfer) -> None:
+            if transfer.source_node_id == server:
+                self.times.append(float(transfer.timestamp.monotonic))
+        self._sub.receive_in_background(keep)
+
+    def close(self) -> None:
+        self._sub.close()
 
 
 class Frame:
@@ -580,15 +622,17 @@ def plain(value: Value) -> int | list[int] | str | None:
     raise AssertionError(f"a value of a type no register here has: {value}")
 
 
-async def call(node: pycyphal.application.Node, dtype, server: int, request, timeout: float = 1.0):
-    """One call of the service `dtype` to node `server`: the response, which the test fails without"""
-    client = node.make_client(dtype, server)
+async def call(node: pycyphal.application.Node, dtype, server: int, request, timeout: float = 1.0,
+               port: int | None = None):
+    """One call of the service `dtype` to node `server`, on its fixed port or `port`: the response, which the test
+    fails without"""
+    client = node.make_client(dtype, server) if port is None else node.make_client(dtype, server, port)
     client.response_timeout = timeout
     try:
         result = await client.call(request)
     finally:
         client.close()
-    assert result is not None, f"no response from node {server} to {dtype.__name__}: {request}"
+    assert result is not None, f"no response from node {server} to {dtype.__name__}{'' if port is None else f' on {port}'}: {request}"
     return result[0]
 
 

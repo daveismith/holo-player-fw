@@ -8,12 +8,13 @@ a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal nod
 - it answers **`uavcan.node.GetInfo`** with its name, its version and its unique ID;
 - its settings are **registers** (`uavcan.register.Access` and `List`);
 - it **restarts, resets or identifies itself** when told (`uavcan.node.ExecuteCommand`);
-- it says which **ports** it uses every 10 seconds (`uavcan.node.port.List`).
+- it says which **ports** it uses every 10 seconds (`uavcan.node.port.List`);
+- and it is a **holo**: its motions, its light (the LED ring), direct moves of its axes, and its
+  state, with the holo's own types ([below](#the-holo-on-cyphal)).
 
-Scenes, the screen, the LEDs and the holo are not on Cyphal yet. The node is there to be found,
-identified and managed, by a dome controller or by a tool such as
-[cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut. What is being built is
-described [below](#the-holo-on-cyphal).
+Scenes, the screen, the ring's own settings and the board's events are not on Cyphal yet. The node
+is there to be found, identified, managed and moved, by a dome controller or by a tool such as
+[cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut.
 
 The bus is classic CAN, 1 Mbit/s unless changed. The USB console, Wi-Fi and the web app all work
 alongside it. UART, RS485 and CAN share the same pins, so only one of them runs at a time.
@@ -105,8 +106,9 @@ node-ID that clashes with it runs until the other node turns up.
 
 ## What it reports
 
-**Heartbeat**, once a second: the time since the node started, in seconds, with its health
-nominal and its mode operational. It keeps time while the board is busy: the longest gap measured
+**Heartbeat**, once a second: the time since the node started, in seconds, with its mode
+operational and its health nominal, or advisory while the holo can't move
+([health](../reference/cyphal.md#health)). It keeps time while the board is busy: the longest gap measured
 on the bench was 1.02 seconds, during a firmware update over Wi-Fi, and 1.01 seconds while a clip
 played with the LED ring running. Other nodes count a node as gone after 3 seconds without one.
 
@@ -191,6 +193,8 @@ cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX
   up 60 s; frames given to the controller 385, not sent 0, waiting 0; not read (queue full) 0
   memory: libcanard heap 72 of 32768 bytes (1932 at most), stack 1744 bytes never used; internal heap 95327 free, 57236 lowest
   services: registers read 25, written 1, refused 0, listed 26; commands 1, bad 0; busy 0; port lists 6
+  application: requests 12, messages 250; health nominal
+  published: status 70 (0 replaced), axes 60 (0 replaced)
   worker: 0 of 4 job slots held; its stack 4808 of 6144 bytes never used
 ```
 
@@ -251,17 +255,19 @@ Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats d
 ## The holo on Cyphal
 
 !!! note "Partly in the firmware"
-    This section describes the holo's Cyphal interface ahead of the firmware. What can be used
-    now is the node's management: [its registers](#settings-as-registers) and
-    [its commands](#restart-factory-reset-identify). The holo's own messages and services aren't
-    built yet. The [Cyphal interface](../reference/cyphal.md) reference has every type, port and
-    register.
+    This section describes the holo's Cyphal interface, part of it ahead of the firmware. What
+    can be used now: the node's management ([its registers](#settings-as-registers) and
+    [its commands](#restart-factory-reset-identify)), and the holo itself: `r2.holo.Motion`,
+    `r2.holo.Light`, `r2.holo.Axes` both ways and `r2.holo.Status`. Still to come: scenes, the
+    screen, the ring's own service, the board's events, and the lists. The
+    [Cyphal interface](../reference/cyphal.md) reference has every type, port and register, and says
+    which are built.
 
-A controller on the bus, the dome panel or an app on a Linux machine, will be able to do with
-this holo what the panel does with a holo of its own: every motion, the light, direct moves of
-the axes, the holo's state, and letting go of the servos. It will also reach most of the board's
-own features: scenes, the screen, the LED ring, and the board's events. And the node will be
-managed the standard Cyphal way, with registers and commands, by any Cyphal tool.
+A controller on the bus, the dome panel or an app on a Linux machine, can do with this holo what
+the panel does with a holo of its own: every motion, the light, direct moves of the axes, the
+holo's state, and letting go of the servos. It will also reach most of the board's own features:
+scenes, the screen, the LED ring, and the board's events. And the node is managed the standard
+Cyphal way, with registers and commands, by any Cyphal tool.
 
 The holo's messages and services are Cyphal data types of their own, `r2.holo.*`, kept in the
 [r2_cyphal_dsdl](https://github.com/daveismith/r2_cyphal_dsdl) repository, which a controller
@@ -294,14 +300,19 @@ ready, busy, failed) and the message in words, such as `holo: refused, uncalibra
 
 `r2.holo.Motion` starts any of the holo's motions, with every parameter the console's
 [`holo`](holo.md#motions) takes: center, move, nudge, twitch, wag, nod, scan, circle, stop, and
-off, which stops, lets both servos go limp and turns the light off. A parameter left at 0 takes
-the motion's default, as on the console.
+off, which stops, lets both servos go limp and turns the light (the ring) off. A parameter left at
+0 takes the motion's default, as on the console. It runs the HTTP API's own `POST /holo/motion`, so
+a motion out of range is refused in the same words. A twitch or a scan takes a time limit, but a
+scan does not stop by it today, here or on the console or the HTTP API: a fault in the holo engine
+the board shares with the dome panel. Stop a scan with `stop` (or another motion) instead.
 
 For a direct move, a controller streams setpoints instead: `r2.holo.Axes` messages with both
 axes in hundredths of a percent of their travel each side of the centre (−10000 to 10000). Each
 setpoint goes to the servos at once, with no easing, and stops any motion running first; the
 latest wins. This is what a joystick or a ROS joint command needs. The holo publishes where it
 has put the axes on the same scale, ten times a second while it moves and once a second at rest.
+On the bench, a 50-a-second stream reached the board whole, each setpoint at the servos at once,
+and stopped a twitch that was running.
 
 A subject belongs to the whole bus, so two holos listening for setpoints on the same subject
 move together. Give a second holo its own setpoint subject by its register,
@@ -315,9 +326,12 @@ level, each for good or for a time, after which the light goes back to what it w
 board `r2.holo.Light` does all of that on the LED ring: `on` lights it steady, and the others are
 ring modes of the same names. The ring keeps its colour unless the request gives one.
 
-The ring gains pulse and blink, and timed modes, for this; the console's `leds` and the HTTP API
-gain them too. The console's `holo led` and `holo leia` belong to the holo engine shared with the
-panel, and still do nothing on this board.
+The level is a share of the ring's brightness, not a brightness of its own: the light at 100 is the
+ring at the brightness it is set to (`leds bright`, or the board's settings), so a controller can't
+light a ring powered from the board past its limit. The ring has pulse and blink, and timed modes,
+for this; the console's [`leds`](leds.md#the-holos-light) and the HTTP API have them too. The
+console's `holo led` and `holo leia` belong to the holo engine shared with the panel, and still do
+nothing on this board.
 
 ### Knowing what it is doing
 
@@ -370,9 +384,9 @@ count ([the rule](../reference/cyphal.md#port-numbers-in-use)). To swap two port
 to a free number, or to 65535, first.
 
 Over Cyphal the response says the same by carrying the old value. Until the firmware has a port,
-its number is only kept: the holo's ports aren't built yet, so none of them is used, whatever its
-register holds. Later the holo's calibration, its servos' drive policy and touch reporting become
-registers as well.
+its number is only kept: of the holo's ports, `status`, `axes`, `setpoint`, `motion` and `light` are
+built; the rest aren't used, whatever their registers hold. Later the holo's calibration, its servos'
+drive policy and touch reporting become registers as well.
 
 The port numbers are saved and go into a [backup](backup.md) with the rest of the node's
 settings. A second holo restored from the same backup needs its own node-ID and its own setpoint
@@ -386,7 +400,7 @@ subject.
 - **factory reset** puts every register and the board's settings back to their defaults and
   restarts, keeping the scenes, the files, the servos' calibration, the network settings and the
   host link's mode (so the node comes back on the bus, asking for a node-ID by plug-and-play);
-- **identify** flickers the ring white and shows the crosshair for 5 seconds, to tell which board
+- **identify** blinks the ring white and shows the crosshair for 5 seconds, to tell which board
   on the bus is which, then puts both back. It runs as a short scene called `identify`, so the web
   app shows it, and it ends a scene that was running.
 
@@ -406,7 +420,6 @@ yakut call 52 motion '{motion: {kind: 4, count: 3}}'
 yakut execute-command 52 restart
 ```
 
-(The call to `motion` waits for the holo's services; the register and the restart work now.)
 
 On macOS a gs_usb adapter (a CANable, candleLight) needs a workaround first: python-can, which
 Yakut uses, asks the system to detach a kernel driver, and macOS refuses without root. This
@@ -450,12 +463,18 @@ handed to the controller that were never sent (bus-off, or a restart of the node
 arrived faster than they could be read, and the memory it uses. Its libcanard heap is 32 KB of
 PSRAM, reserved at its first start; a port list waiting to go takes about 1.8 KB of it. The
 internal RAM it takes is its task's 3 KB stack while it runs, the worker's 6 KB stack (the task
-that writes registers and carries out commands, so that the node's own never waits) from its first
-start on, and the CAN driver's queues (about 8 KB, kept once the controller has run, the same as
-for `can`).
+that writes registers, carries out commands and the holo's requests and setpoints, and builds what
+the holo publishes, so that the node's own never waits) from its first start on, and the CAN
+driver's queues (about 8 KB, kept once the controller has run, the same as for `can`). The holo's
+mailboxes and the worker's copy of Status are in PSRAM.
 
 `services` counts the register and command requests, the ones refused, and those answered busy
-because the worker already held four; `worker` shows how many it holds now.
+because the worker already held four; `worker` shows how many it holds now. `application` counts the
+holo's own: requests to `motion` and `light` handed to the worker and setpoints received, and gives
+the health the heartbeat reports. `published` counts each message the holo publishes, Status and
+Axes, that was queued for the bus, and in brackets those a newer one replaced before they were
+(none, on a quiet bus). One the transmit queue had no room for is counted with the transfers
+dropped instead; one queued that then waited there past its second is counted in both.
 
 ## Testing the wiring: raw frames
 

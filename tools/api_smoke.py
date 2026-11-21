@@ -11,7 +11,8 @@ and puts back what it touched: files uploaded, moved, copied and deleted; a scen
 applied and deleted; the LEDs set and turned off.
 
 Needs the docs venv (jsonschema comes with openapi-spec-validator): `make api-smoke
-HOST=...`, or .venv/bin/python tools/api_smoke.py.
+HOST=...`, or .venv/bin/python tools/api_smoke.py. `Board` alone is stdlib only, for the hardware
+tests (tests/hardware/conftest.py), whose venv has no jsonschema: the checker imports it itself.
 """
 
 from __future__ import annotations
@@ -28,9 +29,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT202012
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "manual" / "reference" / "openapi.json"
@@ -96,10 +94,17 @@ class Stream:
         self.r.close()
 
 
+def validator(schema, registry):
+    from jsonschema import Draft202012Validator
+    return Draft202012Validator(schema, registry=registry)
+
+
 class Checker:
     def __init__(self, board: Board):
         self.board = board
         self.doc = json.loads(SPEC.read_text(encoding="utf-8"))
+        from referencing import Registry, Resource
+        from referencing.jsonschema import DRAFT202012
         self.registry = Registry().with_resource(BASE, Resource.from_contents(self.doc, default_specification=DRAFT202012))
         self.failures: list[str] = []
         self.calls = 0
@@ -137,7 +142,7 @@ class Checker:
         elif schema is not None and isinstance(reply, (dict, list)):
             if "$ref" in schema:
                 schema = {"$ref": BASE + schema["$ref"]}
-            errors = list(Draft202012Validator(schema, registry=self.registry).iter_errors(reply))
+            errors = list(validator(schema, registry=self.registry).iter_errors(reply))
             for e in errors[:3]:
                 at = "/".join(str(p) for p in e.absolute_path) or "(the reply)"
                 self.failures.append(f"{where}: {at}: {e.message}")
@@ -146,7 +151,7 @@ class Checker:
 
     def valid(self, where: str, instance, schema: str) -> None:
         """Fail unless `instance` matches components/schemas/`schema`."""
-        v = Draft202012Validator({"$ref": f"{BASE}#/components/schemas/{schema}"}, registry=self.registry)
+        v = validator({"$ref": f"{BASE}#/components/schemas/{schema}"}, registry=self.registry)
         for e in list(v.iter_errors(instance))[:3]:
             at = "/".join(str(p) for p in e.absolute_path) or "(the event)"
             self.failures.append(f"{where}: {at}: {e.message}")

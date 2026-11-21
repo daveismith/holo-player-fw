@@ -135,6 +135,17 @@ static void print_status(void)
            (unsigned long)st.services.register_refused, (unsigned long)st.services.register_lists,
            (unsigned long)st.services.commands, (unsigned long)st.services.commands_refused,
            (unsigned long)st.services.busy, (unsigned long)st.services.port_lists);
+    static const char *const HEALTH[] = { "nominal", "advisory", "caution", "warning" };
+    printf("  application: requests %lu, messages %lu; health %s\n", (unsigned long)st.services.app_requests,
+           (unsigned long)st.services.app_messages, HEALTH[st.health & 3]);
+    /* Each published port: how many went, and how many a newer one replaced (depth 1) or a full queue refused */
+    for (size_t i = 0; i < st.mail_count; i++) {
+        const cyphal_mail_t *m = &st.mail[i];
+        const cyphal_port_t *p = cyphal_port(m->port);
+        printf("%s%s %lu (%lu %s)%s", i == 0 ? "  published: " : "", p != NULL ? p->name : "?",
+               (unsigned long)m->published, (unsigned long)(m->depth > 1 ? m->refused : m->replaced),
+               m->depth > 1 ? "refused, full" : "replaced", i + 1 < st.mail_count ? ", " : "\n");
+    }
     printf("  worker: %lu of %lu job slots held; its stack %lu of %d bytes never used\n", (unsigned long)st.jobs_held,
            (unsigned long)st.job_slots, (unsigned long)st.worker_stack_unused, CONFIG_CYPHAL_WORKER_STACK);
     if (!cyphal_settings_equal(&st.saved, &st.running)) {

@@ -45,11 +45,12 @@
  * Services: while online the node answers uavcan.node.GetInfo, uavcan.register.Access and List (the
  * register table is cyphal_registers.c's) and uavcan.node.ExecuteCommand, and publishes
  * uavcan.node.port.List every MAX_PUBLICATION_PERIOD (10 s), the first as it goes online. One table,
- * SERVICES[], says what it publishes, subscribes to and serves: go_online() subscribes from it, a
- * transfer finds its row through its subscription's user_reference, and the port list is made from it,
- * so the list can't disagree with what is subscribed. What it serves and publishes is fixed for a run
- * (the port registers apply from the next start), so that list is serialized once a start, as
- * GetInfo's response is.
+ * s_rows[], says what it publishes, subscribes to and serves: SERVICES[], the node's own fixed ports,
+ * then a row for each of the application's ports that has a handler (cyphal_handler_t; cyphal_init()).
+ * go_online() subscribes from it, a transfer finds its row through its subscription's user_reference,
+ * and the port list is made from it, so the list can't disagree with what is subscribed. What it serves
+ * and publishes is fixed for a run (the port registers apply from the next start), so that list is
+ * serialized once a start, as GetInfo's response is.
  *
  * Work that can wait (a register written to NVS, a restart, a factory reset, identify) is handed to
  * the worker, a task of its own (worker_task()), so that the node's task never blocks: libcanard
@@ -67,15 +68,28 @@
  * free slot the request is answered at once: busy (ExecuteCommand's failure), or the register as it
  * is, unwritten.
  *
- * Messages that other tasks publish (a later phase's Status, Event and Axes) can't go this way: a
+ * The application's requests go the same way: its decode() on the node's task, into the slot (the
+ * decode-once rule: the worker never sees the payload), its work() on the worker, which serializes the
+ * response into the same slot; with no slot free, its busy() answers at once. Its subscriptions' messages
+ * are handed to its on_message() on the node's task, which copies them into a mailbox of its own and wakes
+ * the worker (cyphal_wake_worker(): a NULL in the work queue, one at most, for which the queue has a place
+ * of its own); the worker then runs the application's poll(), which also runs on its own timer, between
+ * jobs, to build what the application publishes.
+ *
+ * Messages the application publishes (cyphal_publish(), from any task) can't go by the slots: a
  * transfer-ID and the port are the node's task's to give, and publications would take the slots that
- * service calls need. Their shape, for that phase: a mailbox for each published subject, and one for
- * the setpoint subscription's latest, each overwritten by the newest; the node's task picks them up
- * at its turn and gives each its port and transfer-ID.
+ * service calls need. Each published port has a mailbox (s_mail[]) of its handler's depth: 1 keeps the
+ * newest message, replacing one not yet sent (counted as replaced); a deeper one is a queue that refuses a
+ * message when full (counted as refused), for happenings, none of which may be lost unseen. A publisher
+ * claims a buffer, fills it and commits it; the node's task takes the oldest committed one at its turn
+ * (collect()), queues it straight from that buffer with the port, its priority (the port table's) and
+ * the port's next transfer-ID, and frees it. Only the claims, commits and takes are under the mailbox's
+ * spinlock, never a copy; a count of committed buffers (s_mail_ready) says whether any wait without a lock.
+ * Publishing wakes the node's task with canbus_wake().
  *
  * Memory: the node's state and libcanard's heap (CONFIG_CYPHAL_HEAP_SIZE, an IDF multi_heap) are
  * in PSRAM, allocated at the first start and kept; each start begins the heap empty, so a stop
- * needs to free nothing. So are the job slots and the worker's scratch. The generated structs the
+ * needs to free nothing. So are the job slots, the worker's scratch and the mailboxes (cyphal_init()). The generated structs the
  * services need (a register request is 0.8 KB) are in node_t, the job slots or the worker's scratch,
  * never on a stack. Only the two tasks' stacks and the queues canbus owns are internal RAM; the worker,
  * made at the first start, is kept.
@@ -147,8 +161,9 @@ typedef void (*serve_fn)(node_t *n, const service_t *svc, const struct CanardRxT
  * 0 for none). True to restart the board once the response has gone */
 typedef bool (*work_fn)(job_t *job);
 
-/* One of the node's ports while online: what it publishes (listed; sent by its timer), subscribes to or
- * serves (subscribed, and answered by serve). A later phase's port is a row with app_port set */
+/* One of the node's ports while online: what it publishes (listed; sent by its timer, or from its mailbox),
+ * subscribes to or serves (subscribed, and answered by serve). An application's port is a row with app_port
+ * and app set */
 struct service {
     cyphal_port_kind_t kind;
     uint16_t port_id;                       /* a fixed port's */
@@ -157,6 +172,7 @@ struct service {
     size_t extent;                          /* the request's or message's, which libcanard cuts a transfer to */
     serve_fn serve;                         /* NULL for a subject published */
     work_fn work;                           /* the worker's part, for serve to hand over; NULL for none */
+    const cyphal_handler_t *app;            /* an application's port's handler; NULL for a fixed port */
 };
 
 static void answer_getinfo(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
@@ -164,35 +180,68 @@ static void on_access(node_t *n, const service_t *svc, const struct CanardRxTran
 static void on_list(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
 static void on_command(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
 static void on_allocation(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
+static void on_app_request(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
+static void on_app_message(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now);
 static bool work_access(job_t *job);
 static bool work_command(job_t *job);
+static bool work_app(job_t *job);
 
 static const service_t SERVICES[] = {
-    { CYPHAL_PORT_PUB, uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, -1, 0, NULL, NULL },
-    { CYPHAL_PORT_PUB, uavcan_node_port_List_1_0_FIXED_PORT_ID_, -1, 0, NULL, NULL },
+    { CYPHAL_PORT_PUB, uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, -1, 0, NULL, NULL, NULL },
+    { CYPHAL_PORT_PUB, uavcan_node_port_List_1_0_FIXED_PORT_ID_, -1, 0, NULL, NULL, NULL },
     { CYPHAL_PORT_SRV, uavcan_node_GetInfo_1_0_FIXED_PORT_ID_, -1, uavcan_node_GetInfo_Request_1_0_EXTENT_BYTES_,
-      answer_getinfo, NULL },
+      answer_getinfo, NULL, NULL },
     { CYPHAL_PORT_SRV, uavcan_register_Access_1_0_FIXED_PORT_ID_, -1, uavcan_register_Access_Request_1_0_EXTENT_BYTES_,
-      on_access, work_access },
+      on_access, work_access, NULL },
     { CYPHAL_PORT_SRV, uavcan_register_List_1_0_FIXED_PORT_ID_, -1, uavcan_register_List_Request_1_0_EXTENT_BYTES_,
-      on_list, NULL },
+      on_list, NULL, NULL },
     { CYPHAL_PORT_SRV, uavcan_node_ExecuteCommand_1_3_FIXED_PORT_ID_, -1,
-      uavcan_node_ExecuteCommand_Request_1_3_EXTENT_BYTES_, on_command, work_command },
+      uavcan_node_ExecuteCommand_Request_1_3_EXTENT_BYTES_, on_command, work_command, NULL },
 };
 #define SERVICE_COUNT (sizeof(SERVICES) / sizeof(SERVICES[0]))
-_Static_assert(SERVICE_COUNT <= uavcan_node_port_SubjectIDList_1_0_sparse_list_ARRAY_CAPACITY_,
-               "the port list holds every subject in SERVICES[]");
+/* Every row the node can have: its own, and one for each of the application's ports */
+#define ROW_MAX       (SERVICE_COUNT + CYPHAL_PORTS_MAX)
+_Static_assert(ROW_MAX <= uavcan_node_port_SubjectIDList_1_0_sparse_list_ARRAY_CAPACITY_,
+               "the port list holds every subject the node can have");
 
-/* Plug-and-play's, while waiting only: not a port the node has online, so not in SERVICES[] or the list */
+/* SERVICES[], then the application's ports with handlers (cyphal_init()): fixed from then on */
+static service_t s_rows[ROW_MAX];
+static size_t s_row_count;
+
+/* Plug-and-play's, while waiting only: not a port the node has online, so not in s_rows[] or the list */
 static const service_t ALLOCATION = { CYPHAL_PORT_SUB, uavcan_pnp_NodeIDAllocationData_1_0_FIXED_PORT_ID_, -1,
-                                      uavcan_pnp_NodeIDAllocationData_1_0_EXTENT_BYTES_, on_allocation, NULL };
+                                      uavcan_pnp_NodeIDAllocationData_1_0_EXTENT_BYTES_, on_allocation, NULL, NULL };
+
+/* A published port's mailbox (cyphal_publish()): its depth of messages waiting for the node's task, in depth + 1
+ * buffers, so that one can be on its way out while the rest wait. A buffer goes FREE, FILLING (a publisher's),
+ * READY (committed, in commit order), SENDING (the node task's, queued straight from it), FREE again */
+enum { BUF_FREE, BUF_FILLING, BUF_READY, BUF_SENDING };
+#define MAIL_BUFS (CYPHAL_PUBLISH_DEPTH_MAX + 1)
+typedef struct {
+    portMUX_TYPE mux;                       /* the buffers' states, sizes and order, and the counts */
+    size_t port;                            /* the application's port */
+    size_t max;                             /* its handler's publish_max: each buffer's size */
+    uint8_t depth;                          /* its handler's publish_depth: 1, the newest */
+    uint8_t state[MAIL_BUFS];               /* depth + 1 of them in use */
+    uint32_t order[MAIL_BUFS];              /* a READY buffer's place in the commit order */
+    size_t size[MAIL_BUFS];                 /* a READY or SENDING buffer's message */
+    uint8_t *data;                          /* (depth + 1) * max bytes, PSRAM where there is some, from cyphal_init() */
+    uint32_t next_order;
+    uint32_t ready;                         /* READY buffers: written under mux, read through __atomic without it */
+    uint32_t published, replaced, refused;  /* since the start (cyphal_mail_t) */
+    CanardTransferID tid;                   /* the node task's: the port's next transfer-ID, from 0 at each start */
+} mailbox_t;
+static mailbox_t *s_mail;                   /* one for each published port with a handler, internal RAM (their spinlocks), from
+                                             * cyphal_init(); never freed */
+static size_t s_mail_count;
+static uint32_t s_mail_ready;               /* READY buffers in every mailbox, the same way: mail_waiting() */
 
 struct node {
     struct CanardInstance canard;
     struct CanardTxQueue txq;
-    /* SERVICES[]' subscriptions while online, and NodeIDAllocationData's while waiting, each with its row
+    /* s_rows[]' subscriptions while online, and NodeIDAllocationData's while waiting, each with its row
      * as user_reference. They must not move while subscribed: s_node is never freed */
-    struct CanardRxSubscription subs[SERVICE_COUNT];
+    struct CanardRxSubscription subs[ROW_MAX];
     struct CanardRxSubscription allocation;
     uint32_t run;                           /* this start's number (s_runs), which its jobs carry */
     uint8_t getinfo_response[uavcan_node_GetInfo_Response_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -230,6 +279,7 @@ struct node {
 struct job {
     uint32_t run;                           /* the node's start it came in (node_t.run) */
     work_fn work;
+    const cyphal_handler_t *app;            /* an application's request's handler; NULL for the node's own */
     struct CanardTransferMetadata meta;     /* the response's */
     union {                                 /* the request, as the node's task decoded it */
         struct {
@@ -237,6 +287,7 @@ struct job {
             uavcan_register_Value_1_0 value;
         } write;                            /* Access: a register and its new value */
         uavcan_node_ExecuteCommand_Request_1_3 command;
+        _Alignas(8) uint8_t app[CYPHAL_APP_REQUEST_MAX];    /* an application's, by its decode() */
     } in;
     size_t size;                            /* the response's */
     uint8_t data[JOB_BYTES];                /* the response, serialized */
@@ -270,7 +321,10 @@ static TaskHandle_t s_task;
 static uint32_t s_runs;                 /* starts so far, under s_lock: node_t.run */
 static job_t *s_jobs;                   /* JOB_SLOTS of them, from the first start; never freed */
 static uint32_t s_job_state[JOB_SLOTS]; /* JOB_FREE..JOB_DONE, through __atomic only */
-static QueueHandle_t s_work_q;          /* job_t *, to the worker: JOB_SLOTS long, so never full */
+static QueueHandle_t s_work_q;          /* job_t *, to the worker, or NULL for a wake (cyphal_wake_worker()): JOB_SLOTS + 1
+                                         * long, so never full */
+static uint32_t s_wake_queued;          /* a wake is in s_work_q, not yet taken: one at most. Through __atomic only */
+static volatile uint8_t s_health = CYPHAL_HEALTH_NOMINAL;   /* the heartbeat's (cyphal_set_health()) */
 static TaskHandle_t s_worker;           /* from the first start; never deleted */
 static worker_scratch_t *s_ws;          /* the worker's */
 static volatile bool s_running;         /* the task's to go on; a stop clears it */
@@ -566,6 +620,83 @@ esp_err_t cyphal_write_register(size_t index, const uavcan_register_Value_1_0 *v
     return err;
 }
 
+static void *psram_calloc(size_t size);
+
+/* The handler's fault, if it can't be kept: NULL when it can. Its port is in the table by now */
+static const char *handler_fault(const cyphal_handler_t *h, const bool taken[CYPHAL_PORTS_MAX])
+{
+    const cyphal_port_t *p = cyphal_port(h->port);
+    if (p == NULL) {
+        return "no such port";
+    }
+    if (taken[h->port]) {
+        return "a second handler for its port";
+    }
+    switch (p->kind) {
+    case CYPHAL_PORT_SRV:
+        return h->decode == NULL || h->work == NULL || h->busy == NULL ? "a service needs decode, work and busy"
+               : h->in_size > CYPHAL_APP_REQUEST_MAX ? "its request is over CYPHAL_APP_REQUEST_MAX"
+               : h->extent == 0 ? "no extent" : NULL;
+    case CYPHAL_PORT_SUB:
+        return h->on_message == NULL ? "a subscription needs on_message" : h->extent == 0 ? "no extent" : NULL;
+    default:
+        return h->publish_max == 0 || h->publish_max > CYPHAL_PUBLISH_MAX ? "publish_max is 1 to CYPHAL_PUBLISH_MAX"
+               : h->publish_depth > CYPHAL_PUBLISH_DEPTH_MAX ? "publish_depth is over CYPHAL_PUBLISH_DEPTH_MAX"
+               : NULL;
+    }
+}
+
+/* s_rows[]: SERVICES[], then a row for each handler the node can keep, with a mailbox for each published one.
+ * A handler it can't keep is left out, with an error in the log */
+static void make_rows(void)
+{
+    memcpy(s_rows, SERVICES, sizeof(SERVICES));
+    s_row_count = SERVICE_COUNT;
+    size_t published = 0;
+    for (size_t i = 0; i < s_app.handler_count; i++) {
+        const cyphal_port_t *p = cyphal_port(s_app.handlers[i].port);
+        published += p != NULL && p->kind == CYPHAL_PORT_PUB;
+    }
+    if (published > 0) {
+        s_mail = heap_caps_calloc(published, sizeof(mailbox_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    bool taken[CYPHAL_PORTS_MAX] = { false };
+    for (size_t i = 0; i < s_app.handler_count; i++) {
+        const cyphal_handler_t *h = &s_app.handlers[i];
+        const char *fault = handler_fault(h, taken);
+        const cyphal_port_t *p = cyphal_port(h->port);
+        if (fault == NULL && p->kind == CYPHAL_PORT_PUB) {
+            mailbox_t *m = s_mail != NULL ? &s_mail[s_mail_count] : NULL;
+            const uint8_t depth = h->publish_depth > 1 ? h->publish_depth : 1;
+            if (m != NULL) {
+                m->data = psram_calloc((size_t)(depth + 1) * h->publish_max);
+            }
+            if (m == NULL || m->data == NULL) {
+                fault = "no memory for its mailbox";
+            } else {
+                portMUX_INITIALIZE(&m->mux);
+                m->port = h->port;
+                m->max = h->publish_max;
+                m->depth = depth;
+                s_mail_count++;
+            }
+        }
+        if (fault != NULL) {
+            ESP_LOGE(TAG, "the application's handler for %s: %s; left out", p != NULL ? p->id_register : "?", fault);
+            continue;
+        }
+        taken[h->port] = true;
+        s_rows[s_row_count++] = (service_t){
+            .kind = p->kind,
+            .app_port = (int8_t)h->port,
+            .extent = h->extent,
+            .serve = p->kind == CYPHAL_PORT_SRV ? on_app_request : p->kind == CYPHAL_PORT_SUB ? on_app_message : NULL,
+            .work = p->kind == CYPHAL_PORT_SRV ? work_app : NULL,
+            .app = h,
+        };
+    }
+}
+
 esp_err_t cyphal_init(const cyphal_app_t *app)
 {
     if (s_lock != NULL) {
@@ -585,6 +716,7 @@ esp_err_t cyphal_init(const cyphal_app_t *app)
                          s_app.register_count, why, sizeof(why))) {
         ESP_LOGE(TAG, "the application's ports and registers: %s; none kept", why);
     }
+    make_rows();
     load(&s_saved);
     /* The factory MAC, burnt into eFuse: the same after a reflash or a settings wipe */
     uint8_t mac[6] = { 0 };
@@ -645,7 +777,7 @@ static esp_err_t make_node(void)
         s_ws = psram_calloc(sizeof(worker_scratch_t));
     }
     if (s_work_q == NULL) {
-        s_work_q = xQueueCreate(JOB_SLOTS, sizeof(job_t *));
+        s_work_q = xQueueCreate(JOB_SLOTS + 1, sizeof(job_t *));     /* every slot's job, and a wake */
     }
     if (s_node == NULL || s_heap_mem == NULL || s_jobs == NULL || s_ws == NULL || s_work_q == NULL) {
         return ESP_ERR_NO_MEM;
@@ -693,7 +825,7 @@ static uint16_t port_of(const service_t *svc)
     return svc->app_port < 0 ? svc->port_id : s_run.port_id[svc->app_port];
 }
 
-/* uavcan.node.port.List's message, serialized: SERVICES[], the ports the node has while online, fixed
+/* uavcan.node.port.List's message, serialized: s_rows[], the ports the node has while online, fixed
  * for the run. The serializer wants room for the type's largest (8.5 KB, its subject lists' extents),
  * so it and the struct (2 KB) are on the heap for the moment, not on the starting task's stack */
 static esp_err_t serialize_port_list(node_t *n)
@@ -706,16 +838,16 @@ static esp_err_t serialize_port_list(node_t *n)
     uint8_t *buf = (uint8_t *)(m + 1);
     uavcan_node_port_SubjectIDList_1_0_select_sparse_list_(&m->publishers);
     uavcan_node_port_SubjectIDList_1_0_select_sparse_list_(&m->subscribers);
-    for (size_t i = 0; i < SERVICE_COUNT; i++) {        /* clients: none */
-        const uint16_t port = port_of(&SERVICES[i]);
+    for (size_t i = 0; i < s_row_count; i++) {          /* clients: none */
+        const uint16_t port = port_of(&s_rows[i]);
         if (port == CYPHAL_PORT_OFF) {
             continue;
         }
-        if (SERVICES[i].kind == CYPHAL_PORT_SRV) {
+        if (s_rows[i].kind == CYPHAL_PORT_SRV) {
             m->servers.mask_bitpacked_[port / 8] |= (uint8_t)(1u << (port % 8));
         } else {
-            uavcan_node_port_SubjectIDList_1_0 *list = SERVICES[i].kind == CYPHAL_PORT_PUB ? &m->publishers
-                                                                                          : &m->subscribers;
+            uavcan_node_port_SubjectIDList_1_0 *list = s_rows[i].kind == CYPHAL_PORT_PUB ? &m->publishers
+                                                                                        : &m->subscribers;
             list->sparse_list.elements[list->sparse_list.count++].value = port;
         }
     }
@@ -732,15 +864,17 @@ static esp_err_t serialize_port_list(node_t *n)
 
 /* ------------------------------------------------------------------ the task */
 
-/* Queue a transfer for the bus, with its deadline */
-static void push(node_t *n, const struct CanardTransferMetadata *meta, const void *data, size_t size, int64_t now)
+/* Queue a transfer for the bus, with its deadline: whether it was queued */
+static bool push(node_t *n, const struct CanardTransferMetadata *meta, const void *data, size_t size, int64_t now)
 {
     /* now_usec 0: expiry is flush()'s, which drops whole transfers and counts them */
     const int32_t frames = canardTxPush(&n->txq, &n->canard, (CanardMicrosecond)(now + TX_DEADLINE_US), meta,
                                         (struct CanardPayload){ .size = size, .data = data }, 0, NULL);
     if (frames < 0) {
         s_tr_dropped++;     /* the queue is full (TX_QUEUE_FRAMES) or the heap is */
+        return false;
     }
+    return true;
 }
 
 /* An item and the rest of its transfer, out of the queue and freed: they are all still in it,
@@ -769,7 +903,7 @@ static void heartbeat(node_t *n, int64_t now)
 {
     const uavcan_node_Heartbeat_1_0 hb = {
         .uptime = (uint32_t)((now - s_started_us) / 1000000),
-        .health = { uavcan_node_Health_1_0_NOMINAL },
+        .health = { s_health },
         .mode = { uavcan_node_Mode_1_0_OPERATIONAL },
     };
     uint8_t buf[uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -833,8 +967,8 @@ static void go_online(node_t *n, int64_t now)
 {
     n->canard.node_id = n->node_id;
     struct CanardRxSubscription *sub = n->subs;
-    for (size_t i = 0; i < SERVICE_COUNT; i++) {
-        const service_t *svc = &SERVICES[i];
+    for (size_t i = 0; i < s_row_count; i++) {
+        const service_t *svc = &s_rows[i];
         const uint16_t port = port_of(svc);
         if (svc->serve == NULL || port == CYPHAL_PORT_OFF) {
             continue;
@@ -847,6 +981,7 @@ static void go_online(node_t *n, int64_t now)
     n->next_heartbeat_us = now;
     n->next_port_list_us = now;     /* the ports have just come into use */
     s_state = CYPHAL_ONLINE;
+    cyphal_wake_worker();           /* the application's poll: what it publishes can go now */
     if (s_run.node_id == CYPHAL_NODE_ID_AUTO) {     /* online with plug-and-play only by an allocation */
         ESP_LOGI(TAG, "node %u (allocated by node %u): online", n->node_id, n->allocator);
     } else {
@@ -952,6 +1087,7 @@ static job_t *job_for(const node_t *n, const service_t *svc, const struct Canard
             job_t *job = &s_jobs[i];
             job->run = n->run;
             job->work = svc->work;
+            job->app = svc->app;
             job->meta = response_to(t);
             job->size = 0;
             return job;
@@ -977,10 +1113,76 @@ static bool hand_over(job_t *job)
     return true;
 }
 
+/* Whether `a` comes before `b` in a mailbox's commit order, which wraps */
+static bool before(uint32_t a, uint32_t b)
+{
+    return (int32_t)(a - b) < 0;
+}
+
+/* A READY buffer leaves that state: the counts, under m->mux */
+static void unready_locked(mailbox_t *m)
+{
+    __atomic_store_n(&m->ready, m->ready - 1, __ATOMIC_RELAXED);
+    __atomic_sub_fetch(&s_mail_ready, 1, __ATOMIC_RELAXED);
+}
+
+/* The mailboxes' messages into the transmit queue, oldest first, each at its port's priority with the port's next
+ * transfer-ID, straight from its buffer (push() copies it), which is then freed. Only online, on a port that isn't
+ * off this run (cyphal_publish() takes nothing otherwise, but a message can be committed just before the node
+ * stops: it is dropped). A mailbox with nothing waiting is passed over without its lock */
+static void collect_mail(node_t *n, int64_t now)
+{
+    if (__atomic_load_n(&s_mail_ready, __ATOMIC_ACQUIRE) == 0) {
+        return;
+    }
+    for (size_t i = 0; i < s_mail_count; i++) {
+        mailbox_t *m = &s_mail[i];
+        while (__atomic_load_n(&m->ready, __ATOMIC_ACQUIRE) != 0) {
+            int b = -1;
+            taskENTER_CRITICAL(&m->mux);
+            for (int k = 0; k <= m->depth; k++) {
+                if (m->state[k] == BUF_READY && (b < 0 || before(m->order[k], m->order[b]))) {
+                    b = k;
+                }
+            }
+            if (b >= 0) {
+                m->state[b] = BUF_SENDING;
+                unready_locked(m);
+            }
+            taskEXIT_CRITICAL(&m->mux);
+            if (b < 0) {
+                break;
+            }
+            const uint16_t port = s_run.port_id[m->port];
+            bool queued = false;
+            if (s_state == CYPHAL_ONLINE && port != CYPHAL_PORT_OFF) {
+                const struct CanardTransferMetadata meta = {
+                    .priority = (enum CanardPriority)cyphal_port(m->port)->priority,     /* the same numbers, 0 the most urgent */
+                    .transfer_kind = CanardTransferKindMessage,
+                    .port_id = port,
+                    .remote_node_id = CANARD_NODE_ID_UNSET,
+                    .transfer_id = m->tid++,
+                };
+                queued = push(n, &meta, m->data + (size_t)b * m->max, m->size[b], now);
+            }
+            taskENTER_CRITICAL(&m->mux);
+            m->state[b] = BUF_FREE;
+            m->published += queued;     /* not queued: counted as dropped (push()) */
+            taskEXIT_CRITICAL(&m->mux);
+        }
+    }
+}
+
+/* Whether a mailbox holds a message collect_mail() hasn't taken yet: no lock taken */
+static bool mail_waiting(void)
+{
+    return __atomic_load_n(&s_mail_ready, __ATOMIC_ACQUIRE) != 0;
+}
+
 /* The worker's finished jobs, their responses into the transmit queue (sent by flush(), after the
  * receive queue has been read like everything else), and their slots freed. A job from an earlier start,
  * or one done after the node stopped over its node-ID, is dropped; a response that didn't serialize is
- * counted as dropped */
+ * counted as dropped. Then the mailboxes */
 static void collect(node_t *n)
 {
     for (int i = 0; i < JOB_SLOTS; i++) {
@@ -997,6 +1199,7 @@ static void collect(node_t *n)
         }
         job_set(job, JOB_FREE);
     }
+    collect_mail(n, esp_timer_get_time());
 }
 
 /* Whether the worker has finished a job collect() hasn't taken yet */
@@ -1121,6 +1324,122 @@ static void on_command(node_t *n, const service_t *svc, const struct CanardRxTra
     respond(n, t, n->out, command_response(&n->rs.command, status, n->out, OUT_BYTES), now);
 }
 
+/* ---- the application's ports */
+
+/* A request to one of the application's services: decoded into a free job slot by its handler, and handed to
+ * the worker; with none free, its handler's busy answer at once. One that doesn't decode isn't answered */
+static void on_app_request(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now)
+{
+    const cyphal_handler_t *h = svc->app;
+    job_t *job = job_for(n, svc, t);
+    if (job != NULL) {
+        memset(job->in.app, 0, h->in_size);
+        if (!h->decode(t->payload.data, t->payload.size, job->in.app)) {
+            job_set(job, JOB_FREE);
+            return;
+        }
+        s_services.app_requests++;
+        if (hand_over(job)) {
+            return;
+        }
+    }
+    s_services.busy++;
+    respond(n, t, n->out, h->busy(n->out, OUT_BYTES), now);
+}
+
+/* A message on one of the application's subscriptions: its handler's, at once */
+static void on_app_message(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now)
+{
+    (void)n;
+    (void)now;
+    s_services.app_messages++;
+    svc->app->on_message(t->payload.data, t->payload.size, (uint8_t)t->metadata.remote_node_id);
+}
+
+/* An application's request, by its handler, on the worker */
+static bool work_app(job_t *job)
+{
+    job->size = job->app->work(job->in.app, job->meta.remote_node_id, job->data, JOB_BYTES);
+    return false;
+}
+
+esp_err_t cyphal_publish(size_t port, const void *data, size_t size)
+{
+    mailbox_t *m = NULL;
+    for (size_t i = 0; i < s_mail_count && m == NULL; i++) {
+        m = s_mail[i].port == port ? &s_mail[i] : NULL;
+    }
+    if (m == NULL || s_run.port_id[port] == CYPHAL_PORT_OFF) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    if (size == 0 || size > m->max) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    if (s_state != CYPHAL_ONLINE) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    /* A free buffer while fewer than its depth wait (those being filled count); full, depth 1 takes the oldest
+     * waiting one instead, which this replaces, and a queue refuses */
+    int b = -1, oldest = -1;
+    unsigned waiting = 0;
+    taskENTER_CRITICAL(&m->mux);
+    for (int k = 0; k <= m->depth; k++) {
+        if (m->state[k] == BUF_FREE && b < 0) {
+            b = k;
+        } else if (m->state[k] == BUF_READY || m->state[k] == BUF_FILLING) {
+            waiting++;
+            if (m->state[k] == BUF_READY && (oldest < 0 || before(m->order[k], m->order[oldest]))) {
+                oldest = k;
+            }
+        }
+    }
+    if (waiting >= m->depth) {
+        b = m->depth == 1 ? oldest : -1;
+        if (b >= 0) {
+            unready_locked(m);
+            m->replaced++;
+        } else {
+            m->refused++;
+        }
+    }
+    if (b >= 0) {
+        m->state[b] = BUF_FILLING;
+    }
+    taskEXIT_CRITICAL(&m->mux);
+    if (b < 0) {
+        return ESP_ERR_NOT_FINISHED;
+    }
+    memcpy(m->data + (size_t)b * m->max, data, size);
+    taskENTER_CRITICAL(&m->mux);
+    m->size[b] = size;
+    m->order[b] = m->next_order++;
+    m->state[b] = BUF_READY;
+    __atomic_store_n(&m->ready, m->ready + 1, __ATOMIC_RELEASE);
+    __atomic_add_fetch(&s_mail_ready, 1, __ATOMIC_RELEASE);
+    taskEXIT_CRITICAL(&m->mux);
+    canbus_wake(__atomic_load_n(&s_bus, __ATOMIC_RELAXED));     /* refused if the node has stopped: nobody waits */
+    return ESP_OK;
+}
+
+void cyphal_wake_worker(void)
+{
+    if (s_work_q == NULL) {
+        return;
+    }
+    uint32_t idle = 0;
+    if (__atomic_compare_exchange_n(&s_wake_queued, &idle, 1, false, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) {
+        job_t *const wake = NULL;
+        if (xQueueSend(s_work_q, &wake, 0) != pdTRUE) {     /* a place of its own: never, but never block */
+            __atomic_store_n(&s_wake_queued, 0, __ATOMIC_RELEASE);
+        }
+    }
+}
+
+void cyphal_set_health(uint8_t health)
+{
+    s_health = health > CYPHAL_HEALTH_WARNING ? CYPHAL_HEALTH_WARNING : health;
+}
+
 /* ---- the worker */
 
 /* A register written, by the worker, then answered with what it holds now */
@@ -1184,13 +1503,28 @@ static bool work_command(job_t *job)
 
 /* The jobs, one at a time, in the order handed over; the node's task woken for each response. A restart
  * is asked for after the wake, and waits RESTART_AFTER_MS, the response's deadline: by then it has gone,
- * or been dropped */
+ * or been dropped. Between jobs, the application's poll, when it is due or a wake asks for it */
 static void worker_task(void *arg)
 {
     (void)arg;
+    int64_t next_poll_us = 0;
     for (;;) {
-        job_t *job;
-        if (xQueueReceive(s_work_q, &job, portMAX_DELAY) != pdTRUE) {
+        TickType_t wait = portMAX_DELAY;
+        if (s_app.poll != NULL) {
+            const int64_t left_us = next_poll_us - esp_timer_get_time();
+            const int64_t tick_us = 1000000 / configTICK_RATE_HZ;
+            wait = left_us <= 0 ? 0 : (TickType_t)((left_us + tick_us - 1) / tick_us);
+        }
+        job_t *job = NULL;
+        const bool got = xQueueReceive(s_work_q, &job, wait) == pdTRUE;
+        if (got && job == NULL) {
+            __atomic_store_n(&s_wake_queued, 0, __ATOMIC_RELEASE);     /* a wake after this queues another */
+        }
+        if (s_app.poll != NULL && ((got && job == NULL) || esp_timer_get_time() >= next_poll_us)) {
+            const uint32_t ms = s_app.poll(s_state == CYPHAL_ONLINE);
+            next_poll_us = esp_timer_get_time() + (int64_t)ms * 1000;
+        }
+        if (job == NULL) {
             continue;
         }
         const bool restart = job->work(job);
@@ -1440,8 +1774,10 @@ static void node_task(void *arg)
          * may have changed the state (an allocation taken up makes a heartbeat due at once). Not at all
          * if the worker has finished a job since collect(): its wake may have been read and skipped by
          * flush()'s drain(), and the response would wait for the next timer, up to a second. Round the
-         * loop instead, where it is collected and sent after the receive queue is read, as always */
-        const TickType_t wait = jobs_done() ? 0 : !sent ? (retry ? 1 : 0) : ticks_to_next(n, esp_timer_get_time());
+         * loop instead, where it is collected and sent after the receive queue is read, as always. The same
+         * for a message put in a mailbox: its wake may have been read the same way */
+        const TickType_t wait = jobs_done() || mail_waiting() ? 0 : !sent ? (retry ? 1 : 0)
+                                                                         : ticks_to_next(n, esp_timer_get_time());
         /* Asleep until the next timer or frame, or a canbus_wake(): the worker's, or a stop's. Looked at
          * once more just before: a stop's wake read and skipped by a receive above (drain()'s) came after
          * s_running was cleared, so this sees it; one not read yet ends the sleep below at once */
@@ -1469,6 +1805,20 @@ static esp_err_t start_locked(int tx, int rx)
     s_run = s_saved;
     s_tr_sent = s_tr_received = s_tr_dropped = s_frames_queued = s_heap_failed = 0;
     s_services = (cyphal_services_t){ 0 };
+    for (size_t i = 0; i < s_mail_count; i++) {
+        /* What waits from the last run is dropped; a buffer a publisher is filling is its to commit */
+        mailbox_t *m = &s_mail[i];
+        taskENTER_CRITICAL(&m->mux);
+        for (int k = 0; k <= m->depth; k++) {
+            if (m->state[k] == BUF_READY) {
+                m->state[k] = BUF_FREE;
+                unready_locked(m);
+            }
+        }
+        m->published = m->replaced = m->refused = 0;
+        taskEXIT_CRITICAL(&m->mux);
+        m->tid = 0;
+    }
     s_error = ESP_OK;
     s_stop_failed = false;
     esp_err_t err = make_node();
@@ -1654,5 +2004,12 @@ void cyphal_status(cyphal_status_t *out)
     if (s_worker != NULL) {
         out->worker_stack_unused = uxTaskGetStackHighWaterMark(s_worker);
     }
+    out->health = s_health;
+    for (size_t i = 0; i < s_mail_count; i++) {
+        const mailbox_t *m = &s_mail[i];
+        out->mail[i] = (cyphal_mail_t){ .port = m->port, .depth = m->depth, .published = m->published,
+                                        .replaced = m->replaced, .refused = m->refused };
+    }
+    out->mail_count = s_mail_count;
     unlock();
 }

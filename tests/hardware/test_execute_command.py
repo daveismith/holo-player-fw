@@ -31,7 +31,7 @@ async def command(node, server: int, number: int, timeout: float = 2.0) -> tuple
 
 
 def leds_and_screen(board) -> tuple[str, str]:
-    return board.command("leds").strip().splitlines()[0], board.command("screen").strip().splitlines()[0]
+    return board.first_line("leds"), board.first_line("screen")
 
 
 def worker_stack(log: str) -> str:
@@ -67,8 +67,8 @@ async def test_bad_commands_and_store(node, board, dut_node_id):
 
 
 async def test_identify(node, board, dut_node_id):
-    """Identify: the ring flickers white (it has no blink yet) and the screen shows the crosshair, for 5 s;
-    then both go back to what they were doing. Seen on the console, as Status will show it later"""
+    """Identify: the ring blinks white and the screen shows the crosshair, for 5 s; then both go back to what
+    they were doing. Seen on the console"""
     try:
         board.command("leds colour blue")
         board.command("screen colour green")
@@ -81,7 +81,7 @@ async def test_identify(node, board, dut_node_id):
         print(f"\nanswered in {took * 1000:.0f} ms; back {asyncio.get_running_loop().time() - t0:.1f} s later\n"
               f"before {before}\nduring {during}\nafter  {after}")
         assert before[0].startswith("solid #0000ff") and "#00ff00" in before[1], before
-        assert during[0].startswith("flicker #ffffff") and "calibration" in during[1], during
+        assert during[0].startswith("blink #ffffff, every 1000 ms") and "calibration" in during[1], during
         assert after == before
     finally:
         board.command("leds off")

@@ -63,6 +63,9 @@ Full detail in [Video clips](../use/video.md).
 | `leds wipe [<c>] [loop]` | Each LED to the colour in turn, 250 ms apart. White if no colour given |
 | `leds rainbow [loop]` | The colour wheel five times round the ring in 12.8 s |
 | `leds flicker [<c>]` | The colour flickering like a failing hologram, until something else. White if no colour given |
+| `leds pulse [<c>] [-p <ms>]` | The colour fading up and down once a period (200–60000 ms; 2000), until something else. White if no colour given |
+| `leds blink [<c>] [-p <ms>]` | The colour on for half a period and off for the other half (1000 ms unless given), until something else |
+| `… -l <pct>`, `… -t <s>` | The level, a share of the brightness (0–100), after any mode but `off` (a wipe's or a rainbow's after its `loop`); and a time (0.1–3600 s) after which the ring goes back to what it was doing, after `colour`, `off`, `flicker`, `pulse` or `blink` |
 | `leds bright <1-100>` | Brightness, applied live |
 
 Full detail in [LED patterns](../use/leds.md).

@@ -52,7 +52,11 @@ menu "Cyphal node (cyphal)"
             at its type's extent (a register request, 515 bytes). Measured 2026-11-20 with the
             register and command services and the port list: 1,932 bytes at most (a port list
             waiting to go), through 500 GetInfo calls back to back and the whole hardware suite;
-            2,016 alone on the bus for 10 minutes, where every transfer waits out its second.
+            2,016 alone on the bus for 10 minutes, where every transfer waits out its second. With
+            the holo's ports (a Status of 13 frames once a second or four, Axes, setpoints at 50 a
+            second, Motion and Light), the same day: 2,124 at most over 10 minutes of motions,
+            setpoint bursts and lights during a clip, 2,088 over the holo's tests, and 4,460 alone on
+            the bus for 10 minutes, where each Status waits out its second too.
             `cyphal` shows how much it has held at most.
 
     config CYPHAL_TASK_PRIORITY
@@ -84,7 +88,9 @@ menu "Cyphal node (cyphal)"
             interrupts' register spills. The register and command services deserialize and
             serialize on it too (their structs are in PSRAM, not on it), hence 3,072: measured
             2026-11-20 over the whole hardware suite, 1,552 bytes used at most (1,520 never used),
-            in the test of a collision in the middle of a response.
+            in the test of a collision in the middle of a response. The holo's requests are decoded
+            and its setpoints copied here too: 1,356 used at most (1,716 never used) over the holo's
+            tests and 10 minutes of them during a clip.
 
     config CYPHAL_WORKER_STACK
         int "The node's worker task's stack (bytes)"
@@ -94,8 +100,13 @@ menu "Cyphal node (cyphal)"
             may not wait for: a register written to NVS, a restart, a factory reset (NVS), and
             identify, which applies a scene (the screen and the LED ring, on this board). Measured
             2026-11-20: 2,844 bytes used at most (3,300 never used), after identify five times and
-            refused register writes with their log lines. A later phase's routes (an image shown,
-            which decodes it) will want more, as the host link's task has (10 KB).
+            refused register writes with their log lines. It also runs the holo's Motion (the HTTP
+            API's motion code) and Light, carries out its setpoints, and builds its Status
+            and Axes (the application's poll): 3,052 used at most (3,092 never used) over the holo's
+            tests and 10 minutes of motions and lights during a clip while Motion still built the
+            route's JSON; 2,064 (4,080 never used) without it, 2026-11-21, over the holo's tests and 3
+            minutes of them during a clip. A later phase's routes (an
+            image shown, which decodes it) will want more, as the host link's task has (10 KB).
 
     config CYPHAL_WORKER_PRIORITY
         int "The node's worker task's priority"

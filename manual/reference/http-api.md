@@ -156,19 +156,27 @@ rate -- without showing it.
 
 ## The LEDs
 
-`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`, `flicker`),
-`colour`, `loop` and `brightness`. `flicker` flickers the colour like a failing hologram until
-something else replaces it. `PATCH` changes any of them now:
+`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`, `flicker`,
+`pulse`, `blink`), `colour`, `loop`, `period_ms`, `level` and `brightness`, and a timed mode's
+`timed` (its `remaining_s` and what it goes back to, `then`) with `leia`. `flicker` flickers the
+colour like a failing hologram, `pulse` fades it up and down once a period (`period_ms`, 200–60000;
+2000) and `blink` turns it on and off (1000), each until something else replaces it. `PATCH`
+changes any of them now:
 
 ```sh
 curl -X PATCH -H "$J" -d '{"mode":"solid","colour":"orange"}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"mode":"rainbow","loop":true}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"mode":"flicker","colour":"#4da6ff"}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"pulse","period_ms":3000,"level":40}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"blink","colour":"red","time_s":5}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"brightness":10}' "$B/leds"
 ```
 
 A colour is `#rrggbb`, `R,G,B`, or a name. Keep the brightness at 30 or below when the strip is
-powered from the board.
+powered from the board. `level` (0–100) is the share of the brightness the mode lights at, as the
+holo's light has it ([the LED page](../use/leds.md#the-holos-light)): a new mode starts at 100.
+`time_s` (0.1–3600) makes it a timed mode, after which the ring goes back to what it was doing; any
+change but the brightness alone during one replaces it for good. A scene's `leds` takes the same.
 
 ## The holoprojector and its servos
 

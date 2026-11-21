@@ -19,6 +19,14 @@
  *
  * Plug-and-play is uavcan.pnp.NodeIDAllocationData.1.0, as an allocatee that assumes nothing about
  * who answers: the node-ID it is given is not saved, and is asked for again at every start.
+ *
+ * The application's ports are served, published and subscribed to through handlers it gives
+ * (cyphal_handler_t): a request is decoded on the node's task into a job slot and worked on, and its
+ * response serialized, on the node's worker task; a message received is handed to the application on the
+ * node's task, for a mailbox of its own; a message the application publishes goes into the port's
+ * mailbox (cyphal_publish()), from any task, and the node's task gives it its port, priority and
+ * transfer-ID. A mailbox of depth 1 keeps the newest, replacing one not yet sent; a deeper one is a queue
+ * that never replaces. libcanard stays the node task's alone.
  */
 #pragma once
 
@@ -33,6 +41,15 @@ extern "C" {
 #endif
 
 #define CYPHAL_LISTEN_MS     2000    /* how long a fixed node-ID listens for itself before going online */
+#define CYPHAL_APP_REQUEST_MAX  320  /* an application's request, deserialized, in a job slot: bytes at most */
+#define CYPHAL_PUBLISH_MAX      400  /* an application's message, serialized, in its mailbox: bytes at most */
+#define CYPHAL_PUBLISH_DEPTH_MAX  8  /* messages a published port's mailbox holds at most */
+
+/* uavcan.node.Health, for cyphal_set_health() */
+#define CYPHAL_HEALTH_NOMINAL   0
+#define CYPHAL_HEALTH_ADVISORY  1
+#define CYPHAL_HEALTH_CAUTION   2
+#define CYPHAL_HEALTH_WARNING   3
 
 typedef enum {
     CYPHAL_OFF,         /* not started: nobody gave it pins */
@@ -52,7 +69,17 @@ typedef enum {
 typedef struct {
     uint32_t register_reads, register_writes, register_refused, register_lists, commands, commands_refused;
     uint32_t busy, port_lists;
+    /* The application's ports: requests handed to the worker, messages received on its subscriptions */
+    uint32_t app_requests, app_messages;
 } cyphal_services_t;
+
+/* A published port's mailbox, since the start: messages queued for the bus; with depth 1, those a newer one
+ * replaced before they went; with a deeper one, those refused because it was full (cyphal_publish()) */
+typedef struct {
+    size_t port;                        /* its index in cyphal_app_t.ports */
+    uint8_t depth;
+    uint32_t published, replaced, refused;
+} cyphal_mail_t;
 
 typedef struct {
     cyphal_state_t state;
@@ -78,7 +105,40 @@ typedef struct {
     cyphal_services_t services;
     uint32_t jobs_held, job_slots;      /* job slots not free (with the worker, or done and not yet sent), of all */
     uint32_t worker_stack_unused;       /* bytes of the worker's stack never used, 0 before the first start */
+    uint8_t health;                     /* the heartbeat's: CYPHAL_HEALTH_* (cyphal_set_health()) */
+    cyphal_mail_t mail[CYPHAL_PORTS_MAX];   /* the published ports' mailboxes, in the handlers' order */
+    size_t mail_count;
 } cyphal_status_t;
+
+/*
+ * What the node does with one of the application's ports (cyphal_app_t.handlers). A port without a handler
+ * is neither served, published nor subscribed to, and isn't in uavcan.node.port.List, whatever its register
+ * holds. Each function here must not keep the pointers it is given.
+ */
+typedef struct {
+    size_t port;                /* its index in cyphal_app_t.ports; its kind is the port's */
+    /* CYPHAL_PORT_SRV and CYPHAL_PORT_SUB: the request's or the message's extent, which libcanard cuts a
+     * transfer to */
+    size_t extent;
+    /* CYPHAL_PORT_SRV. decode(), on the node's task: the request's payload deserialized into `in`, in_size
+     * bytes (CYPHAL_APP_REQUEST_MAX at most) of a job slot, zeroed first, off any stack; false for a request
+     * that doesn't deserialize, which then has no answer. work(), on the worker: the response to `in` from
+     * node `from`, serialized into `out` (room bytes); its size, 0 for none. busy(), on the node's task, when
+     * the worker already holds every job slot: the response that says so, serialized; its size */
+    bool (*decode)(const uint8_t *payload, size_t size, void *in);
+    size_t in_size;
+    size_t (*work)(const void *in, uint8_t from, uint8_t *out, size_t room);
+    size_t (*busy)(uint8_t *out, size_t room);
+    /* CYPHAL_PORT_SUB, on the node's task, which it must not hold up: a message from node `from` (255:
+     * anonymous). A copy into the application's own mailbox, and cyphal_wake_worker() for the work */
+    void (*on_message)(const uint8_t *payload, size_t size, uint8_t from);
+    /* CYPHAL_PORT_PUB: the largest message cyphal_publish() will be given for it, serialized
+     * (CYPHAL_PUBLISH_MAX at most): its mailbox's buffers' size. And how many messages may wait in it
+     * (CYPHAL_PUBLISH_DEPTH_MAX at most): 0 or 1 for the newest only, a state's, where a message replaces one not
+     * yet sent; more for a queue of happenings, none of which may be lost, which refuses one when full */
+    size_t publish_max;
+    uint8_t publish_depth;
+} cyphal_handler_t;
 
 /*
  * What the application gives the node: its own ports, whose IDs are registers; registers of its own;
@@ -101,6 +161,15 @@ typedef struct {
     esp_err_t (*factory_reset)(void);
     /* Show which board this is, for a few seconds, and return. NULL: identify is a bad command */
     esp_err_t (*identify)(void);
+    /* What the node does with its ports (cyphal_handler_t), one at most a port. Kept, not copied: a static
+     * table. NULL for none */
+    const cyphal_handler_t *handlers;
+    size_t handler_count;
+    /* The application's own work on the worker, between jobs: building what it publishes, carrying out what
+     * it was sent. `online`: the node runs on its node-ID, so that cyphal_publish() goes out. Returns the
+     * milliseconds until it wants to run again; cyphal_wake_worker() runs it sooner, and so does the node going
+     * online. It runs from the node's first start on, whether or not the node is online. NULL for none */
+    uint32_t (*poll)(bool online);
 } cyphal_app_t;
 
 /* The saved settings, the register table and the lock. From app_main, once, before anything else
@@ -142,6 +211,22 @@ esp_err_t cyphal_write_register(size_t index, const uavcan_register_Value_1_0 *v
 esp_err_t cyphal_reg_error(cyphal_reg_result_t r);
 
 void cyphal_status(cyphal_status_t *out);
+
+/* A message on the application's port `port` (a CYPHAL_PORT_PUB with a handler), serialized: copied into its
+ * mailbox for the node's task to send at the port's priority, in the order given. With depth 1 it replaces one
+ * not yet sent. From any task; it never waits. ESP_ERR_NOT_FINISHED when the mailbox is full: a queue's depth
+ * waiting (nothing replaced: the caller learns it, and may try again), or, with depth 1, no buffer free because
+ * another task is publishing on the port at the same moment. ESP_ERR_INVALID_STATE while the node isn't online
+ * (nothing is kept), ESP_ERR_NOT_SUPPORTED for a port that is off this run, has no handler or isn't
+ * published, ESP_ERR_INVALID_SIZE for more than its handler's publish_max. */
+esp_err_t cyphal_publish(size_t port, const void *data, size_t size);
+
+/* Run the application's poll on the worker soon (cyphal_app_t.poll): from any task, the node's included,
+ * which it never holds up. Nothing before the node's first start */
+void cyphal_wake_worker(void);
+
+/* The health the heartbeat reports from now: CYPHAL_HEALTH_*. Nominal until set */
+void cyphal_set_health(uint8_t health);
 
 /* `cyphal`. From app_main, after cyphal_init(). `how_to_start`: the application's words for what
  * turns the node on, for the status while it's off ("`link mode can`, then restart"). */

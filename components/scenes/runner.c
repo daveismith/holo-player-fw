@@ -40,10 +40,7 @@ scene_err_t scene_apply_parts(const cJSON *scene, char *why, size_t why_len);   
 /* What the board was doing before a scene: enough to put it back. */
 typedef struct {
     screen_state_t screen;
-    leds_mode_t led_mode;
-    uint8_t led_rgb[3];
-    bool led_loop;
-    int led_brightness;
+    leds_state_t leds;          /* a timed setting included, which runs on to its end if that is still to come */
     bool holo_ok;
     holo_status_t holo;
     holo_motion_t holo_last;
@@ -81,8 +78,7 @@ static void take_snapshot(snapshot_t *s)
 {
     memset(s, 0, sizeof(*s));
     screen_get_state(&s->screen);
-    s->led_mode = leds_mode(s->led_rgb, &s->led_loop);
-    s->led_brightness = leds_get_brightness();
+    leds_state(&s->leds);
     s->holo_ok = holo_status(0, &s->holo) == ESP_OK && holo_last_motion(0, &s->holo_last);
 }
 
@@ -106,21 +102,8 @@ static void restore(const snapshot_t *s)
     default:                 screen_clear(); break;
     }
 
-    leds_set_brightness(s->led_brightness);
-    const uint8_t *c = s->led_rgb;
-    switch (s->led_mode) {
-    case LEDS_SOLID:   leds_solid(c[0], c[1], c[2]); break;
-    case LEDS_FLICKER: leds_play(LEDS_FLICKER, c[0], c[1], c[2], false); break;
-    case LEDS_WIPE:
-    case LEDS_RAINBOW:
-        if (s->led_loop) {
-            leds_play(s->led_mode, c[0], c[1], c[2], true);
-        } else {
-            leds_off();
-        }
-        break;
-    default:           leds_off(); break;
-    }
+    /* A pattern playing forever plays again; one on its way to its end, does not */
+    leds_restore(&s->leds);
 
     if (!s->holo_ok) {
         return;

@@ -1,12 +1,14 @@
 # Cyphal interface
 
 !!! note "Partly in the firmware"
-    This page describes the holo's Cyphal interface ahead of the firmware. Built so far: the node
-    itself (its node-ID, its heartbeat, `uavcan.node.GetInfo`: [the board on Cyphal](../use/cyphal.md)),
-    its [registers](#registers) (the node's and the ports'), its [commands](#commands) and
-    `uavcan.node.port.List`. The holo's own types and ports (`r2.holo.*`) are not built yet: their
-    port numbers are registers already, and nothing is published, subscribed or served on them. They
-    may still change before they are.
+    This page describes the holo's Cyphal interface, part of it ahead of the firmware. Built so far:
+    the node itself (its node-ID, its heartbeat, `uavcan.node.GetInfo`: [the board on
+    Cyphal](../use/cyphal.md)), its [registers](#registers) (the node's and the ports'), its
+    [commands](#commands), `uavcan.node.port.List`, and the holo's [Motion](#motion) and
+    [Light](#light) services, [Axes](#axes) published and subscribed, and [Status](#status) with its
+    holo and ring parts. Not yet: `Event`, `Scene`, `Screen`, `Ring`, `ListScenes`, `MediaInfo`, the
+    file services, the holo's registers, and Status's screen and scene parts (which read as nothing
+    showing and no scene). What isn't built may still change before it is.
 
 This is the specification of what the board does on a [Cyphal](https://opencyphal.org)/CAN bus:
 every port, every type and its fields, every register and every command. How to use it is on
@@ -24,7 +26,7 @@ has shipped is never changed, only given a new version.
 
 | Function | Type | Port | Sent or served |
 |---|---|---|---|
-| Heartbeat | `uavcan.node.Heartbeat.1.0` | subject 7509 | Once a second. Its health is advisory while the holo can't move |
+| Heartbeat | `uavcan.node.Heartbeat.1.0` | subject 7509 | Once a second. Its health is advisory while the holo can't move ([below](#health)) |
 | Node information | `uavcan.node.GetInfo.1.0` | service 430 | Its name, version and unique ID |
 | Plug-and-play | `uavcan.pnp.NodeIDAllocationData.1.0` | subject 8166 | Only while it asks for a node-ID |
 | The ports it uses | `uavcan.node.port.List.1.0` | subject 7510 | Every 10 seconds, the first as the node goes online. [Below](#the-port-list) |
@@ -72,18 +74,30 @@ together, so each gets a subject of its own.
 `uavcan.node.port.List` names the ports the node really has while it runs, at the optional
 priority, as the type asks. A port's number changes only when the node starts (the registers apply
 from then), so the list does too: it goes out as the node goes online, and every 10 seconds after.
-Today it holds:
+With the registers at their defaults it holds:
 
 | | |
 |---|---|
-| Publishers | 7509 (the heartbeat), 7510 (the port list) |
-| Subscribers | None |
+| Publishers | 7509 (the heartbeat), 7510 (the port list), 2300 (`status`), 2302 (`axes`) |
+| Subscribers | 2303 (`setpoint`) |
 | Clients | None |
-| Servers | 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
+| Servers | 100 (`motion`), 101 (`light`), 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
 
-An `r2.holo` port joins it once the firmware serves, publishes or subscribes to it, on the number
-its register held as the node started; a port turned off (65535) is never in it. None does yet.
-It is 152 bytes, 22 frames.
+An `r2.holo` port is in it once the firmware serves, publishes or subscribes to it, on the number
+its register held as the node started; a port turned off (65535) is never in it, nor is one the
+firmware doesn't have yet (`event`, `scene`, `screen`, `ring`, `list_scenes`, `media_info`), whatever
+its register holds. It is 158 bytes, 23 frames.
+
+### Health
+
+The heartbeat's health is **advisory** while the holo can't move, for the reasons
+[Status](#the-holo) gives in `ready` and `why`, and **nominal** otherwise. The node's mode is always
+operational. On this board the holo can't move only when one of its servos didn't attach at the
+start (not fitted), or the holo engine didn't start (Status then reads `not fitted` for no axis in
+particular): an axis without saved endpoints moves over its default travel, so it doesn't make the
+health advisory (Status's `calibrated` still says whether its endpoints are saved). A board with no
+holo wired to it at all can't tell: its servos are outputs that read nothing back, so it reports
+the holo ready, and nominal.
 
 ## Conventions
 
@@ -111,7 +125,12 @@ It is 152 bytes, 22 frames.
 so that each is a consistent snapshot. It goes out within 250 ms of a change, never more than
 four times a second, and once a second whatever changes. A change is a change to any field but
 a time or a clip's progress (`*_age_ms`, `*_remaining_ms`, `shown`, `passes`), which the
-once-a-second message keeps current.
+once-a-second message keeps current. The board builds it from the same state `GET /api/v1/holo`
+and `GET /api/v1/leds` report. Once another Status may go (250 ms after the last), it looks at the
+holo for a change every 50 ms; the ring tells it of its own changes, as it tells the HTTP API's
+event stream. Until the screen and scenes are
+on Cyphal, `screen` reads as nothing showing (every field 0 or empty) and `scene` as none running:
+86 bytes, 13 frames.
 
 | Field | Type | What it is |
 |---|---|---|
@@ -133,18 +152,19 @@ dome panel shows for a holo of its own.
 | `why` | [Reason](#reason) | Why it can't, and the axis at fault. NONE when ready |
 | `motion` | uint8 | What runs now: 0 hold, 1 move (a center, move or nudge on its way), 2 twitch, 3 wag, 4 nod, 5 scan, 6 circle. The numbers of the host link's status block |
 | `motion_age_ms` | uint32 | Since the running motion began; NEVER while holding |
-| `motion_remaining_ms` | uint32 | Until a timed twitch or scan ends; NEVER with no limit, or while holding |
+| `motion_remaining_ms` | uint32 | Until a timed twitch or scan ends; NEVER with no limit, or while holding. A timed scan doesn't end by its time limit today ([Motion](#motion)'s `time_limit_ms`): this counts down to 0 and stays there while the scan goes on |
 | `stopped` | [Reason](#reason) | Why the last motion ended early: an axis refused it partway, with the axis. NONE when it ended by itself, by `stop`, or by another motion |
 | `stopped_motion` | uint8 | Which motion that was, numbered as `motion`; 0 when `stopped` is NONE |
 | `stopped_age_ms` | uint32 | How long ago it stopped; NEVER when `stopped` is NONE |
-| `horizontal`, `vertical` | `state.Axis` | Each axis: `fitted` (its servo is there), `calibrated` (its endpoints are saved), `inverted` (closed is above open), `placed` (something has moved it since the board started, so [Axes](#axes) knows where it is) |
+| `horizontal`, `vertical` | `state.Axis` | Each axis: `fitted` (its servo is there), `calibrated` (its endpoints are saved), `inverted` (closed is above open), `placed` (something has moved it since the board started, so [Axes](#axes) knows where it is). The engine places both axes together, so `placed` is the same for both |
 | `last` | [MotionSpec](#motion) | The last motion asked for, by anybody (Cyphal, the console, the host link, the HTTP API, a scene), as it was asked. A `stop` before any |
 
 The axes' positions are in [Axes](#axes), not here.
 
 #### The ring
 
-`r2.holo.state.Ring.0.1`: what `GET /api/v1/leds` reports, with the holo light's timed modes.
+`r2.holo.state.Ring.0.1`: what `GET /api/v1/leds` reports (its `timed` and `leia` too), with the
+holo light's timed modes.
 
 | Field | Type | What it is |
 |---|---|---|
@@ -159,8 +179,8 @@ The axes' positions are in [Axes](#axes), not here.
 |---|---|---|
 | `mode` | uint8 | 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink. The first five are the host link's `LEDS` numbers |
 | `colour` | `Colour` | `r`, `g`, `b`, 0–255. For every mode but off and rainbow |
-| `brightness` | uint8 | Percent, 0–100 |
-| `period_ms` | uint16 | Pulse, blink: 200–60000 |
+| `brightness` | uint8 | Percent, 0–100: how bright the ring is in this setting, its brightness (`leds bright`, `GET /api/v1/leds`'s `brightness`) times the setting's [level](#light) (its `level`), rounded |
+| `period_ms` | uint16 | Pulse, blink: 200–60000. 0 for the other modes |
 | `loop` | bool | Wipe, rainbow: again and again, rather than once |
 
 #### The screen
@@ -240,8 +260,22 @@ the centre. One frame.
   is. A value beyond ±10000 is held to it. While the holo can't move, a setpoint moves nothing
   and nothing answers it: [Status](#status) says why.
 
-The resolution is finer than the holo's own (it places an axis in steps of 0.2 % of the travel
-each side), so nothing is lost either way.
+  The board does what the dome panel does for a ROS joint command: the motion running, if any, is
+  stopped (Status then shows `stop` as the last motion asked for), and each axis given goes
+  straight to its place through the servo layer, the call the holo engine's own moves end in. A
+  setpoint received while the board is still carrying out the one before replaces it. The first
+  setpoint after the board starts, before anything has placed the axes, goes through the engine as
+  a `move` with no duration instead, so that the engine knows from then on where they are: an axis
+  given as `NONE` in that one goes to the centre, where the engine takes an axis nothing has placed
+  to be. A `move` is in whole percent, so once the engine has made it (within 20 ms) the same
+  setpoint goes again the direct way, to its exact place; Status shows that `move` as the last
+  motion asked for.
+
+The resolution is finer than the holo's own, so nothing is lost either way: the engine places an
+axis in steps of 0.2 % of the travel each side (20 hundredths of a percent), and the pulse goes out
+in whole microseconds, which over this board's default travel is coarser still (0.27 % on pan,
+0.31 % on tilt). A position published is the pulse sent, read back against the endpoints, so it can
+be up to half a percent short of the setpoint that put the axis there.
 
 ## Services
 
@@ -259,25 +293,34 @@ through the requests already sent to it, another is answered `busy`.
 
 | Field | Type | What it is |
 |---|---|---|
-| `kind` | uint4 | 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off. `off` stops, lets both axes go limp, and turns the light off: the release |
+| `kind` | uint4 | 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off. `off` stops, lets both axes go limp, and turns the light off: the release. On this board the light is the LED ring, which `off` turns off (the HTTP API's and the host link's `off` leave the ring alone) |
 | `range` | uint7 | Percent of the travel each side of the centre, 1–100. 0: the motion's default, twitch 60, scan 70, wag 50, nod 40, circle 50 |
 | `count` | uint5 | Wag, nod: cycles; circle: turns. 1–20. 0: wag 3, nod 2, circle 1 |
 | `x` | int16 | Move: −100 to 100, percent of the way from the centre to an endpoint, + right. Nudge: −200 to 200, relative. Needed by move and nudge |
 | `y` | int16 | As `x`; + is up |
 | `period_ms` | uint16 | A cycle of wag, nod, a turn of circle, a sweep of scan there and back: 200–60000. 0: wag 700, nod 800, circle 2400, scan 6000 |
 | `interval_min_ms`, `interval_max_ms` | uint20 | Twitch: the pause between glances, chosen between the two: each 100–600000, min no more than max. Both 0: 1000 to 5000. Both or neither |
-| `time_limit_ms` | uint22 | Twitch, scan: stop, and hold, after this long: 100–3600000. 0: no limit |
+| `time_limit_ms` | uint22 | Twitch, scan: stop, and hold, after this long: 100–3600000. 0: no limit. A timed scan doesn't stop yet, over Cyphal, the console or the HTTP API alike: a fault in the shared holo engine, which looks at the time only between a motion's segments, and a scan has no gap between them |
 | `duration_ms` | uint16[<=1] | Center, move, nudge: how long to take, 0–10000; 0 is at once. Empty: by the distance, 250 ms and 500 ms more for each half of the travel |
 
-A field the motion doesn't use is ignored. The odd widths are the ranges', to keep the request
-to three frames.
+A field the motion doesn't use is ignored, whatever it holds. The odd widths are the ranges', to
+keep the request to three frames.
+
+The board checks and starts the motion with the code `POST /api/v1/holo/motion` runs once it has
+read its JSON, as the host link's requests do: the fields the motion uses, the times in seconds as
+the route's `interval_s` and `time_s` are, and nothing else. So a motion is checked and refused as
+one over HTTP is, in the same words, which name the JSON API's fields:
 
 | `result.code` | When |
 |---|---|
-| bad request | A field out of range |
+| bad request | A field out of range: `` `range` is 1..100``, `` `x` and `y` for move are -100..100``, `` `interval_s` is [min, max], each 0.1..600, min first`` (one of the twitch's interval fields alone, or min over max), `` `time_s` is 0.1..3600``. A `kind` that is none: `` `motion` is center, move, nudge, twitch, wag, nod, scan, circle,`` (the JSON API's words, cut, as every message is, to 64 bytes) |
 | not ready | The holo can't move: `result.reason` says why (not fitted, uncalibrated) and which axis, and `result.message` says it in words: `holo: refused, uncalibrated (tilt)` |
+| busy | The board is still working through four earlier requests: send it again |
 
 Nothing moves when a motion is refused. `stop` and `off` are never refused for the holo's state.
+This board moves an axis without saved endpoints over its default travel
+([the holo](../use/holo.md#calibrating-the-travel)), so it never refuses one as uncalibrated: only an
+axis whose servo didn't attach is refused, as not fitted.
 
 ### Light
 
@@ -289,14 +332,31 @@ of the same names, and Status's `ring` shows the result.
 |---|---|---|
 | `mode` | uint8 | 0 off, 1 on, 2 pulse, 3 flicker, 4 blink, 5 leia |
 | `period_ms` | uint16 | Pulse, blink: 200–60000. 0: pulse 2000, blink 1000 |
-| `time_limit_ms` | uint22 | 100–3600000: a timed mode, after which the ring goes back to what it was doing (mode, colour and brightness). 0: for good; for leia, 30 s |
-| `level` | uint8[<=1] | Percent, 0–100: the ring's brightness for this mode (0 lights nothing). Empty: 100. Ignored for off and leia |
+| `time_limit_ms` | uint22 | 100–3600000: a timed mode, after which the ring goes back to what it was doing (mode, colour and level; Light never changes the ring's brightness). 0: for good; for leia, 30 s |
+| `level` | uint8[<=1] | Percent, 0–100: the share of the ring's brightness this mode lights at (0 lights nothing). Empty: 100. Ignored for off and leia |
 | `colour` | `Colour`[<=1] | The ring's colour for this mode. Empty: the colour it has now (white if it has never had one) |
+
+The level is a share of the ring's brightness (`leds bright`, the board's settings), not a
+brightness of its own: so the light at full is the ring at the brightness the user set, which
+keeps a ring powered from the board within its limit ([the LED page](../use/leds.md#brightness))
+whatever a controller asks for. Status's `ring` shows the product, the brightness the ring lights at.
+
+The board runs the code `PATCH /api/v1/leds` runs, with the same checks and words: a mode with its
+colour if given, the level (100 if not given), a pulse's or a blink's period, and `time_s` for a time
+limit (the [LED page](../use/leds.md#the-holos-light) has the same from the console).
+
+| `result.code` | When |
+|---|---|
+| bad request | `` `level` is 0..100``, `` `period_ms` is 200..60000``, `` `time_s` is 0.1..3600`` (a time limit under 100 ms or over an hour), or a mode that is none: `` `mode` is off, on, pulse, flicker, blink or leia`` |
+| busy | The board is still working through four earlier requests |
 
 **Leia** is the message from Leia: the light flickers at full for the time limit and then goes
 back to what it was doing, and the holo turns to the centre if it can. The light half always
 runs. The response's `centred` (bool) says whether the centre did too; when it didn't,
-`result.code` is still 0 and `result.reason` and `result.message` give the centre's refusal.
+`result.code` is still 0 and `result.reason` and `result.message` give the centre's refusal. The
+flicker is at level 100 in the colour given, or the ring's own; the centre is the motion route's
+`center`, at its default pace, so Status shows `center` as the last motion asked for. A time limit out
+of range refuses the whole request, before either half runs.
 
 Another light or ring command during a timed mode replaces it, and the wait ends.
 
@@ -393,7 +453,8 @@ case with 200 and `playable: false`.) No such file is not found.
 ## Error
 
 `r2.holo.Error.0.1`, the `result` of every service. `code` is the host link's
-[status](host-protocol.md#replies), with the same numbers:
+[status](host-protocol.md#replies), with the same numbers. A busy answer's message is
+`busy: the board is still working through earlier requests`:
 
 | `code` | Name | The JSON errors it covers |
 |---|---|---|
@@ -511,7 +572,7 @@ without saving.
 |---|---|---|
 | Restart | 65535 | Restarts the board a second after the response (by when it has gone). The node comes back with the registers as they now are |
 | Factory reset | 65532 | Every register back to its default (the node-ID, name and bitrate, every port; touch reporting, once it is a register), and the board's [settings](http-api.md#settings) to theirs (the boot scene, the backlight, the LEDs' brightness and count), as `cyphal reset` and `DELETE /api/v1/settings` do; then a restart, a second after the response. Kept: the scenes, the files, the servos' calibration and drive policy, the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards, asking for a node-ID by plug-and-play |
-| Identify | 65529 | The ring flickers white and the screen shows the crosshair for 5 seconds, then both go back to what they were doing. The ring blinks once it has a blink mode (with the [Light](#light) service) |
+| Identify | 65529 | The ring blinks white, once a second, and the screen shows the crosshair for 5 seconds, then both go back to what they were doing |
 | Store persistent states | 65530 | Nothing to do: every register is saved when it is written. Answers success |
 | Anything else | | Refused: bad command. Power off, begin software update and emergency stop included |
 
@@ -555,8 +616,8 @@ What the board sends, at 1 Mbit/s:
 | Traffic | Frames a second | Share of the bus |
 |---|---|---|
 | Heartbeat, once a second | 1 | 0.013 % |
-| Port list, 22 frames every 10 s (more as the holo's ports join it) | 2.2 | 0.03 % |
-| Status once a second, 17 frames | 17 | 0.22 % |
+| Port list, 23 frames every 10 s (more as the holo's ports join it) | 2.3 | 0.03 % |
+| Status once a second, 17 frames (13 until the screen and scenes are on Cyphal) | 17 | 0.22 % |
 | Status four times a second (while things change) | 68 | 0.88 % |
 | Axes while moving, ten a second | 10 | 0.13 % |
 | Axes at rest | 1 | 0.013 % |
