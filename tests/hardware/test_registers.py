@@ -18,16 +18,19 @@ import uavcan.primitive.array.Natural8_1_0 as Natural8
 import uavcan.register.Access_1_0 as Access
 import uavcan.register.List_1_0 as RegisterList
 import uavcan.register.Name_1_0 as Name
+import uavcan.file.GetInfo_0_2 as FileInfo
+import uavcan.file.List_0_2 as FileList
 
 from .conftest import (Value, access, call, console_registers, heartbeats, natural16, natural32, plain,
                        reference_registers, register_names, string, until_state)
-from .holo_ports import AXES, EVENT, LIGHT, MOTION, RING_PORT, SCENE, SCREEN, SETPOINT, STATUS
+from .holo_ports import AXES, EVENT, LIGHT, LIST_SCENES, MEDIA_INFO, MOTION, RING_PORT, SCENE, SCREEN, SETPOINT, STATUS
 
-# What the node has while online, with the holo's ports at their defaults: the node's own, and the holo's built so far
+# What the node has while online, with the holo's ports at their defaults: the node's own, the holo's, and the file services
 PUBLISHED = {pycyphal.dsdl.get_fixed_port_id(t) for t in (Heartbeat, PortList)} | {STATUS, EVENT, AXES}
 SUBSCRIBED = {SETPOINT}
 SERVED = ({pycyphal.dsdl.get_fixed_port_id(t) for t in (Access, RegisterList, GetInfo, ExecuteCommand)} |
-          {MOTION, LIGHT, SCENE, SCREEN, RING_PORT})
+          {MOTION, LIGHT, SCENE, SCREEN, RING_PORT, LIST_SCENES, MEDIA_INFO} |
+          {pycyphal.dsdl.get_fixed_port_id(t) for t in (FileList, FileInfo)})
 
 
 async def test_list_and_read_every_register(node, board, dut_node_id):
@@ -50,8 +53,11 @@ async def test_list_and_read_every_register(node, board, dut_node_id):
         assert bool(r.mutable) == mutable and r.persistent, f"{name}: mutable {r.mutable}, persistent {r.persistent}"
         assert (r.value.string is not None) == (kind == "string"), name
         assert (r.value.natural32 is not None) == (kind == "natural32[2]"), name
-        assert (r.value.natural16 is not None) == (kind == "natural16[1]"), name
-        shown_value = " ".join(str(v) for v in value) if isinstance(value, list) else str(value)
+        assert (r.value.natural16 is not None) == kind.startswith("natural16"), name
+        assert (r.value.bit is not None) == kind.startswith("bit"), name
+        if kind != "string" and kind != "natural16[1]":
+            assert len(value) == int(kind[kind.index("[") + 1:-1]), (name, value)
+        shown_value = " ".join(str(int(v)) for v in value) if isinstance(value, list) else str(value)
         assert shown[name] == shown_value, f"the console shows {name} as {shown[name]!r}"
     # Not a register: an empty value
     r = await access(node, dut_node_id, "uavcan.node.description")

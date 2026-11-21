@@ -77,15 +77,30 @@ static inline void put_rgb565(uint8_t *dst, uint8_t r, uint8_t g, uint8_t b)
  * The file is left with stdio's buffer in place, unlike a clip: libpng reads 8-byte chunk
  * headers and 4-byte CRCs constantly, and buffering turns dozens of tiny reads into one.
  */
+/* libpng's memory for a probe: PSRAM first, so that a probe takes no internal RAM a playing clip's frames need */
+static png_voidp probe_malloc(png_structp png, png_alloc_size_t size)
+{
+    (void)png;
+    return heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT);
+}
+
+static void probe_free(png_structp png, png_voidp ptr)
+{
+    (void)png;
+    heap_caps_free(ptr);
+}
+
 static esp_err_t begin_read(const char *path, png_ctx_t *ctx, png_structp *png, png_infop *info,
-                            FILE **f)
+                            FILE **f, bool probe)
 {
     *f = fopen(path, "rb");
     if (*f == NULL) {
         snprintf(ctx->err, ctx->err_len, "cannot open %s: %s", path, strerror(errno));
         return ESP_ERR_NOT_FOUND;
     }
-    *png = png_create_read_struct(PNG_LIBPNG_VER_STRING, ctx, on_error, on_warning);
+    *png = probe ? png_create_read_struct_2(PNG_LIBPNG_VER_STRING, ctx, on_error, on_warning, NULL, probe_malloc,
+                                            probe_free)
+                 : png_create_read_struct(PNG_LIBPNG_VER_STRING, ctx, on_error, on_warning);
     if (*png == NULL) {
         snprintf(ctx->err, ctx->err_len, "out of memory");
         return ESP_ERR_NO_MEM;
@@ -124,7 +139,7 @@ esp_err_t png_probe(const char *path, uint32_t *w_out, uint32_t *h_out, char *de
         ret = ESP_FAIL;
         goto done;
     }
-    ret = begin_read(path, &ctx, (png_structp *)&png, (png_infop *)&info, (FILE **)&f);
+    ret = begin_read(path, &ctx, (png_structp *)&png, (png_infop *)&info, (FILE **)&f, true);
     if (ret != ESP_OK) {
         goto done;
     }
@@ -175,7 +190,7 @@ esp_err_t png_show(const char *path, int x, int y, uint32_t *w_out, uint32_t *h_
         ret = ESP_FAIL;
         goto done;
     }
-    ret = begin_read(path, &ctx, (png_structp *)&png, (png_infop *)&info, (FILE **)&f);
+    ret = begin_read(path, &ctx, (png_structp *)&png, (png_infop *)&info, (FILE **)&f, false);
     if (ret != ESP_OK) {
         goto done;
     }

@@ -458,7 +458,8 @@ static bool own_names_unique(char *why, size_t why_len)
     return true;
 }
 
-/* An application's register: its size within what a value holds, and its functions and flags agreeing */
+/* An application's register: its size within what a value holds, and its functions and flags agreeing (never
+ * CYPHAL_REG_NEXT_START, the node's own settings'; CYPHAL_REG_READ_ON_WORKER is for these alone) */
 static bool app_register_ok(const cyphal_register_t *r)
 {
     size_t most = 0;

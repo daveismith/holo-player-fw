@@ -58,6 +58,10 @@ so the release tag is the version baked into the image and reported by `version`
   plug-and-play's request, reply, timing and in-use check with the computer's compiler;
   `make can-test` runs the hardware tests in `tests/hardware/` (pytest and pycyphal, through a
   gs_usb adapter, with pycyphal's allocator for plug-and-play; `make can-setup` makes their venv).
+  The unit tests also cover the holo's Cyphal conversions (requests, Status's parts, Event, the file
+  services' paths and errors, MediaInfo, the calibration registers' values), and the hardware tests the
+  holo's ports (motions, light, setpoints, scenes, screen, ring, events, the lists against the HTTP API,
+  the calibration registers, a clip under load), with a soak, `test_soak.py`, run with `--soak-minutes`.
 - **The Cyphal node is managed the standard way.** Its settings are registers
   (`uavcan.register.Access` and `List`): `uavcan.node.id`, `r2.node.name` and
   `uavcan.can.bitrate`, the same saved settings as `cyphal id`, `name` and `bitrate`, and a pair
@@ -65,11 +69,11 @@ so the release tag is the version baked into the image and reported by `version`
   65535 for off) and `uavcan.pub.status.type` (its type, read-only), with the defaults of
   `r2_cyphal_dsdl`'s port table. A write is checked, saved and applies from the node's next start;
   one the board can't take leaves the register as it was, a port number another port has (the
-  node's own included) among them. `uavcan.node.ExecuteCommand`'s factory reset is all or nothing. `uavcan.node.ExecuteCommand` restarts
-  the board, resets it to the factory settings (every register and the board's settings, keeping
-  the scenes, files, servo calibration, network and host link), identifies it (the ring blinks
-  white and the screen shows the crosshair for 5 s, then both go back) or stores (nothing to do);
-  other commands are refused. `uavcan.node.port.List` goes out every 10 s, with the ports the node
+  node's own included) among them. `uavcan.node.ExecuteCommand` restarts
+  the board, resets it to the factory settings, all or nothing (the node's registers, touch reporting
+  and the board's settings, keeping the scenes, files, servo calibration and drive policy, network and
+  host link), identifies it (the ring blinks white and the screen shows the crosshair for 5 s, then
+  both go back) or stores (nothing to do); other commands are refused. `uavcan.node.port.List` goes out every 10 s, with the ports the node
   really has. Documented in the manual's *The board on Cyphal* and *Cyphal interface*.
 - **The holo on Cyphal** (`r2.holo.*`): `Motion` (service 100) starts any motion with every
   parameter, through the code the HTTP API's `POST /holo/motion` runs, so it is refused in the same words;
@@ -96,6 +100,20 @@ so the release tag is the version baked into the image and reported by `version`
   a still being decoded never holds up the setpoints or Status. `cyphal` shows that worker, Event's
   queue, and the most frames the transmit queue has held. Documented in the manual's *The board on
   Cyphal* and *Cyphal interface*.
+- **The lists and the calibration on Cyphal**: `ListScenes` (service 105) gives the saved scenes one
+  a call with their slots, as `GET /scenes` lists them; the standard `uavcan.file.List` (406) and
+  `uavcan.file.GetInfo` (405) give the board's files, as `fs ls` sees them (a directory's entries by
+  index in name order, directories marked with a `/`; each one's size and time, read-only; with the
+  board busy, List isn't answered, since its empty name would end a listing, and the client asks
+  again); `MediaInfo` (106) describes a clip or an image from its header, through the lookup
+  `GET /media/info` runs, and says whether the screen can show it and why not. The file services and
+  MediaInfo run on the node's second worker, so that an upload holding the storage volume never holds
+  up the setpoints. The holo's registers: `r2.holo.horizontal.endpoints_us` and
+  `r2.holo.vertical.endpoints_us` (closed and open, `0 0` to clear), `….release` and `….settle_ms` (the
+  drive policy), over the servos' own saved values, the ones `holo endpoints`, the web app's
+  calibration and `PUT /servos/policy` change, written and read at once (by the node's worker); and
+  `r2.touch.reporting`, the board's touch setting. Documented in the manual's *The board on Cyphal*
+  and *Cyphal interface*.
 - **The LED ring pulses and blinks**, and has the holo light's level and timed modes: `leds pulse`
   and `leds blink` with `-p <ms>`; `-l <pct>` (a share of the brightness) on every mode but `off`, and
   `-t <s>` (then back to what it was doing) on `colour`, `off`, `flicker`, `pulse` and `blink`. A
@@ -117,8 +135,9 @@ so the release tag is the version baked into the image and reported by `version`
   together, and the port defaults from its port table.
 - **`tools/yakut_can.py`** (`make yakut`): Yakut on the board through a gs_usb adapter on macOS,
   opening and closing the adapter only while the board is quiet; registers only (it refuses
-  `execute-command` and calls to ExecuteCommand, during which a candleLight stopped passing frames
-  on the bench, and what would leave the board never quiet as the adapter closes).
+  `execute-command`, by every name Yakut's click version gives it, and calls to ExecuteCommand, during
+  which a candleLight stopped passing frames on the bench, and what would leave the board never quiet
+  as the adapter closes).
 
 ### Changed
 
@@ -141,6 +160,17 @@ so the release tag is the version baked into the image and reported by `version`
   on the ESP32-S3 gives 20 time quanta at every bitrate, and 87.5 % is out of the controller's
   reach at 1 Mbit/s. The manual says so.
 - `cyphal reset` puts the port numbers back to their defaults too.
+- Looking at a clip's or an image's header (`GET /media/info`, Cyphal's MediaInfo, and the check before
+  one is shown) takes its memory from PSRAM first: the GIF decoder's 24 KB, a clip's frame tables, a
+  JPEG's bytes and libpng's state, up to 29 KB of internal RAM before, 4 to 9 KB now, which a playing
+  clip's frames need. Playback itself is unchanged.
+- **Touch reporting is one of the board's settings**: `GET /api/v1/settings` has `touch.reporting`,
+  `PATCH` sets it (and turns touch on or off now), `DELETE` puts it back to its default, the console's
+  `settings` shows it and `settings touch on|off` sets it, the web app's Settings page has a switch for
+  it, and the Cyphal register `r2.touch.reporting` is the same setting. The board starts with touch
+  reporting on if it says so, `CONFIG_BOARD_TOUCH_AUTOSTART` being only its default; `touch on` and
+  `touch off` still change it until the next start without saving. It is in a configuration backup
+  (NVS `holo_cfg`, `touch`).
 - The Cyphal node's libcanard heap is 32 KB of PSRAM (was 16 KB), its transmit queue 160 frames
   (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 4.5 KB stack joins it at its
   first start.
@@ -157,7 +187,11 @@ so the release tag is the version baked into the image and reported by `version`
 
 - A timed scene past its time, in the moment before it ends, read as one with no duration: `GET
   /scenes`'s `remaining_s` null, the host link's status block 0xFFFF, now 0.
-- `GET /screen` could catch a clip that had just started half-recorded (no path, 0 frames).
+- `GET /screen` could catch a clip that had just started half-recorded (no path, 0 frames). The
+  player's record is now copied under a lock of its own, never held for longer than the copy.
+- Touch could be started or stopped from two places at once (the console and the Cyphal register, or
+  the settings over HTTP), making two drivers or deleting one under its task: start and stop now take
+  turns.
 
 ## [1.1.0] - 2026-10-22
 

@@ -53,7 +53,7 @@ static void print_register(size_t index, const cyphal_status_t *st)
     char saved[64], running[64], type[24];
     cyphal_reg_read(&st->saved, index, &v);
     cyphal_reg_format(&v, saved, sizeof(saved));
-    printf("%-28s %-22s %s, %s, %s", r->name, saved, cyphal_reg_type(index, type, sizeof(type)),
+    printf("%-31s %-22s %s, %s, %s", r->name, saved, cyphal_reg_type(index, type, sizeof(type)),
            r->flags & CYPHAL_REG_MUTABLE ? "mutable" : "immutable",
            r->flags & CYPHAL_REG_PERSISTENT ? "persistent" : "not persistent");
     if ((r->flags & CYPHAL_REG_MUTABLE) && (r->flags & CYPHAL_REG_NEXT_START) && st->state != CYPHAL_OFF &&
@@ -301,8 +301,9 @@ void cyphal_register_commands(const char *how_to_start)
                 "`id` sets a fixed node-ID (or `auto`: plug-and-play), `name` the name GetInfo reports, `bitrate` the "
                 "bus's; each from the node's next start. `restart` starts it again with the settings as they are; "
                 "`reset` puts the settings back to the defaults. `register` lists the node's Cyphal registers, which are "
-                "the same settings and the ports' IDs; with a name, reads one; with a value too, writes it, from the "
-                "node's next start.",
+                "the same settings, the ports' IDs and the application's own; with a name, reads one; with a value "
+                "too, writes it, saved: the node's settings and the ports' IDs from the node's next start, the "
+                "application's (the holo's calibration, drive policy and touch reporting) at once.",
         .hint = "[id <0-127>|auto | name <name>|--reset | bitrate <125k|250k|500k|1m> | restart | reset | "
                 "register [<name> [<value>...]]]",
         .func = cmd_cyphal,

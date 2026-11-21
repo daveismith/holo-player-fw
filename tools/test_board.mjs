@@ -187,6 +187,13 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.equal(danger("cyphal register uavcan.pub.status.id"), null);
   assert.match(danger("cyphal register uavcan.pub.status.id 2310"), /writes the Cyphal node's register uavcan\.pub\.status\.id/);
   assert.match(danger("cyphal register uavcan.can.bitrate 500000 500000"), /uavcan\.can\.bitrate/);
+  assert.match(danger("cyphal register uavcan.pub.status.id 2310"), /from its next start/);
+  // The holo's own registers act at once
+  assert.match(danger("cyphal register r2.holo.horizontal.endpoints_us 1200 1800"), /r2\.holo\.horizontal\.endpoints_us, a saved setting, at once/);
+  assert.match(danger("cyphal register r2.touch.reporting 1"), /at once/);
+  assert.doesNotMatch(danger("cyphal register r2.holo.vertical.settle_ms 500"), /next start/);
+  assert.match(danger("cyphal register r2.node.name r2.dome.holo.top"), /from its next start/);
+  assert.equal(danger("cyphal register r2.touch.reporting"), null);
   assert.equal(refusal("cyphal register uavcan.node.id 52"), null);
   assert.equal(danger("link"), null);
   assert.match(danger("link mode can"), /Cyphal node, which goes on the CAN bus/);

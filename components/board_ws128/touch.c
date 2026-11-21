@@ -5,6 +5,11 @@
  * on I2C while it is awake -- a finger down, or just after -- so polling an idle screen is a
  * stream of NACKs and driver error logs. One read after the interrupts stop settles whether
  * the finger has lifted, since not every controller revision pulses on release.
+ *
+ * Start and stop are called from several tasks (the console's `touch`, the settings from the HTTP
+ * API and the console, the Cyphal node's worker for the register r2.touch.reporting), so they hold
+ * a mutex of their own: one start or stop at a time, never two drivers made or one deleted under
+ * its task.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +22,7 @@
 #include "esp_log.h"
 #include "events.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 static const char *TAG = "touch";
@@ -27,6 +33,32 @@ static esp_lcd_panel_io_handle_t s_io;
 static esp_lcd_touch_handle_t s_tp;
 static TaskHandle_t s_task;
 static volatile bool s_run;
+static SemaphoreHandle_t s_lock;    /* start and stop against each other: lock() */
+static portMUX_TYPE s_lock_made = portMUX_INITIALIZER_UNLOCKED;
+
+/* The start/stop mutex, made by whoever needs it first (only one is kept) */
+static void lock(void)
+{
+    if (s_lock == NULL) {
+        SemaphoreHandle_t m = xSemaphoreCreateMutex();
+        configASSERT(m != NULL);
+        taskENTER_CRITICAL(&s_lock_made);
+        if (s_lock == NULL) {
+            s_lock = m;
+            m = NULL;
+        }
+        taskEXIT_CRITICAL(&s_lock_made);
+        if (m != NULL) {
+            vSemaphoreDelete(m);
+        }
+    }
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+}
+
+static void unlock(void)
+{
+    xSemaphoreGive(s_lock);
+}
 
 static void IRAM_ATTR on_touch_int(esp_lcd_touch_handle_t tp)
 {
@@ -99,7 +131,9 @@ static void touch_task(void *arg)
     vTaskDelete(NULL);
 }
 
-esp_err_t board_touch_start(void)
+static void stop_locked(void);
+
+static esp_err_t start_locked(void)
 {
     if (s_tp != NULL) {
         return ESP_OK;
@@ -123,7 +157,7 @@ esp_err_t board_touch_start(void)
     esp_err_t err = esp_lcd_touch_new_i2c_cst816s(s_io, &cfg, &s_tp);
     if (err != ESP_OK) {
         s_tp = NULL;
-        board_touch_stop();
+        stop_locked();
         return err;
     }
     /* Only now, with s_tp set: the driver's reset makes the controller pulse INT during
@@ -131,14 +165,22 @@ esp_err_t board_touch_start(void)
      * handle that does not exist yet. The ISR drops edges while s_task is NULL. */
     s_run = true;
     if (xTaskCreate(touch_task, "touch", 3072, NULL, 4, &s_task) != pdPASS) {
-        board_touch_stop();
+        stop_locked();
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(TAG, "CST816S on, reporting touches");
     return ESP_OK;
 }
 
-void board_touch_stop(void)
+esp_err_t board_touch_start(void)
+{
+    lock();
+    const esp_err_t err = start_locked();
+    unlock();
+    return err;
+}
+
+static void stop_locked(void)
 {
     s_run = false;
     if (s_task != NULL) {
@@ -161,6 +203,14 @@ void board_touch_stop(void)
     gpio_set_level(BOARD_TOUCH_RST, 0);
 }
 
+void board_touch_stop(void)
+{
+    lock();
+    stop_locked();
+    unlock();
+}
+
+/* A pointer's read, without the lock: what is in effect, or about to be */
 bool board_touch_running(void)
 {
     return s_tp != NULL;

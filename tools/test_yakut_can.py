@@ -18,10 +18,30 @@ def refused(*args: str) -> bool:
 
 class Refusal(unittest.TestCase):
     def test_execute_command(self):
-        for name in ("execute-command", "execute_command", "cmd"):
+        # "execute": click 8.2 and later drop the "_command" suffix (Yakut 0.14 under click 8.3.1 registers it so)
+        for name in ("execute-command", "execute_command", "execute", "cmd"):
             self.assertTrue(refused(name, "52", "restart"), name)
             self.assertTrue(refused("-v", name, "52", "65535"), name)
             self.assertTrue(refused("--format", "json", name, "52", "identify"), name)
+            # --node-info takes a value, which isn't the command
+            self.assertTrue(refused("--node-info", "{name: x}", name, "52", "restart"), name)
+
+    def test_node_info_value(self):
+        self.assertFalse(refused("--node-info", "cmd", "register-list", "52"))
+        self.assertTrue(refused("--node-info", "register-list", "execute", "52", "restart"))
+
+    def test_resolved_by_yakut(self):
+        """With Yakut's click group (here a stand-in), a word it resolves to execute is refused whatever its spelling,
+        and its own value-taking options are skipped"""
+        names = {"exe": "execute", "x": "execute", "rl": "register-list", "call": "call"}
+        resolver = yakut_can.Resolver(names.get, {"--new-option"})
+        refuse = lambda *args: yakut_can.refusal(list(args), resolver) is not None  # noqa: E731
+        self.assertTrue(refuse("exe", "52", "restart"))
+        self.assertTrue(refuse("--new-option", "rl", "x", "52", "restart"))
+        self.assertFalse(refuse("--new-option", "x", "rl", "52"))
+        self.assertFalse(refuse("rl", "52"))
+        self.assertTrue(refuse("call", "52", "435", "{}"))
+        self.assertFalse(refuse("monitor"))     # resolved to nothing it knows
 
     def test_call_to_execute_command(self):
         for service in ("uavcan.node.ExecuteCommand.1.3", "uavcan.node.executecommand", "435",

@@ -3,10 +3,12 @@
  * ring's change, Scene and Screen requests read and checked (a path's length and bytes), the board's happenings
  * (components/scenes' happening_t) as r2.holo.Event with their sizes (cyphal_util.c's frame count), the screen and
  * the scene as Status's parts, the refusals as r2.holo.Error (with components/board_api/api_codes.c) and Reason,
- * the positions as Axes, and Status's and Axes' rates
+ * the positions as Axes, Status's and Axes' rates, the file services' paths, errors and entries, MediaInfo and
+ * ListScenes' responses, and the holo's registers' endpoints and settle time
  * (manual/reference/cyphal.md; the ranges are manual/reference/host-protocol.md's and the HTTP API's,
  * checked by the routes themselves). `make unit-test`.
  */
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -697,6 +699,156 @@ static void test_scene_part(void)
     CHECK(holo_scene_differs(&a, &b));
 }
 
+static uavcan_file_Path_2_0 path_of(const char *text)
+{
+    uavcan_file_Path_2_0 p;
+    memset(&p, 0, sizeof(p));
+    p.path.count = strlen(text);
+    memcpy(p.path.elements, text, p.path.count);
+    return p;
+}
+
+static void test_file_path(void)
+{
+    char out[300];
+    uavcan_file_Path_2_0 p = path_of("");
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "/") == 0);
+    p = path_of("/");
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "/") == 0);
+    p = path_of("///");
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "/") == 0);
+    p = path_of("/clips/");
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "/clips") == 0);
+    p = path_of("/clips/a.mov");
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "/clips/a.mov") == 0);
+    p = path_of("clips");       /* no leading slash: fs_path() refuses it, with its words */
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strcmp(out, "clips") == 0);
+    p = path_of("/a");
+    p.path.elements[1] = '\0';
+    CHECK(!holo_file_path(&p, out, sizeof(out)));
+    p = path_of("/abc");
+    CHECK(!holo_file_path(&p, out, 4));     /* "/abc" and its NUL need 5 */
+    CHECK(holo_file_path(&p, out, 5) && strcmp(out, "/abc") == 0);
+    /* The whole 255 bytes of the type */
+    memset(&p, 0, sizeof(p));
+    p.path.count = 255;
+    memset(p.path.elements, 'a', 255);
+    p.path.elements[0] = '/';
+    CHECK(holo_file_path(&p, out, sizeof(out)) && strlen(out) == 255);
+}
+
+static void test_file_error(void)
+{
+    CHECK(holo_file_error(0) == uavcan_file_Error_1_0_OK);
+    CHECK(holo_file_error(ENOENT) == uavcan_file_Error_1_0_NOT_FOUND);
+    CHECK(holo_file_error(ENOTDIR) == uavcan_file_Error_1_0_NOT_FOUND);    /* never IO_ERROR's "try again" */
+    CHECK(holo_file_error(EINVAL) == uavcan_file_Error_1_0_INVALID_VALUE);
+    CHECK(holo_file_error(EACCES) == uavcan_file_Error_1_0_ACCESS_DENIED);
+    CHECK(holo_file_error(EPERM) == uavcan_file_Error_1_0_ACCESS_DENIED);
+    CHECK(holo_file_error(EISDIR) == uavcan_file_Error_1_0_IS_DIRECTORY);
+    CHECK(holo_file_error(EIO) == uavcan_file_Error_1_0_IO_ERROR);
+    CHECK(holo_file_error(ENOSPC) == uavcan_file_Error_1_0_IO_ERROR);
+}
+
+static void test_file_entry(void)
+{
+    uavcan_file_Path_2_0 p;
+    CHECK(holo_file_entry("intro.mov", false, &p) && p.path.count == 9 && memcmp(p.path.elements, "intro.mov", 9) == 0);
+    CHECK(holo_file_entry("clips", true, &p) && p.path.count == 6 && memcmp(p.path.elements, "clips/", 6) == 0);
+    char name[300];
+    memset(name, 'n', 255);
+    name[255] = '\0';
+    CHECK(holo_file_entry(name, false, &p) && p.path.count == 255);
+    CHECK(!holo_file_entry(name, true, &p) && p.path.count == 0);
+}
+
+static void test_media_info(void)
+{
+    r2_holo_MediaInfo_Response_0_1 r;
+    /* A clip: mov, its frames, fps and length */
+    holo_media_in_t in = { .kind = 0, .format = 0, .width = 240, .height = 240, .frames = 300, .fps = 30.0,
+                           .duration_s = 10.0004 };
+    memset(&r, 0, sizeof(r));
+    holo_media_info(&in, &r);
+    CHECK(r.kind == r2_holo_MediaInfo_Response_0_1_CLIP && r.format == r2_holo_MediaInfo_Response_0_1_FORMAT_MOV);
+    CHECK(r.width == 240 && r.height == 240 && r.frames == 300 && r.fps == 30.0f && r.duration_ms == 10000);
+    /* An image: one frame, no rate or length, whatever the header says */
+    in = (holo_media_in_t){ .kind = 1, .format = 3, .width = 100, .height = 50, .frames = 1, .fps = 10,
+                            .duration_s = 0.1 };
+    holo_media_info(&in, &r);
+    CHECK(r.kind == r2_holo_MediaInfo_Response_0_1_IMAGE && r.format == r2_holo_MediaInfo_Response_0_1_FORMAT_GIF);
+    CHECK(r.frames == 1 && r.fps == 0 && r.duration_ms == 0 && r.width == 100 && r.height == 50);
+    in.format = 1;
+    holo_media_info(&in, &r);
+    CHECK(r.format == r2_holo_MediaInfo_Response_0_1_FORMAT_PNG);
+    in.format = 2;
+    holo_media_info(&in, &r);
+    CHECK(r.format == r2_holo_MediaInfo_Response_0_1_FORMAT_JPEG);
+    /* An animation, held to the fields */
+    in = (holo_media_in_t){ .kind = 2, .format = 3, .width = 70000, .height = 240, .frames = 100000, .fps = 12.5,
+                            .duration_s = 8.0 };
+    holo_media_info(&in, &r);
+    CHECK(r.kind == r2_holo_MediaInfo_Response_0_1_ANIMATION && r.width == 65535 && r.frames == 65535 &&
+          r.fps == 12.5f && r.duration_ms == 8000);
+    /* Not a clip or an image: all zero */
+    in = (holo_media_in_t){ .kind = -1, .format = -1, .width = 5, .height = 5, .frames = 5 };
+    holo_media_info(&in, &r);
+    CHECK(r.kind == 0 && r.format == 0 && r.width == 0 && r.height == 0 && r.frames == 0 && r.duration_ms == 0);
+}
+
+static void test_list_scenes(void)
+{
+    r2_holo_ListScenes_Response_0_1 r;
+    holo_list_scenes(3, "leia", 1, &r);
+    CHECK(r.result.code == 0 && r.count == 3 && r.slot == 1 && r.name.count == 4 && memcmp(r.name.elements, "leia", 4) == 0);
+    holo_list_scenes(3, "", 9, &r);         /* past the end */
+    CHECK(r.result.code == 0 && r.count == 3 && r.slot == 0 && r.name.count == 0);
+    holo_list_scenes(0, "", 0, &r);
+    CHECK(r.count == 0 && r.name.count == 0);
+    holo_list_scenes(-1, "", 0, &r);
+    CHECK(r.result.code == r2_holo_Error_0_1_BUSY && r.result.message.count > 0 && r.count == 0);
+    holo_list_scenes(2, "a 32-character scene name, 12345", 255, &r);
+    CHECK(r.name.count == 32 && r.slot == 255);
+}
+
+static void test_endpoints(void)
+{
+    uint16_t e[2];
+    holo_endpoints_of(1150, 1900, false, e);
+    CHECK(e[0] == 1150 && e[1] == 1900);
+    holo_endpoints_of(1150, 1900, true, e);
+    CHECK(e[0] == 1900 && e[1] == 1150);
+    holo_endpoints_t w;
+    char why[128];
+    int64_t v[2] = { 0, 0 };
+    CHECK(holo_endpoints_write(v, 1000, 2000, &w, why, sizeof(why)) && w.clear);
+    v[0] = 1200; v[1] = 1800;
+    CHECK(holo_endpoints_write(v, 1000, 2000, &w, why, sizeof(why)) && !w.clear && w.min_us == 1200 &&
+          w.max_us == 1800 && !w.invert);
+    v[0] = 1800; v[1] = 1200;       /* closed above open: turned round */
+    CHECK(holo_endpoints_write(v, 1000, 2000, &w, why, sizeof(why)) && w.min_us == 1200 && w.max_us == 1800 &&
+          w.invert);
+    v[0] = 1000; v[1] = 2000;       /* the absolute range's ends are in it */
+    CHECK(holo_endpoints_write(v, 1000, 2000, &w, why, sizeof(why)) && w.min_us == 1000 && w.max_us == 2000);
+    const int64_t bad[][2] = { { 999, 1500 }, { 1500, 2001 }, { 1500, 1500 }, { 0, 1500 }, { 1500, 0 },
+                               { INT64_MIN, 1500 }, { -1, 1500 } };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        why[0] = '\0';
+        CHECK(!holo_endpoints_write(bad[i], 1000, 2000, &w, why, sizeof(why)) && strstr(why, "1000 to 2000") != NULL);
+    }
+}
+
+static void test_settle(void)
+{
+    uint16_t ms = 7;
+    char why[64];
+    CHECK(holo_settle_write(0, &ms, why, sizeof(why)) && ms == 0);
+    CHECK(holo_settle_write(65535, &ms, why, sizeof(why)) && ms == 65535);
+    CHECK(!holo_settle_write(65536, &ms, why, sizeof(why)) && ms == 65535);
+    CHECK(!holo_settle_write(-1, &ms, why, sizeof(why)));
+    CHECK(!holo_settle_write(INT64_MIN, &ms, why, sizeof(why)));
+}
+
 int main(void)
 {
     test_motion_names();
@@ -716,6 +868,13 @@ int main(void)
     test_events();
     test_screen_part();
     test_scene_part();
+    test_file_path();
+    test_file_error();
+    test_file_entry();
+    test_media_info();
+    test_list_scenes();
+    test_endpoints();
+    test_settle();
     printf("test_holo_cyphal_util: %d checks, %d failed\n", s_checks, s_failed);
     return s_failed != 0;
 }

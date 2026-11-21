@@ -20,7 +20,7 @@ Command history is kept in `/data/history.txt` and survives a restart.
 |---|---|
 | `screen [colour <c> \| calibration \| clear]` | Show a solid colour or the alignment crosshair, or clear the screen. Alone, reports what is showing, including a clip or an image. The screen is off — panel asleep, backlight off — whenever nothing is |
 | `lcd [bl <0-100> \| bench [frames]]` | LCD hardware: power state, backlight level while on, and a fill-rate benchmark |
-| `touch [on\|off\|status]` | CST816S touch reporting, off at boot. Prints down/move/up with x,y |
+| `touch [on\|off\|status]` | CST816S touch reporting, for now: on or off until the next start, not saved (`settings touch` is what the board starts with: off unless set). Prints down/move/up with x,y |
 | `imu [-r <hz>] [-n <count>] \| imu id` | Streams accelerometer (g), gyro (dps) and temperature until a key is pressed. `imu id` reports the part and the address it answered on |
 
 `screen calibration` (or `screen calib`) draws a centred crosshair with an arrow pointing up, for
@@ -97,11 +97,12 @@ Full detail in [The holoprojector](../use/holo.md).
 | `scene delete <name>` | Delete it; if the board started with it, it now starts with nothing |
 | `scene boot [<name>\|--clear]` | The scene the board starts with; alone, which it is |
 | `scene slot <name> [<1-255>\|--clear]` | The number a host on the host link applies it by; alone, which it is |
-| `settings` | What the board starts with: the backlight, the LEDs' brightness and count, and the scene |
+| `settings` | What the board starts with: the backlight, the LEDs' brightness and count, touch reporting, and the scene |
 | `settings backlight <1-100>` | The backlight at start, and now |
 | `settings brightness <1-100>` | The LEDs' brightness at start, and now |
 | `settings leds <count>` | LEDs on the strip, from the next start |
-| `settings reset` | Back to the firmware's defaults; scenes are kept |
+| `settings touch on\|off` | Touch reporting at start, and now (the Cyphal register `r2.touch.reporting` is the same setting) |
+| `settings reset` | Back to the firmware's defaults, applied now; scenes are kept |
 
 A scene is what the screen shows, what the LEDs do and how the holo moves, saved together by
 name; a scene may have any of the three. Scenes are made with the
@@ -175,7 +176,7 @@ See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-ca
 | `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s, and every port's default ID |
 | `cyphal register` | The node's [Cyphal registers](cyphal.md#registers): each one's value, type and flags, and the value in use when a write waits for the node's next start |
 | `cyphal register <name>` | One register |
-| `cyphal register <name> <value>…` | Write one, as `uavcan.register.Access` does, with the same checks, saved: a number for a port or the node-ID (65535 for off or plug-and-play), one or two for the bitrate, a word for the name. From the node's next start |
+| `cyphal register <name> <value>…` | Write one, as `uavcan.register.Access` does, with the same checks, saved: a number for a port or the node-ID (65535 for off or plug-and-play), one or two for the bitrate, a word for the name, from the node's next start; the holo's own (`r2.holo.*` endpoints, release and settle time, `r2.touch.reporting`: numbers, or 0 and 1 for bits) at once |
 | `can` | Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received. While the node runs it only reports, and its sub-commands refuse |
 | `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller. `--listen` receives without sending or acknowledging; `--selftest` receives its own frames and needs no second node |
 | `can stop` | Stop, and release the pins; `dump` and `echo` go off |

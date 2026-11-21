@@ -28,6 +28,16 @@ void holo_setpoint_forget(void);
 /* The setpoint subscription's on_message, for the table: on the node's task, into the mailbox, the worker woken */
 void holo_setpoint_message(const uint8_t *payload, size_t size, uint8_t from);
 
+/* ---- the lists (holo_cyphal_lists.c): r2.holo.ListScenes' and MediaInfo's handler functions, for the table in
+ * holo_cyphal_services.c; the file services' table is holo_cyphal.h's HOLO_CYPHAL_FIXED */
+
+bool holo_list_scenes_decode(const uint8_t *payload, size_t size, void *in);
+size_t holo_list_scenes_work(const void *in, uint8_t from, uint8_t *out, size_t room);
+size_t holo_list_scenes_busy(uint8_t *out, size_t room);
+bool holo_media_info_decode(const uint8_t *payload, size_t size, void *in);
+size_t holo_media_info_work(const void *in, uint8_t from, uint8_t *out, size_t room);
+size_t holo_media_info_busy(uint8_t *out, size_t room);
+
 /* ---- the listener and Event (holo_cyphal_events.c) */
 
 /* Status's parts that signal their changes through the listener: read again only when marked */

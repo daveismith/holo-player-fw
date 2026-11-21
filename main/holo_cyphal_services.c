@@ -28,6 +28,8 @@
 #include "leds.h"
 #include "r2/holo/Axes_0_1.h"
 #include "r2/holo/Light_0_1.h"
+#include "r2/holo/ListScenes_0_1.h"
+#include "r2/holo/MediaInfo_0_1.h"
 #include "r2/holo/Motion_0_1.h"
 #include "r2/holo/Ring_0_1.h"
 #include "r2/holo/Scene_0_1.h"
@@ -324,5 +326,11 @@ const cyphal_handler_t HOLO_CYPHAL_HANDLERS[] = {
       .in_size = sizeof(r2_holo_Screen_Request_0_1), .work = screen_work, .busy = screen_busy, .slow = true },
     { .port = R2_HOLO_PORT_RING, .extent = r2_holo_Ring_Request_0_1_EXTENT_BYTES_, .decode = ring_decode,
       .in_size = sizeof(r2_holo_Ring_Request_0_1), .work = ring_work, .busy = ring_busy },
+    { .port = R2_HOLO_PORT_LIST_SCENES, .extent = r2_holo_ListScenes_Request_0_1_EXTENT_BYTES_,
+      .decode = holo_list_scenes_decode, .in_size = sizeof(r2_holo_ListScenes_Request_0_1),
+      .work = holo_list_scenes_work, .busy = holo_list_scenes_busy },
+    { .port = R2_HOLO_PORT_MEDIA_INFO, .extent = r2_holo_MediaInfo_Request_0_1_EXTENT_BYTES_,
+      .decode = holo_media_info_decode, .in_size = sizeof(r2_holo_MediaInfo_Request_0_1),
+      .work = holo_media_info_work, .busy = holo_media_info_busy, .slow = true },
 };
 const size_t HOLO_CYPHAL_HANDLER_COUNT = sizeof(HOLO_CYPHAL_HANDLERS) / sizeof(HOLO_CYPHAL_HANDLERS[0]);

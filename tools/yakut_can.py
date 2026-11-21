@@ -33,7 +33,8 @@ What it does around Yakut:
 
 Refused before anything is opened (refusal()):
 
-  * `execute-command`, and `call` to uavcan.node.ExecuteCommand (service 435). Every command sent
+  * `execute-command` (`execute` under click 8.2 and later, `cmd`), and `call` to uavcan.node.ExecuteCommand
+    (service 435), the command word read as Yakut's own click group reads it once Yakut is imported. Every command sent
     through Yakut on 2026-11-20 (restart twice, identify once) wedged the candleLight, though the board
     carried it out; register reads, writes and lists, with this wrapper as it is, mostly didn't, nor did
     the hardware tests' commands (restart, factory reset, identify, through pycyphal:
@@ -72,14 +73,20 @@ FIXED_STATUS = re.compile(r"cyphal: (?:node (\d+)|listening, before going online
                           r"[a-z0-9_.]+, (\d+) (Mbit/s|kbit/s|bit/s) on GPIO")
 BITRATE_UNITS = {"Mbit/s": 1_000_000, "kbit/s": 1_000, "bit/s": 1}
 
-# Yakut's commands as it names them, with its aliases (yakut/cmd/*: @yakut.subcommand(aliases=...)); click
-# turns the function's `_` into `-`, and the underscore spelling is refused too, in case
+# Yakut's commands as it names them, with its aliases (yakut/cmd/*: @yakut.subcommand(aliases=...)). How click names
+# a command from its function changed: up to 8.1 the function's `_` became `-` ("execute-command"), and click 8.2 on
+# drops a "_command" suffix ("execute", as Yakut 0.14 under click 8.3.1 registers it). Every spelling is refused. This
+# static list is the fallback; once Yakut is imported, the command word is also resolved through Yakut's own click
+# group (yakut_resolver()), and what it resolves to is what is checked
 COMMANDS = {
     "call": {"call", "q"},
-    "execute-command": {"execute-command", "execute_command", "cmd"},
+    "execute-command": {"execute-command", "execute_command", "execute", "cmd"},
     "register-access": {"register-access", "register_access", "r", "reg"},
     "register-batch": {"register-batch", "register_batch", "rbat", "rb"},
 }
+# The names Yakut's click group resolves a command word to, as COMMANDS names them
+RESOLVED = {"execute": "execute-command", "execute-command": "execute-command", "call": "call",
+            "register-access": "register-access", "register-batch": "register-batch"}
 EXECUTE_COMMAND_SERVICE = 435       # uavcan.node.ExecuteCommand's fixed service-ID
 
 
@@ -87,25 +94,58 @@ def log(text: str) -> None:
     print(f"[yakut_can] {text}", file=sys.stderr, flush=True)
 
 
-# Yakut's global options (before the command) that take a value as the next word (yakut/main.py, yakut/param/)
-GLOBAL_VALUE_OPTIONS = {"--format", "-F", "--transport", "-i", "--heartbeat-vssc", "--vssc", "--heartbeat-period",
-                        "--heartbeat-priority"}
+# Yakut's global options (before the command) that take a value as the next word (yakut/main.py, yakut/param/), as
+# Yakut 0.14 has them; with Yakut imported, its click group's own are added (yakut_resolver())
+GLOBAL_VALUE_OPTIONS = {"--format", "-F", "--transport", "-i", "--node-info", "--heartbeat-vssc", "--vssc",
+                        "--heartbeat-period", "--heartbeat-priority"}
 
 
-def command_of(yakut_args: list[str]) -> tuple[str | None, list[str]]:
+class Resolver:
+    """A command word as Yakut's click group resolves it, and the group's global options that take a value"""
+
+    def __init__(self, resolve, value_options: set[str]):
+        self.resolve, self.value_options = resolve, value_options
+
+
+def yakut_resolver() -> Resolver | None:
+    """Yakut's own click group, once Yakut is imported (it is only after the environment is set: it compiles the DSDL
+    as it loads): None if it isn't, or doesn't look as expected, and then the static lists above stand alone"""
+    try:
+        import click
+        group = sys.modules["yakut.main"]._click_main
+        ctx = click.Context(group)
+    except (ImportError, KeyError, AttributeError):
+        return None
+    options = {o for p in group.params if isinstance(p, click.Option) and not p.is_flag and not p.count
+               for o in (*p.opts, *p.secondary_opts)}
+
+    def resolve(word: str) -> str | None:
+        try:
+            name, _, _ = group.resolve_command(ctx, [word])
+        except click.UsageError:
+            return None
+        return name
+
+    return Resolver(resolve, options)
+
+
+def command_of(yakut_args: list[str], resolver: Resolver | None = None) -> tuple[str | None, list[str]]:
     """(the Yakut command, by its name in COMMANDS, or None for any other; the words after it): the first
-    word that is neither a global option nor such an option's value"""
+    word that is neither a global option nor such an option's value. With Yakut's resolver, the word is also
+    resolved as Yakut would, and a name in RESOLVED counts whatever its spelling"""
+    value_options = GLOBAL_VALUE_OPTIONS | (resolver.value_options if resolver else set())
     skip = False
     for i, word in enumerate(yakut_args):
         if skip:
             skip = False
-        elif word in GLOBAL_VALUE_OPTIONS:
+        elif word in value_options:
             skip = True
         elif not word.startswith("-"):
             for name, spellings in COMMANDS.items():
                 if word in spellings:
                     return name, yakut_args[i + 1:]
-            return None, yakut_args[i + 1:]
+            resolved = resolver.resolve(word) if resolver else None
+            return RESOLVED.get(resolved), yakut_args[i + 1:]
     return None, []
 
 
@@ -136,9 +176,10 @@ def numbers(text: str) -> list[float]:
     return out
 
 
-def refusal(yakut_args: list[str]) -> str | None:
-    """Why this wrapper won't run these Yakut arguments, or None"""
-    command, rest = command_of(yakut_args)
+def refusal(yakut_args: list[str], resolver: Resolver | None = None) -> str | None:
+    """Why this wrapper won't run these Yakut arguments, or None. Asked twice: before anything is imported or opened,
+    by the static lists alone, and again once Yakut is imported, with its own click group (yakut_resolver())"""
+    command, rest = command_of(yakut_args, resolver)
     if command == "execute-command":
         return ("not execute-command, which wedged the adapter here (see --help); the hardware tests send "
                 "commands (tests/hardware/test_execute_command.py)")
@@ -241,6 +282,10 @@ def main() -> int:
         import board_console
     except ImportError as e:
         sys.exit(f"yakut_can.py needs yakut, python-can, gs_usb and pyserial in this Python ({sys.executable}): {e}")
+    # Again, as Yakut itself reads the words (its click version names commands its own way), before the board or the
+    # adapter is touched
+    if (why := refusal(yakut_args, yakut_resolver())) is not None:
+        sys.exit(f"yakut_can.py: {why}")
 
     board = board_console.Console(args.port)
     try:

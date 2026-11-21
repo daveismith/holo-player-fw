@@ -134,7 +134,11 @@ keeps an `Unreleased` section; nothing is tagged outside a release.
   fixed node-ID and name** (NVS `cyphal`; 2026-11-20): the user's condition is that both can be
   changed and erased, which `cyphal id <n>|auto`, `cyphal name <name>|--reset` and `cyphal reset`
   do; keep that true. `manual/use/backup.md` tells the user that a second
-  board restored from the same backup needs its own node-ID.
+  board restored from the same backup needs its own node-ID. **Touch reporting** (NVS `holo_cfg`,
+  `touch`: `settings_t.touch`, the board's settings beside the backlight, which `/api/v1/settings`,
+  `settings touch` and the Cyphal register `r2.touch.reporting` all change; 2026-11-21) is a setting,
+  not a credential or an identity: it stays in. The holo's calibration registers are the kit servo's
+  own NVS keys, in a backup as they always were.
 - **The holo's Cyphal port numbers stay in too** (NVS `cyphal`, keys `pub.status` …
   `srv.media_info`, one a port of `r2_cyphal_dsdl`'s `ports/holo.csv`; 2026-11-20). The setpoint
   subject is per board (two holos on one subject move together), so they are a per-board setting
@@ -202,6 +206,35 @@ The largest free block read 31,744 B at rest throughout: no fragmentation seen. 
 side more room were offered to the user on 2026-11-21 and not taken: running the slow jobs (Scene, Screen,
 identify) on the scenes runner's task instead of a second worker (7.5 KB of stack back), and a cJSON
 allocator that prefers PSRAM (the events store, Event's parse, the routes' JSON).
+With the lists and the holo's registers (2026-11-21, phase 5): 85.0 KB free idle after a restart, 44.9 KB
+lowest at boot. 15 minutes with cyphal_service on the adapter, a clip, the ring and the web app polled
+(6 routes every 2 s): 41.5-52.4 KB free, 31.0 KB at the lowest. 15 minutes with pycyphal, the same plus a
+scene every 30 s, a setpoint burst a minute and the lists every 10 s: 39.6-51.8 KB free, falling 3.3 KB over
+the first 4 minutes as the events store filled and then flat to the byte; the lowest stepped down with it,
+to 15.5 KB, and stayed there for the last 10 minutes. libcanard's heap 3.5 KB at most, the send
+queue 41 frames at most; stacks never used: the node task's 1,496 of 3,072, the worker's 2,228 of 4,608,
+the second worker's 2,420 of 7,680 (MediaInfo and scenes on it).
+**The 15.5 KB low was MediaInfo's probes** (measured in the review, 2026-11-21, with the heap's local-minimum
+monitor around single calls): a probe took internal RAM for the GIF decoder (24 KB, internal first by the
+player's choice), a clip's QuickTime tables (malloc puts anything under 16 KB in internal RAM: 9-28 KB for
+these clips), a JPEG's bytes and libpng's state: at rest 8.9-27.9 KB for a clip, 28.9 KB for a GIF, 10.5-16.4
+KB for a JPEG, 5.3-9.9 KB for a PNG; while a clip plays, a GIF's probe took the free heap to 13.8 KB. Probes
+now take PSRAM first (`new_decoder(true)`, `heap_caps_malloc_prefer()` for the JPEG buffer, libpng's
+`png_create_read_struct_2()` allocator, the parser's `Table` allocator while a `QuickTimeFile(f, true)`
+parses: a `thread_local` flag), playback untouched: 5.6 KB for a clip, 4.3 KB for a GIF or a PNG, 8.9 KB for a
+JPEG (esp_new_jpeg's decoder, which it places itself). The 4.3 KB every probe still takes is probably
+stdio's buffer for its `fopen()` (newlib sizes it from the volume's block size); not checked.
+After the review (2026-11-21, the final build): 15 minutes with cyphal_service holding the adapter, as
+above: 42.0-51.3 KB free, 27.0 KB at the lowest, at rest 81.6 KB before and 81.2 KB after. The one-hour
+pycyphal soak (`test_soak.py`: a clip, the ring, the web app polled, a scene every 30 s, a setpoint burst a
+minute, the lists every 10 s and the whole root listed once a minute): free at its best 47.96 KB in the
+first minutes, then 47.8 KB to the end, flat; at rest 81.1 KB before and 77.9 KB after (the events store
+filling). **The lowest still stepped down, to 11.1 KB, by minute 14, and then held for 46 minutes**: lower
+than the 15.5 KB before the probe fix, so MediaInfo was not the only part of it. Not traced: the soak adds
+List walks and GetInfo to the phase 5 run, and a frame's decoder (8.9 KB), a MediaInfo (5.6 KB), `GET
+/events` of a full store, `GET /scenes` and Wi-Fi buffers at the same instant would reach it. Nothing was
+refused or ran out. libcanard's heap 2.4 KB at most, the send queue 25 frames; stacks never used: the node
+task's 1,704 of 3,072, the worker's 2,508 of 4,608, the second worker's 3,356 of 7,680.
 The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
 (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
 ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for
@@ -226,17 +259,33 @@ rejoin (`wifi_known_list`'s `last`), not none saved.
 same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
 
 - **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`, and the register table in
-  `cyphal_registers.c`), built with the computer's `cc`, no IDF, and `yakut_can.py`'s refusals; the board's
+  `cyphal_registers.c`) and the holo's (`main/holo_cyphal_util.c`: requests, Status's parts, Event, the
+  file services' paths and errors, MediaInfo, ListScenes, the calibration registers' values), built with
+  the computer's `cc`, no IDF, and `yakut_can.py`'s refusals; the board's
   happenings decoder (`components/scenes/happening.c`) and the host link's event records (`hl_record.c`) with
   the cJSON the component manager puts in `managed_components/` (a first build fetches it; or `CJSON_DIR=`).
   `make can-test`: pytest in `tests/hardware/` against the console and a gs_usb
   adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
   `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
   test that uploads to the spare OTA slot without activating it, and asserts the board still boots
-  `ota_0`. About 22 minutes with `--board-host` (estimated 2026-11-21: the holo's load test at its
-  default 3 minutes; 29 with `--holo-minutes 10`); stop cyphal_service first. The suite sets fixed
-  node-ID 52 and leaves it.
-- **The adapter (CANable, candleLight firmware) is fragile.** Open and close it only while the
+  `ota_0`. 33.5 minutes with `--board-host --holo-minutes 10` (measured 2026-11-21, 84 tests: 82
+  passed, the timed scan's strict xfail, the soak skipped); about 26 with the load test at its default
+  3 minutes. `--soak-minutes <n>` runs `test_soak.py` (skipped otherwise; `-k test_soak` to run it
+  alone). Stop cyphal_service first. The suite sets fixed node-ID 52 and leaves it.
+- **The adapter's firmware** (read with gs_usb's control-IN requests only, 2026-11-21): until that day a
+  canable.io build of candleLight, features 0xF3 (listen-only, loop-back, hardware timestamps,
+  identify, user ID, padded packets; no one-shot, bus-error reporting or GET_STATE). On 2026-11-21 the
+  user flashed "the latest `main` of candleLight" (a build from its main branch, not a tagged
+  release): the same strings ("canable.io", "canable gs_usb"), 1d50:606f, bcdDevice 0, and
+  DEVICE_CONFIG sw_version 2 / hw_version 1 as before (constants: they don't name a build); features
+  0x530BB (adds one-shot, bus-error reporting, GET_STATE and two flags past bit 13; drops user ID),
+  fclk_can 48 MHz (an STM32F042/F072). The notes below are from the old firmware, marked so; the rules
+  are kept until shown otherwise. **On the new firmware** (to the end of the phase 5 review, 2026-11-21):
+  no incident at all (no degradation, no wedge, no `dfu-util`, no flush beyond the routine one, which
+  read nothing each time) over 480 of 480 GetInfo, the targeted tests, the whole suite (84 tests,
+  33.5 minutes), 15 minutes of cyphal_service (`get-info` 90 of 90, against 10-15 % timing out on the old
+  firmware; no `Receive error`, no `InvalidFrame`) and the one-hour pycyphal soak. Yakut not tried on it.
+- **The adapter (CANable, candleLight firmware) is fragile** (seen on the old firmware). Open and close it only while the
   board sends nothing: inside a fixed node-ID's 2 s listen after `cyphal restart` (a plug-and-play
   node is never quiet). The host sending unacknowledged (no node up, or a bitrate other than the
   board's: never let it) or a close while the board sends degrades it and then wedges it: it goes on
@@ -249,9 +298,10 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   reads), macOS halts the pipe, the service never clears it and receives nothing ("Receive error"
   in a tight loop). Not a cure every time: once on 2026-11-20 the service still received nothing
   after a flush, and quitting it (in a listen) and repeating flush and start worked.
-- **The adapter hands frames to the computer out of order now and then**, so the service drops the
-  transfer: 10-15 % of its `get-info` calls time out. pycyphal gets 500 of 500. Not the board.
-- **A degraded adapter loses frames both ways before it wedges** (2026-11-20, after a day of
+- **The adapter handed frames to the computer out of order now and then** (old firmware), so the service
+  dropped the transfer: 10-15 % of its `get-info` calls timed out. pycyphal got 500 of 500. Not the board.
+  On the new firmware 90 of 90 (15 minutes, 2026-11-21).
+- **A degraded adapter loses frames both ways before it wedges** (old firmware, 2026-11-20, after a day of
   sessions): `test_worker_responses_prompt` lost 1 to 22 of 420 calls, some requests never on the bus
   (pycyphal's `out_frames` above the adapter's loopback count) and some responses the board sent and
   had acknowledged never reaching the computer; the phase 2 firmware lost as many. The DFU reboot
@@ -300,7 +350,7 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **A restart over Cyphal happens with the adapter open.** The harness then sends nothing until
   the board is back (`Net.muted()` in `tests/hardware/conftest.py`); a factory reset brings the
   node back with plug-and-play, never quiet, which the tests handle with pycyphal's allocator.
-- **Yakut wedges the CANable** (2026-11-20). `tools/yakut_can.py` opens and closes it in the
+- **Yakut wedged the CANable** (2026-11-20, on its old firmware; not tried on the new). `tools/yakut_can.py` opens and closes it in the
   board's listens, runs each `cyphal restart` to its prompt (linenoise swallows input until its
   `ESC[6n` is answered: a `cyphal restart` written without reading the reply was lost, and the
   adapter closed while the board sent) and closes while pycyphal still reads. It empties the
@@ -312,7 +362,11 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   `execute-command` and a `call` to ExecuteCommand (435), and the tests are the way to exercise
   commands. It also refuses a write of 65535 to `uavcan.node.id` (the closing `cyphal restart`
   would come back in plug-and-play, never quiet), `register-batch`, and a `--bitrate` other than
-  the one `cyphal` shows; its close always closes the adapter, after giving the node its fixed
+  the one `cyphal` shows. Click 8.2 and later name Yakut's command `execute`, not `execute-command`
+  (8.3.1 in r2_rp2040_rust's venv), so the refusals are checked twice: by the static spellings before
+  anything is imported, and again with the command word resolved through Yakut's own click group
+  once Yakut is imported (`yakut_resolver()`), its value-taking global options (`--node-info`) skipped
+  too. Its close always closes the adapter, after giving the node its fixed
   node-ID back if it isn't listening. Those refusals are `tools/test_yakut_can.py` (stdlib, in
   `make unit-test`); the wrapper's adapter paths have not been run on the bench since (2026-11-20).
   Yakut is not in `requirements-can.txt`: r2_rp2040_rust's venv has it (use it, install nothing
@@ -323,6 +377,24 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   header): the task empties the receive queue after the wait for room and just before each
   hand-over, and canbus is started with one send slot, so one frame at most goes after a frame from
   our node-ID arrives. Keep that order if the transmit path changes.
+- **The holo's servo registers are read on the node's worker** (`CYPHAL_REG_READ_ON_WORKER`,
+  `main/holo_cyphal_registers.c`): the kit's `servo_get_drive_policy()` takes the servos' mutex, held
+  through an NVS write, and nothing on the node's own task may wait, so `on_access()` hands such a
+  read to the worker in a job slot as it does a write. With every slot held the read goes unanswered
+  (Access has no busy) and counts as busy; the client asks again. (Until 2026-11-21 the reads came
+  from a copy refreshed once a second, which lagged a console or HTTP change by up to a second.) The
+  kit's rules come through: clearing endpoints clears the policy, a saved policy's settle is 100 ms
+  at least (and 100 is its default, not 0). No kit API is missing for these; none was patched.
+- **The application's services on fixed IDs** (`cyphal_app_t.fixed_services`: `uavcan.file.List`
+  and `GetInfo`) count as the node's own fixed ports for the port registers' rule; four at most. They
+  are `slow` (the second worker): both wait for the littlefs lock, which an HTTP upload holds through
+  each write (a List took up to 528 ms during a 1 MB upload, and on the worker held Status 1.36 s
+  apart). A `busy()` that returns 0 sends no response (List's empty name is its end of list).
+- **littlefs keeps a directory in name order** (its SPEC; byte order, as `strcmp`), so `readdir()`
+  gives names sorted, and `uavcan.file.List` walks it to the index with nothing sorted or allocated
+  (`test_files_against_http` checks the order). A filesystem other than littlefs would need a sort.
+- **Touch start and stop take a mutex** (`components/board_ws128/touch.c`): the console, the settings
+  (HTTP, console) and the Cyphal worker all call them. `board_touch_running()` is a pointer's read.
 - **Plug-and-play checks an allocated ID before taking it up** (`manual/use/cyphal.md`, "A node-ID
   that is already taken"): an allocator that lost its records can hand out one in use. Online 1.1 s
   after the node's start by the board's log against cyphal_service, 1.3-1.4 s after a
@@ -335,7 +407,7 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   it. Left for the user.
 - **Nothing on the node's worker may wait** (`main/holo_cyphal.c`): its poll carries out the setpoints and
   builds Status, Axes and Event. Work that can take long is a `slow` handler (`cyphal_handler_t`, and
-  `cyphal_app_t.identify_slow`): Scene and Screen, and identify, run on the second worker (`cyphal_slow`, 7.5 KB
+  `cyphal_app_t.identify_slow`): Scene, Screen, MediaInfo, the file services, and identify, run on the second worker (`cyphal_slow`, 7.5 KB
   stack: a palette PNG shown used 5,708 B on 2026-11-21; in internal RAM because it reads flash; the host link's
   10 KB task doesn't run in `link mode can`), two at most, in order. The worker's stack is 4.5 KB (2,088 B used
   at most over the tests). The poll reads the screen only through `screen_peek_state()`, which gives up rather
@@ -465,4 +537,9 @@ unfitted axis, and Status and the heartbeat while the holo can't move (the bench
 ready: see "NOT_READY can't happen on this bench" above); Motion `off` turning the ring off when
 the holo engine didn't start; a message dropped because the transmit queue was full (counted as
 dropped, not published): all by reading only. A timed scan's end can't be tested until the kit is
-fixed.
+fixed. Phase 5's, by reading only: a register write to an axis with no servo; a failed NVS save in
+a register write; the file services on a directory larger than the root here (44 entries: 43 files
+and `bench/`; the tree holds 45 clips and images, `GET /api/v1/media`'s count) and littlefs's order
+across a directory of several metadata blocks; MediaInfo on a 159-byte path; touch reporting set by
+the register surviving a power cycle (a `restart` was checked); a register read left unanswered with
+every job slot held; a ListScenes entry that doesn't parse.

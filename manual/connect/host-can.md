@@ -5,9 +5,12 @@ frames. It suits a build that already has a CAN bus through the body and dome, w
 nodes on it. [The board on Cyphal](../use/cyphal.md) covers what the node does once it's wired:
 how it gets its node-ID, what it reports, and its settings.
 
-What the node does so far is the baseline: it gets a node-ID, sends a heartbeat, and answers
-`uavcan.node.GetInfo`. Playing scenes and reporting events over Cyphal come later; until then a
-host runs the board over [UART](host-uart.md), [RS485](host-rs485.md) or Wi-Fi.
+Over Cyphal a controller can do most of what a host does over [UART](host-uart.md) or
+[RS485](host-rs485.md): move the holo and set its light, apply scenes, show clips and stills, set
+the LED ring, hear the board's events, list the scenes and the files, and calibrate the holo, as
+well as manage the node with Cyphal's standard registers and commands
+([the holo on Cyphal](../use/cyphal.md#the-holo-on-cyphal)). Uploading files, Wi-Fi and the
+configuration backup stay on Wi-Fi and the USB console.
 
 ## What you need
 

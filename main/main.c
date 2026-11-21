@@ -236,10 +236,12 @@ _Static_assert(R2_HOLO_PORT_COUNT <= CYPHAL_PORTS_MAX, "the node keeps CYPHAL_PO
 _Static_assert(sizeof(s_holo_ports) / sizeof(s_holo_ports[0]) == R2_HOLO_PORT_COUNT, "one entry a port");
 
 /* Beyond the node's own registers: the board's settings (the boot scene, the backlight, the LEDs'
- * brightness and count), as DELETE /api/v1/settings does. The scenes, the files, the servos'
- * calibration and drive policy, the network and the web app's settings, and the host link's are kept,
- * so that the node comes back on the bus. All or nothing, as the node asks: if the reset doesn't save,
- * what was saved before is put back (NVS writes each value as it is set) */
+ * brightness and count, touch reporting, which is the register r2.touch.reporting), as DELETE
+ * /api/v1/settings does. The scenes, the files, the servos' calibration and drive policy (registers too,
+ * but the servos' own), the network and the web app's settings, and the host link's are kept, so that the
+ * node comes back on the bus. All or nothing, as the node asks: if the reset doesn't save, what was saved
+ * before is put back (NVS writes each value as it is set); settings_reset() applies nothing until all of it
+ * is saved, so what is in effect is untouched then too */
 static esp_err_t cyphal_factory_reset(void)
 {
     settings_t was, s;
@@ -328,12 +330,7 @@ static void initialize_board(void)
         ESP_LOGW(TAG, "holo: %s", esp_err_to_name(err));
     }
 
-#if CONFIG_BOARD_TOUCH_AUTOSTART
-    err = board_touch_start();
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "touch: %s", esp_err_to_name(err));
-    }
-#endif
+    /* Touch reporting starts with the board's settings (settings_apply_boot()) */
 }
 
 void app_main(void)
@@ -420,7 +417,9 @@ void app_main(void)
      * node-ID and the node's name. Both stay in a backup, as the hostname and the link's address
      * do, so that a replacement board takes the old one's place (CLAUDE.md, "Configuration
      * backup"); a second board restored from it needs its own node-ID (manual/use/backup.md). So
-     * do the holo's port numbers (its own setpoint subject, for a second holo). */
+     * do the holo's port numbers (its own setpoint subject, for a second holo), and its registers: the
+     * servos' calibration and drive policy (the kit's NVS, as before) and touch reporting (a board setting,
+     * holo_cfg). */
     err = cyphal_init(&(const cyphal_app_t){
         .ports = s_holo_ports,
         .port_count = sizeof(s_holo_ports) / sizeof(s_holo_ports[0]),
@@ -428,8 +427,12 @@ void app_main(void)
         .factory_reset = cyphal_factory_reset,
         .identify = cyphal_identify,
         .identify_slow = true,      /* a scene: the screen's crosshair, which waits for the screen */
+        .registers = HOLO_CYPHAL_REGISTERS,
+        .register_count = HOLO_CYPHAL_REGISTER_COUNT,
         .handlers = HOLO_CYPHAL_HANDLERS,
         .handler_count = HOLO_CYPHAL_HANDLER_COUNT,
+        .fixed_services = HOLO_CYPHAL_FIXED,
+        .fixed_service_count = HOLO_CYPHAL_FIXED_COUNT,
         .poll = holo_cyphal_poll,
     });
     if (err != ESP_OK) {
@@ -456,7 +459,7 @@ void app_main(void)
         ESP_LOGW(TAG, "web: %s", esp_err_to_name(err));
     }
 
-    /* What the board starts with: the saved backlight and LED brightness, and the boot scene */
+    /* What the board starts with: the saved backlight, LED brightness and touch reporting, and the boot scene */
     err = scenes_start();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "scenes: %s", esp_err_to_name(err));

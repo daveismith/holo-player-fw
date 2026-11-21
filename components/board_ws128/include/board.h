@@ -105,7 +105,9 @@ esp_err_t board_lcd_stream_end(void);
 esp_err_t board_lcd_bench(int frames, int64_t *us_per_frame);
 
 #if CONFIG_BOARD_TOUCH_ENABLE
-/* Touch (touch.c). Off unless started; `touch on` or CONFIG_BOARD_TOUCH_AUTOSTART. */
+/* Touch (touch.c). Off unless started: by the board's settings at the start (settings_t.touch, whose default is
+ * CONFIG_BOARD_TOUCH_AUTOSTART), `touch on`, or the Cyphal register r2.touch.reporting. Start and stop may be called
+ * from any task; running is a pointer's read. */
 esp_err_t board_touch_start(void);
 void board_touch_stop(void);
 bool board_touch_running(void);

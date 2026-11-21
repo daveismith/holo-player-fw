@@ -40,7 +40,11 @@ give it its own name, address and node-ID afterwards (two nodes with one node-ID
 [stop](cyphal.md#a-node-id-that-is-already-taken); with plug-and-play each board is given its
 own). The Cyphal port numbers come with the rest of the node's settings: a second holo restored
 from the same backup needs its own setpoint subject as well (`uavcan.sub.setpoint.id`), or the two
-[move together](cyphal.md#moving-the-holo).
+[move together](cyphal.md#moving-the-holo). The holo's other Cyphal registers are the servos'
+calibration and drive policy, already in the backup as the servos' own settings, and touch
+reporting (`r2.touch.reporting`), one of the board's settings (NVS `holo_cfg`, `touch`), which comes
+with the rest: the calibration belongs to the linkage in front of each servo, so a second holo built
+differently is calibrated again.
 
 ## Making one
 

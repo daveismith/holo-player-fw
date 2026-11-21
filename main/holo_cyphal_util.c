@@ -3,6 +3,7 @@
  */
 #include "holo_cyphal_util.h"
 
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -443,4 +444,126 @@ bool holo_scene_differs(const r2_holo_state_Scene_0_1 *a, const r2_holo_state_Sc
         t.remaining_ms = b->remaining_ms;
     }
     return memcmp(&t, b, sizeof(t)) != 0;
+}
+
+/* ------------------------------------------------------------------ the lists */
+
+bool holo_file_path(const uavcan_file_Path_2_0 *p, char *out, size_t len)
+{
+    size_t n = p->path.count;
+    while (n > 1 && p->path.elements[n - 1] == '/') {
+        n--;            /* a directory's "/" at the end; "/" alone is the root */
+    }
+    if (n == 0) {
+        if (len < 2) {
+            return false;
+        }
+        strcpy(out, "/");
+        return true;
+    }
+    return holo_c_string(p->path.elements, n, out, len);
+}
+
+uint16_t holo_file_error(int err)
+{
+    switch (err) {
+    case 0:       return uavcan_file_Error_1_0_OK;
+    case ENOENT:
+    case ENOTDIR: return uavcan_file_Error_1_0_NOT_FOUND;   /* a file as a directory in the path: never found */
+    case EINVAL:  return uavcan_file_Error_1_0_INVALID_VALUE;
+    case EACCES:
+    case EPERM:   return uavcan_file_Error_1_0_ACCESS_DENIED;
+    case EISDIR:  return uavcan_file_Error_1_0_IS_DIRECTORY;
+    default:      return uavcan_file_Error_1_0_IO_ERROR;
+    }
+}
+
+bool holo_file_entry(const char *name, bool dir, uavcan_file_Path_2_0 *out)
+{
+    const size_t n = strlen(name);
+    out->path.count = 0;
+    if (n + (dir ? 1 : 0) > sizeof(out->path.elements)) {
+        return false;
+    }
+    memcpy(out->path.elements, name, n);
+    if (dir) {
+        out->path.elements[n] = '/';
+    }
+    out->path.count = n + (dir ? 1 : 0);
+    return true;
+}
+
+void holo_media_info(const holo_media_in_t *in, r2_holo_MediaInfo_Response_0_1 *out)
+{
+    /* media_kind_t and media_format_t, each one less than MediaInfo's number for it (0 is NONE there) */
+    out->kind = in->kind >= 0 && in->kind <= 2 ? (uint8_t)(in->kind + 1) : r2_holo_MediaInfo_Response_0_1_NONE;
+    out->format = in->kind >= 0 && in->format >= 0 && in->format <= 3 ? (uint8_t)(in->format + 1)
+                                                                      : r2_holo_MediaInfo_Response_0_1_FORMAT_NONE;
+    if (out->kind == r2_holo_MediaInfo_Response_0_1_NONE) {
+        out->width = out->height = out->frames = 0;
+        out->fps = 0;
+        out->duration_ms = 0;
+        return;
+    }
+    out->width = (uint16_t)held_to(in->width, UINT16_MAX);
+    out->height = (uint16_t)held_to(in->height, UINT16_MAX);
+    if (out->kind == r2_holo_MediaInfo_Response_0_1_IMAGE) {
+        out->frames = 1;
+        out->fps = 0;
+        out->duration_ms = 0;
+        return;
+    }
+    out->frames = (uint16_t)held_to(in->frames, UINT16_MAX);
+    out->fps = in->fps > 0 && in->fps < 65504 ? (float)in->fps : 0;     /* float16's largest */
+    out->duration_ms = held_to(in->duration_s * 1000.0, UINT32_MAX);
+}
+
+void holo_list_scenes(int count, const char *name, int slot, r2_holo_ListScenes_Response_0_1 *out)
+{
+    memset(out, 0, sizeof(*out));
+    if (count < 0) {
+        out->result.code = r2_holo_Error_0_1_BUSY;
+        holo_error_message(&out->result, "busy: the scenes can't be read now");
+        return;
+    }
+    out->count = (uint8_t)held_to(count, UINT8_MAX);
+    out->slot = name != NULL && name[0] != '\0' ? (uint8_t)held_to(slot, UINT8_MAX) : 0;
+    BYTES_OF(name, out->name);
+}
+
+/* ------------------------------------------------------------------ the holo's registers */
+
+void holo_endpoints_of(uint16_t op_min_us, uint16_t op_max_us, bool invert, uint16_t out[2])
+{
+    out[0] = invert ? op_max_us : op_min_us;
+    out[1] = invert ? op_min_us : op_max_us;
+}
+
+bool holo_endpoints_write(const int64_t v[2], unsigned abs_min_us, unsigned abs_max_us, holo_endpoints_t *out,
+                          char *why, size_t why_len)
+{
+    memset(out, 0, sizeof(*out));
+    if (v[0] == 0 && v[1] == 0) {
+        out->clear = true;
+        return true;
+    }
+    if (v[0] < abs_min_us || v[0] > abs_max_us || v[1] < abs_min_us || v[1] > abs_max_us || v[0] == v[1]) {
+        snprintf(why, why_len, "closed and open are each %u to %u us, and not the same; [0, 0] goes back to the "
+                 "default range", abs_min_us, abs_max_us);
+        return false;
+    }
+    out->invert = v[0] > v[1];
+    out->min_us = (uint16_t)(out->invert ? v[1] : v[0]);
+    out->max_us = (uint16_t)(out->invert ? v[0] : v[1]);
+    return true;
+}
+
+bool holo_settle_write(int64_t v, uint16_t *out, char *why, size_t why_len)
+{
+    if (v < 0 || v > UINT16_MAX) {
+        snprintf(why, why_len, "a settle time is 0 to 65535 ms");
+        return false;
+    }
+    *out = (uint16_t)v;
+    return true;
 }

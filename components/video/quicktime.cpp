@@ -5,11 +5,24 @@
 #include "quicktime.h"
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
+#include "esp_heap_caps.h"
 
 namespace quicktime {
 
 namespace {
+
+thread_local bool t_probe;      /* this task is parsing a QuickTimeFile made for a probe */
+
+/* t_probe set for a QuickTimeFile's parse, and put back as it was */
+struct ProbeScope {
+    explicit ProbeScope(bool probe) : mWas(t_probe) { t_probe = probe; }
+    ~ProbeScope() { t_probe = mWas; }
+    ProbeScope(const ProbeScope &) = delete;
+    ProbeScope &operator=(const ProbeScope &) = delete;
+    bool mWas;
+};
 
 uint16_t be16(const uint8_t *p) { return (uint16_t)((p[0] << 8) | p[1]); }
 uint32_t be32(const uint8_t *p)
@@ -29,7 +42,7 @@ constexpr uint32_t MAX_ENTRIES = 1u << 20;
 /* Load `count` entries of `entry_size` bytes from `at` in one read, or fail if they would run
  * past the atom. */
 bool read_table(const QTFile &file, uint64_t atom_offset, uint64_t atom_size, uint64_t at,
-                uint32_t count, size_t entry_size, std::vector<uint8_t> &out)
+                uint32_t count, size_t entry_size, Table<uint8_t> &out)
 {
     if (count > MAX_ENTRIES || at + (uint64_t)count * entry_size > atom_size) {
         return false;
@@ -48,6 +61,22 @@ void fourcc(uint32_t v, char out[5])
 }
 
 }  // namespace
+
+/* ------------------------------------------------------------------ the tables' memory */
+
+void *table_alloc(size_t bytes)
+{
+    void *p = t_probe ? heap_caps_malloc_prefer(bytes, 2, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT) : malloc(bytes);
+    if (p == nullptr && bytes != 0) {
+        abort();        /* as operator new does, in a build without exceptions */
+    }
+    return p;
+}
+
+void table_free(void *p)
+{
+    free(p);
+}
 
 /* ------------------------------------------------------------------ QTFile */
 
@@ -243,7 +272,7 @@ SampleDescriptionAtom::SampleDescriptionAtom(const QTFile &file, uint64_t offset
 TimeToSampleAtom::TimeToSampleAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth)
     : Atom(file, offset, limit, depth)
 {
-    std::vector<uint8_t> raw;
+    Table<uint8_t> raw;
     const uint32_t count = mValid ? readUint32(mDataOffset + 4) : 0;
     if (!mValid || !read_table(mFile, mOffset, mSize, mDataOffset + 8, count, 8, raw)) {
         mValid = false;
@@ -258,7 +287,7 @@ TimeToSampleAtom::TimeToSampleAtom(const QTFile &file, uint64_t offset, uint64_t
 SampleToChunkAtom::SampleToChunkAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth)
     : Atom(file, offset, limit, depth)
 {
-    std::vector<uint8_t> raw;
+    Table<uint8_t> raw;
     const uint32_t count = mValid ? readUint32(mDataOffset + 4) : 0;
     if (!mValid || !read_table(mFile, mOffset, mSize, mDataOffset + 8, count, 12, raw)) {
         mValid = false;
@@ -285,7 +314,7 @@ SampleSizeAtom::SampleSizeAtom(const QTFile &file, uint64_t offset, uint64_t lim
     mNumberOfEntries = count;
     if (mSampleSize == 0) {
         /* the sketch read these one 4-byte seek at a time; one read is ~1800x fewer calls */
-        std::vector<uint8_t> raw;
+        Table<uint8_t> raw;
         if (!read_table(mFile, mOffset, mSize, mDataOffset + 12, count, 4, raw)) {
             mValid = false;
             return;
@@ -300,7 +329,7 @@ SampleSizeAtom::SampleSizeAtom(const QTFile &file, uint64_t offset, uint64_t lim
 ChunkOffsetAtom::ChunkOffsetAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth)
     : Atom(file, offset, limit, depth)
 {
-    std::vector<uint8_t> raw;
+    Table<uint8_t> raw;
     const size_t width = mType == TAG64 ? 8 : 4;
     const uint32_t count = mValid ? readUint32(mDataOffset + 4) : 0;
     if (!mValid || !read_table(mFile, mOffset, mSize, mDataOffset + 8, count, width, raw)) {
@@ -416,8 +445,9 @@ MovieAtom::MovieAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t
 
 /* ------------------------------------------------------------------ QuickTimeFile */
 
-QuickTimeFile::QuickTimeFile(FILE *file) : mFile(file)
+QuickTimeFile::QuickTimeFile(FILE *file, bool probe) : mFile(file)
 {
+    const ProbeScope scope(probe);
     if (mFile.Size() == 0) {
         mError = "empty or unreadable file";
         return;
@@ -482,8 +512,8 @@ QuickTimeFile::QuickTimeFile(FILE *file) : mFile(file)
      * interleaved.
      */
     const size_t frames = stsz->GetNumberOfEntries();
-    const std::vector<uint64_t> &chunks = stco->Offsets();
-    const std::vector<SampleToChunkAtom::Entry> &runs = stsc->Entries();
+    const Table<uint64_t> &chunks = stco->Offsets();
+    const Table<SampleToChunkAtom::Entry> &runs = stsc->Entries();
     mChunks = chunks.size();
     mSizes.resize(frames);
     mOffsets.resize(frames);

@@ -3,7 +3,8 @@
  * holo engine's motion, a Light or Ring request as a change to the LED ring, a Scene or Screen request
  * read and checked, the refusals' words in r2.holo.Error, the engine's words as r2.holo.Reason, the
  * positions as r2.holo.Axes, the board's happenings as r2.holo.Event, the screen and the scene as
- * Status's parts, and the rates Status and Axes go out at (manual/reference/cyphal.md). Plain C over
+ * Status's parts, the rates Status and Axes go out at, the file services' paths, errors and order, MediaInfo and
+ * ListScenes' responses, and the holo's registers' values (manual/reference/cyphal.md). Plain C over
  * the generated DSDL headers and happening.h, no ESP-IDF: tests/host builds it.
  */
 #pragma once
@@ -15,6 +16,8 @@
 #include "r2/holo/Error_0_1.h"
 #include "r2/holo/Event_0_1.h"
 #include "r2/holo/Light_0_1.h"
+#include "r2/holo/ListScenes_0_1.h"
+#include "r2/holo/MediaInfo_0_1.h"
 #include "r2/holo/MotionSpec_0_1.h"
 #include "r2/holo/Reason_0_1.h"
 #include "r2/holo/Ring_0_1.h"
@@ -23,6 +26,8 @@
 #include "r2/holo/state/RingSetting_0_1.h"
 #include "r2/holo/state/Scene_0_1.h"
 #include "r2/holo/state/Screen_0_1.h"
+#include "uavcan/file/Error_1_0.h"
+#include "uavcan/file/Path_2_0.h"
 #include "happening.h"
 
 #ifdef __cplusplus
@@ -193,6 +198,61 @@ int holo_setpoint_percent(int16_t value);
  * that it says how bright the ring is */
 void holo_ring_setting(unsigned mode, const uint8_t rgb[3], bool loop, unsigned period_ms, unsigned level,
                        int brightness, r2_holo_state_RingSetting_0_1 *out);
+
+/* ---- the lists: uavcan.file.List and GetInfo, r2.holo.MediaInfo */
+
+/* A uavcan.file.Path as a path from the volume's root, for fs_path() to check: an empty path and "/" are the root,
+ * and a "/" at the end (a directory's, by the type's convention) is dropped. False for a NUL in it, or one that
+ * doesn't fit `len` */
+bool holo_file_path(const uavcan_file_Path_2_0 *p, char *out, size_t len);
+
+/* An errno from the file operations (fs_ops.h) as uavcan.file.Error: ENOENT NOT_FOUND, and ENOTDIR too (a file where
+ * the path wants a directory: the type has no NOT_DIRECTORY, and the path can never be found, whereas IO_ERROR would
+ * say "try again"), EINVAL INVALID_VALUE (a path fs_path() refuses), EACCES and EPERM ACCESS_DENIED, EISDIR
+ * IS_DIRECTORY, anything else IO_ERROR; 0 OK */
+uint16_t holo_file_error(int err);
+
+/* A directory's entry as List's entry_base_name: its name, and "/" after a directory's (the type's convention, so
+ * that a client tells them apart without a GetInfo). False if it doesn't fit (never, for a name of FS_NAME_MAX) */
+bool holo_file_entry(const char *name, bool dir, uavcan_file_Path_2_0 *out);
+
+/* What media_probe() found (video_player.h's media_info_t, as plain numbers): kind and format by its enums
+ * (MEDIA_CLIP, MEDIA_IMAGE, MEDIA_ANIMATION; MEDIA_MOV, MEDIA_PNG, MEDIA_JPEG, MEDIA_GIF), -1 for none (not a clip or
+ * an image at all) */
+typedef struct {
+    int kind, format;
+    uint32_t width, height, frames;
+    double fps, duration_s;
+} holo_media_in_t;
+
+/* As MediaInfo's fields (its result is the caller's): an image is 1 frame, 0 fps and 0 ms, whatever its header
+ * says (a GIF of one frame among them); numbers held to the fields' sizes, the duration rounded to milliseconds */
+void holo_media_info(const holo_media_in_t *in, r2_holo_MediaInfo_Response_0_1 *out);
+
+/* r2.holo.ListScenes' response: `count` scenes (-1: couldn't be read now, BUSY), the index-th's name ("" past the
+ * end) and slot */
+void holo_list_scenes(int count, const char *name, int slot, r2_holo_ListScenes_Response_0_1 *out);
+
+/* ---- the holo's registers */
+
+/* An axis's endpoints as r2.holo.<axis>.endpoints_us reads them, [closed, open], from the servo's working range:
+ * closed is the range's low end unless the servo is turned round (closed above open) */
+void holo_endpoints_of(uint16_t op_min_us, uint16_t op_max_us, bool invert, uint16_t out[2]);
+
+/* A write of [closed, open] (cyphal_reg_take_numbers()' whole numbers) as the servo's working range: [0, 0] clears it
+ * (back to the firmware's default range), otherwise each within abs_min..abs_max and the two not equal, closed above
+ * open turning the servo round. False, with why, for anything else */
+typedef struct {
+    bool clear;
+    uint16_t min_us, max_us;
+    bool invert;
+} holo_endpoints_t;
+bool holo_endpoints_write(const int64_t v[2], unsigned abs_min_us, unsigned abs_max_us, holo_endpoints_t *out,
+                          char *why, size_t why_len);
+
+/* A write of a settle time (a whole number, or CYPHAL_REG_NOT_WHOLE): 0..65535 (the kit raises one under 100 to
+ * 100). False, with why, otherwise */
+bool holo_settle_write(int64_t v, uint16_t *out, char *why, size_t why_len);
 
 /* ---- rates */
 

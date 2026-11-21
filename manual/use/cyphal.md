@@ -1,7 +1,7 @@
 # The board on Cyphal
 
 With a [CAN transceiver](../connect/host-can.md) on the host link's pins, the board is a node on
-a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal node does:
+a [Cyphal](https://opencyphal.org)/CAN bus. It does what every Cyphal node does, and is a holo:
 
 - it gets a **node-ID**, by plug-and-play or from its settings;
 - it sends a **heartbeat** once a second (`uavcan.node.Heartbeat`);
@@ -9,12 +9,12 @@ a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal nod
 - its settings are **registers** (`uavcan.register.Access` and `List`);
 - it **restarts, resets or identifies itself** when told (`uavcan.node.ExecuteCommand`);
 - it says which **ports** it uses every 10 seconds (`uavcan.node.port.List`);
-- and it is a **holo**: its motions, its light (the LED ring), direct moves of its axes, and its
-  state, with the holo's own types ([below](#the-holo-on-cyphal)).
+- and it is a **holo**: its motions, its light (the LED ring), direct moves of its axes, its
+  state, its scenes, its screen, the LED ring's own settings, the board's events, the lists of its
+  scenes and files, and its calibration, with the holo's own types ([below](#the-holo-on-cyphal)).
 
-Scenes, the screen, the ring's own settings and the board's events are not on Cyphal yet. The node
-is there to be found, identified, managed and moved, by a dome controller or by a tool such as
-[cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut.
+The node is there to be found, identified, managed and driven, by a dome controller or by a tool
+such as [cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut.
 
 The bus is classic CAN, 1 Mbit/s unless changed. The USB console, Wi-Fi and the web app all work
 alongside it. UART, RS485 and CAN share the same pins, so only one of them runs at a time.
@@ -254,21 +254,13 @@ Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats d
 
 ## The holo on Cyphal
 
-!!! note "Partly in the firmware"
-    This section describes the holo's Cyphal interface, part of it ahead of the firmware. What
-    can be used now: the node's management ([its registers](#settings-as-registers) and
-    [its commands](#restart-factory-reset-identify)), the holo itself (`r2.holo.Motion`,
-    `r2.holo.Light`, `r2.holo.Axes` both ways and `r2.holo.Status`), and the board's own features:
-    `r2.holo.Scene`, `r2.holo.Screen`, `r2.holo.Ring` and `r2.holo.Event`. Still to come: the lists
-    of scenes and files, and the holo's calibration as registers. The
-    [Cyphal interface](../reference/cyphal.md) reference has every type, port and register, and says
-    which are built.
-
 A controller on the bus, the dome panel or an app on a Linux machine, can do with this holo what
 the panel does with a holo of its own: every motion, the light, direct moves of the axes, the
-holo's state, and letting go of the servos. It will also reach most of the board's own features:
-scenes, the screen, the LED ring, and the board's events. And the node is managed the standard
-Cyphal way, with registers and commands, by any Cyphal tool.
+holo's state, and letting go of the servos. It also reaches most of the board's own features:
+scenes, the screen, the LED ring, the board's events, and the lists of scenes and files. And the
+node is managed the standard Cyphal way, with registers and commands, by any Cyphal tool, the holo's
+calibration among them. The [Cyphal interface](../reference/cyphal.md) reference has every type,
+port and register.
 
 The holo's messages and services are Cyphal data types of their own, `r2.holo.*`, kept in the
 [r2_cyphal_dsdl](https://github.com/daveismith/r2_cyphal_dsdl) repository, which a controller
@@ -289,7 +281,9 @@ Cyphal's standard types.
 | Show a clip, an image or a colour, or nothing; set the backlight | Calls `r2.holo.Screen` | service 103 |
 | Set the LED ring | Calls `r2.holo.Ring` | service 104 |
 | List the saved scenes | Calls `r2.holo.ListScenes` | service 105 |
-| Change a setting, or a port's number | Calls `uavcan.register.Access` | service 384 |
+| Ask what a clip or an image is | Calls `r2.holo.MediaInfo` | service 106 |
+| List the files, and their sizes | Calls `uavcan.file.List` and `uavcan.file.GetInfo` | services 406, 405 |
+| Change a setting, a port's number, the holo's calibration | Calls `uavcan.register.Access` | service 384 |
 | Restart the board, reset it, find it | Calls `uavcan.node.ExecuteCommand` | service 435 |
 
 Each service does what the same request over the [HTTP API](../reference/http-api.md) or the
@@ -361,6 +355,19 @@ the holo's setpoints and the board's `Status` never wait for them, and a control
 response before it counts on the next request being done after it. The scenes themselves are made
 in the web app or with the HTTP API.
 
+### The lists
+
+`r2.holo.ListScenes` gives the saved scenes one a call, by index, with their slots, in the order
+`GET /api/v1/scenes` has them. The standard `uavcan.file.List` and `uavcan.file.GetInfo` give the
+files on the board, as `fs ls` sees them: a directory's entries one a call, by index, in order of
+their names (a directory's with `/` after it), and each one's size and when it was last written.
+`r2.holo.MediaInfo` gives a clip's or an image's details from its header (its kind, size, frames,
+rate and length) and whether the screen can show it, and why not, as `GET /api/v1/media/info` does.
+All of them only read: files and scenes are made and changed over Wi-Fi. While the board is busy
+with earlier requests, `uavcan.file.List` isn't answered at all (its empty name would end the list),
+so a client asks again after its timeout. The [reference](../reference/cyphal.md#the-files) has the
+details and the times on the bench.
+
 ### Settings as registers
 
 The node's settings are Cyphal registers, which any Cyphal tool lists, reads and writes:
@@ -371,6 +378,9 @@ The node's settings are Cyphal registers, which any Cyphal tool lists, reads and
 | `r2.node.name` | The name `GetInfo` reports (`cyphal name`) | `r2.dome.holo.front` |
 | `uavcan.can.bitrate` | The bitrate (`cyphal bitrate`) | 1000000 |
 | `uavcan.pub.status.id`, … `uavcan.srv.ring.id`, … | Each port's number; 65535 turns the port off | The defaults above |
+| `r2.holo.horizontal.endpoints_us`, `r2.holo.vertical.endpoints_us` | Each axis's closed and open ends in µs (`holo endpoints`); `0 0` clears them | The default range, not saved |
+| `r2.holo.horizontal.release`, `…vertical.release`, `…settle_ms` | Each servo's drive policy (the web app's, `PUT /api/v1/servos/policy`) | Hold everywhere, 100 ms |
+| `r2.touch.reporting` | Touch events on or off, saved: the board's `touch` setting (`settings touch`; `touch on` and `touch off` don't save) | Off |
 
 They are the same saved settings the `cyphal` commands change, and the console reads and writes
 the registers by name too:
@@ -382,7 +392,7 @@ cyphal register uavcan.sub.setpoint.id 2313
 ```
 
 ```text
-uavcan.sub.setpoint.id       2313                   natural16[1], mutable, persistent; 2303 until the node's next start
+uavcan.sub.setpoint.id          2313                   natural16[1], mutable, persistent; 2303 until the node's next start
 ```
 
 A change takes effect when the node next starts (`cyphal restart`). A value the board can't take
@@ -397,10 +407,15 @@ published or subscribed, are one set and the services another, and the node's ow
 count ([the rule](../reference/cyphal.md#port-numbers-in-use)). To swap two ports' numbers, move one
 to a free number, or to 65535, first.
 
-Over Cyphal the response says the same by carrying the old value. Until the firmware has a port,
-its number is only kept: of the holo's ports, all but `list_scenes` and `media_info` are built;
-those two aren't used, whatever their registers hold. Later the holo's calibration, its servos'
-drive policy and touch reporting become registers as well.
+Over Cyphal the response says the same by carrying the old value.
+
+The holo's calibration registers take effect at once, and are the servos' own saved values, the
+ones `holo endpoints`, the web app's calibration and `PUT /api/v1/servos/policy` change: a change
+either way shows the other way, at once. Writing `0 0` to an axis's endpoints clears its drive
+policy too, as `holo endpoints <axis> clear` does. Touch reporting is one of the board's settings
+(`settings touch`, `touch.reporting` in `/api/v1/settings`): saved, applied at once and at every
+start; `touch on` and `touch off` change it until the next start, and the register reads what is in
+effect.
 
 The port numbers are saved and go into a [backup](backup.md) with the rest of the node's
 settings. A second holo restored from the same backup needs its own node-ID and its own setpoint
@@ -411,9 +426,10 @@ subject.
 `uavcan.node.ExecuteCommand`, the standard command service:
 
 - **restart** restarts the board, a second after it answers;
-- **factory reset** puts every register and the board's settings back to their defaults and
-  restarts, keeping the scenes, the files, the servos' calibration, the network settings and the
-  host link's mode (so the node comes back on the bus, asking for a node-ID by plug-and-play);
+- **factory reset** puts the node's registers and the board's settings (touch reporting among
+  them) back to their defaults and restarts, keeping the scenes, the files, the servos' calibration and drive
+  policy, the network settings and the host link's mode (so the node comes back on the bus, asking
+  for a node-ID by plug-and-play);
 - **identify** blinks the ring white and shows the crosshair for 5 seconds, to tell which board
   on the bus is which, then puts both back. It runs as a short scene called `identify`, so the web
   app shows it, and it ends a scene that was running.
@@ -447,13 +463,16 @@ tools/yakut_can.py register-access 52 uavcan.srv.motion.id
 tools/yakut_can.py register-access 52 uavcan.pub.status.id 2310
 ```
 
-It refuses `execute-command`, and a `call` to `uavcan.node.ExecuteCommand`: on the bench a
-candleLight now and then stopped passing frames to the computer during a Yakut session, every time
-a command was sent and sometimes otherwise, and only the adapter's own bootloader brought it back.
-The repository's hardware tests send the commands instead. It also refuses what would leave the
-board never quiet when the adapter has to close (a write of 65535, plug-and-play, to
-`uavcan.node.id`: use `cyphal id auto` on the console), `register-batch`, and a `--bitrate` other
-than the board's.
+It refuses `execute-command` (which newer versions of the `click` library name `execute`), and a
+`call` to `uavcan.node.ExecuteCommand`: on the bench, with the adapter's earlier firmware (a
+canable.io build of candleLight, until 2026-11-21), the candleLight now and then stopped passing
+frames to the computer during a Yakut session, every time a command was sent and sometimes
+otherwise, and only the adapter's own bootloader brought it back. Its firmware has since been
+replaced by a build of candleLight's current main branch, on which Yakut hasn't been tried; the
+refusal stays until it has. The repository's hardware tests send the commands instead. It also
+refuses what would leave the board never quiet when the adapter has to close (a write of 65535,
+plug-and-play, to `uavcan.node.id`: use `cyphal id auto` on the console), `register-batch`, and a
+`--bitrate` other than the board's.
 
 ### What stays off Cyphal
 
@@ -477,17 +496,19 @@ handed to the controller that were never sent (bus-off, or a restart of the node
 arrived faster than they could be read, the most frames its transmit queue has held since the start
 (of the 160 it can), and the memory it uses. Its libcanard heap is 32 KB of PSRAM, reserved at its
 first start; a port list waiting to go takes about 1.8 KB of it. The internal RAM it takes is its
-task's 3 KB stack while it runs, the worker's 4.5 KB stack (the task that writes registers, carries
-out the holo's Motion, Light and Ring requests and its setpoints, and builds what the holo
-publishes, so that the node's own never waits) from its first start on, the second worker's 7.5 KB
-stack (the task that carries out Scene and Screen requests and identify, which may decode an image;
+task's 3 KB stack while it runs, the worker's 4.5 KB stack (the task that writes registers and reads
+the holo's, carries out the holo's Motion, Light, Ring and ListScenes requests and its setpoints, and
+builds what the holo publishes, so that the node's own never waits) from its first start on, the
+second worker's 7.5 KB stack (the task that carries out Scene, Screen and MediaInfo requests, the file
+services and identify, which may decode an image, read a file whole or wait for the storage volume;
 the host link's own task, which runs the same routes on 10 KB, doesn't run while the node has its pins), and the CAN
 driver's queues (about 8 KB, kept once the controller has run, the same as for `can`). The holo's
 mailboxes and the worker's copy of Status are in PSRAM.
 
 `services` counts the register and command requests, the ones refused, and those answered busy
-because the worker already held four, or the second worker two; `worker` shows how many each holds
-now. `application` counts the holo's own: requests to its services handed to the workers and
+because the worker already held four, or the second worker two, or left unanswered for that reason
+(a read of one of the holo's servo registers, a `uavcan.file.List`: their types can't say busy, and
+the client asks again); `worker` shows how many each holds now. `application` counts the holo's own: requests to its services handed to the workers and
 setpoints received, and gives the health the heartbeat reports. `published` counts each message the
 holo publishes, Status, Event and Axes, that was queued for the bus, and in brackets, for Status and
 Axes, those a newer one replaced before they went (none, on a quiet bus), and for Event, those its

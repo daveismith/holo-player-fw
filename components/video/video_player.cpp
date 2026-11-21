@@ -88,7 +88,37 @@ volatile bool s_stop;
  * leaves the panel on rather than blinking it off and back on. */
 volatile bool s_replacing;
 esp_timer_handle_t s_timer;
-Stats s_stats;               /* the current playback, or the last */
+/* The current playback, or the last. Written by the player's task, which never takes the screen's lock, and read by
+ * whoever holds that lock (GET /screen, the Cyphal node's Status) or by the console: its whole-struct writes (a
+ * playback's start: stats_put()) and its 64-bit stamps are made, and the readers' copies taken (stats_copy()), under
+ * s_stats_mux, a spinlock held for a copy of the struct and nothing more, so a reader never sees one half written
+ * and never holds the player up for longer than that. The per-frame counts are single words, written alone */
+Stats s_stats;
+portMUX_TYPE s_stats_mux = portMUX_INITIALIZER_UNLOCKED;
+
+void stats_put(const Stats &fresh)
+{
+    taskENTER_CRITICAL(&s_stats_mux);
+    s_stats = fresh;
+    taskEXIT_CRITICAL(&s_stats_mux);
+}
+
+Stats stats_copy(void)
+{
+    taskENTER_CRITICAL(&s_stats_mux);
+    const Stats s = s_stats;
+    taskEXIT_CRITICAL(&s_stats_mux);
+    return s;
+}
+
+/* A 64-bit stamp of s_stats (started_us, ended_us) set to now, whole */
+void stats_stamp(int64_t Stats::*field)
+{
+    const int64_t t = now_us();
+    taskENTER_CRITICAL(&s_stats_mux);
+    s_stats.*field = t;
+    taskEXIT_CRITICAL(&s_stats_mux);
+}
 screen_end_hook_t s_end_hook;
 void *s_end_ctx;
 screen_start_hook_t s_start_hook;
@@ -163,7 +193,7 @@ void resolve(const char *in, char *out, size_t len)
 
 void report(void)
 {
-    const Stats &s = s_stats;
+    const Stats s = stats_copy();
     const int64_t end = s.ended_us ? s.ended_us : now_us();
     const double secs = (end - s.started_us) / 1e6;
     const uint32_t n = s.shown ? s.shown : 1;
@@ -216,7 +246,7 @@ void count_frame(int64_t render_us, int64_t paint_start, int64_t paint_end, int6
  */
 void end_playback(bool hold)
 {
-    s_stats.ended_us = now_us();
+    stats_stamp(&Stats::ended_us);
     if (!s_replacing && !hold) {
         board_lcd_power_off();
     }
@@ -292,7 +322,7 @@ void play_clip(const Request &req)
     fresh.fps = qt.DurationUs() ? fresh.frames * 1e6 / qt.DurationUs() : 0;
     fresh.mode = streamed ? "streamed in 16-line blocks"
                  : esp_ptr_internal(fb) ? "whole frame, in internal RAM" : "whole frame, in PSRAM";
-    s_stats = fresh;
+    stats_put(fresh);
     Stats &s = s_stats;
 
     /* Blanked, then on -- the panel lit and showing black around the clip's square -- before
@@ -303,7 +333,7 @@ void play_clip(const Request &req)
            req.path, w, h, s.frames, s.fps, streamed ? "streamed" : "whole frame",
            s.loop ? ", looping" : "");
 
-    s.started_us = now_us();
+    stats_stamp(&Stats::started_us);
     const uint32_t scale = qt.TimeScale();
     do {
         /* Each frame is due at the clip's own time for it, from the start of this pass. */
@@ -391,14 +421,14 @@ void play_gif(const Request &req)
     fresh.gif = true;
     fresh.plays = (uint32_t)passes;
     fresh.loop = passes == 0;
-    s_stats = fresh;
+    stats_put(fresh);
     Stats &s = s_stats;
 
     board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
 
-    s.started_us = now_us();
+    stats_stamp(&Stats::started_us);
     bool held = false, broken = false;
     char err[64] = "";
     while (!s_stop && !broken) {
@@ -663,7 +693,7 @@ int cmd_screen(int argc, char **argv)
     const char *sub = argc > 1 ? argv[1] : "";
     if (argc == 1 || strcmp(sub, "status") == 0) {
         if (video_playing()) {
-            printf("playing %s (backlight %d%%)\n", s_stats.path, board_lcd_get_backlight());
+            printf("playing %s (backlight %d%%)\n", stats_copy().path, board_lcd_get_backlight());
         } else if (s_showing == Showing::Calibration && board_lcd_powered()) {
             printf("showing the calibration pattern (backlight %d%%)\n",
                    board_lcd_get_backlight());
@@ -724,7 +754,7 @@ int cmd_video(int argc, char **argv)
         return 0;
     }
     if (strcmp(sub, "status") == 0) {
-        if (s_stats.started_us == 0) {
+        if (stats_copy().started_us == 0) {
             printf("nothing played yet\n");
         } else {
             printf("%s\n", video_playing() ? "playing:" : "last played:");
@@ -764,14 +794,15 @@ int cmd_video(int argc, char **argv)
  * started (which fills in the rest). */
 static void prime_stats(const char *path, uint32_t plays, uint32_t w, uint32_t h, uint32_t frames, double fps)
 {
-    s_stats = {};
-    strlcpy(s_stats.path, path, sizeof(s_stats.path));
-    s_stats.plays = plays;
-    s_stats.loop = plays == 0;
-    s_stats.width = w;
-    s_stats.height = h;
-    s_stats.frames = frames;
-    s_stats.fps = fps;
+    Stats s = {};
+    strlcpy(s.path, path, sizeof(s.path));
+    s.plays = plays;
+    s.loop = plays == 0;
+    s.width = w;
+    s.height = h;
+    s.frames = frames;
+    s.fps = fps;
+    stats_put(s);
 }
 
 extern "C" void screen_lock(void)
@@ -798,7 +829,7 @@ extern "C" esp_err_t screen_probe_clip(const char *path, media_info_t *out)
         snprintf(out->why, sizeof(out->why), "%s", strerror(err));
         return err == ENOENT ? ESP_ERR_NOT_FOUND : ESP_FAIL;
     }
-    quicktime::QuickTimeFile qt(f);
+    quicktime::QuickTimeFile qt(f, true);      /* only looked at: its tables in PSRAM first */
     fclose(f);      /* everything below comes from the parsed header */
     if (!qt.IsValid()) {
         snprintf(out->why, sizeof(out->why), "not a QuickTime clip: %s", qt.Error());
@@ -902,7 +933,8 @@ extern "C" bool screen_release(const char *path)
 {
     Lock lock;
     const size_t n = strlen(path);
-    const char *playing = s_stats.path;
+    const Stats s = stats_copy();
+    const char *playing = s.path;
     if (!video_playing() || strncmp(playing, path, n) != 0 || (playing[n] != '\0' && playing[n] != '/')) {
         return false;
     }
@@ -939,7 +971,7 @@ extern "C" void screen_get_state(screen_state_t *out)
     out->powered = board_lcd_powered();
     out->backlight = board_lcd_get_backlight();
     if (video_playing()) {
-        const Stats &s = s_stats;
+        const Stats s = stats_copy();
         out->showing = SCREEN_CLIP;
         strlcpy(out->path, s.path, sizeof(out->path));
         out->loop = s.loop;

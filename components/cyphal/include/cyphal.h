@@ -45,6 +45,7 @@ extern "C" {
 #define CYPHAL_PUBLISH_MAX      400  /* an application's message, serialized, in its mailbox: bytes at most */
 #define CYPHAL_PUBLISH_DEPTH_MAX  8  /* messages a published port's mailbox holds at most */
 #define CYPHAL_SLOW_JOBS        2    /* requests in the second worker's hands at once (cyphal_handler_t.slow) */
+#define CYPHAL_FIXED_SERVICES_MAX 4  /* the application's services on IDs the standard fixes (cyphal_app_t) */
 
 /* uavcan.node.Health, for cyphal_set_health() */
 #define CYPHAL_HEALTH_NOMINAL   0
@@ -66,7 +67,8 @@ typedef enum {
 
 /* The services' counters, since the node started: register reads (Access with no value, or for no
  * register), writes done and refused, List calls, ExecuteCommand calls and the bad commands among them,
- * requests answered busy (no job slot free), port lists published */
+ * requests answered busy, or left unanswered for want of a job slot (a read of a CYPHAL_REG_READ_ON_WORKER
+ * register, an application's request whose busy() gives none), port lists published */
 typedef struct {
     uint32_t register_reads, register_writes, register_refused, register_lists, commands, commands_refused;
     uint32_t busy, port_lists;
@@ -130,7 +132,9 @@ typedef struct {
      * bytes (CYPHAL_APP_REQUEST_MAX at most) of a job slot, zeroed first, off any stack; false for a request
      * that doesn't deserialize, which then has no answer. work(), on the worker: the response to `in` from
      * node `from`, serialized into `out` (room bytes); its size, 0 for none. busy(), on the node's task, when
-     * the worker already holds every job slot: the response that says so, serialized; its size */
+     * the worker already holds every job slot: the response that says so, serialized; its size, or 0 for no
+     * response at all, for a type that has no way to say busy (uavcan.file.List: its empty name is the end of
+     * the list), so that the client times out and asks again. Counted as busy either way */
     bool (*decode)(const uint8_t *payload, size_t size, void *in);
     size_t in_size;
     size_t (*work)(const void *in, uint8_t from, uint8_t *out, size_t room);
@@ -149,6 +153,9 @@ typedef struct {
      * yet sent; more for a queue of happenings, none of which may be lost, which refuses one when full */
     size_t publish_max;
     uint8_t publish_depth;
+    /* cyphal_app_t.fixed_services only: the service-ID the standard fixes for it (uavcan.file.List's 406). `port`
+     * is then ignored */
+    uint16_t fixed_id;
 } cyphal_handler_t;
 
 /*
@@ -179,6 +186,13 @@ typedef struct {
      * table. NULL for none */
     const cyphal_handler_t *handlers;
     size_t handler_count;
+    /* Services of the application's whose IDs the standard fixes (uavcan.file.List, uavcan.file.GetInfo): no
+     * register, served whenever the node is online, and in uavcan.node.port.List; each handler's fixed_id is its
+     * service-ID, and the rest is a service's handler above (decode, work, busy, extent, in_size, slow).
+     * CYPHAL_FIXED_SERVICES_MAX at most; one with an ID that is the node's own or another's is left out, with an
+     * error in the log, and no application port may take its ID. Kept, not copied: a static table. NULL for none */
+    const cyphal_handler_t *fixed_services;
+    size_t fixed_service_count;
     /* The application's own work on the worker, between jobs: building what it publishes, carrying out what
      * it was sent. `online`: the node runs on its node-ID, so that cyphal_publish() goes out. Returns the
      * milliseconds until it wants to run again; cyphal_wake_worker() runs it sooner, and so does the node going

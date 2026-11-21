@@ -13,6 +13,7 @@
 #include "cJSON.h"
 #include "esp_err.h"
 #include "scenes.h"
+#include "video_player.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +44,15 @@ bool api_fs_path(const char *rel, char *abs, size_t abs_len, api_reply_t *err);
 
 /* An fs_ops errno as the API's error for `abs`: 404 not_found, 400 not_a_directory, ... */
 api_reply_t api_fs_errno(int err, const char *abs);
+
+/* What GET /api/v1/media/info finds, for the route and for the Cyphal node's r2.holo.MediaInfo alike, so that both
+ * check a path and word the outcome the same: `rel` (a path from the volume's root, as given; "" for none) checked
+ * as the HTTP API checks a path, then probed (media_probe()). Its HTTP status: 200 with *m filled, playable or not
+ * (when not, `why` is "<path>: <m->why>", as a 422's message); or 400 (`error` bad_request or bad_path), 404
+ * not_found, 422 not_playable (not a clip or an image at all; *m as media_probe() left it), with the message in
+ * `why`. `error` is NULL with 200. `out` is the path as the volume has it, from 404 on */
+int api_media_lookup(const char *rel, char *out, size_t out_len, media_info_t *m, const char **error, char *why,
+                     size_t why_len);
 
 /* The route tables, each file's (board_api_start() adds them) */
 extern const api_route_t API_SCREEN_ROUTES[];

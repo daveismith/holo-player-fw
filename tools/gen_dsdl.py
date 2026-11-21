@@ -68,6 +68,8 @@ TYPES = [
     "uavcan/pnp/NodeIDAllocationData_1_0.h",
     "uavcan/_register/Access_1_0.h",     # `register` is C's: Nunavut's directory and names are _register
     "uavcan/_register/List_1_0.h",
+    "uavcan/file/List_0_2.h",
+    "uavcan/file/GetInfo_0_2.h",
     "r2/holo/Status_0_1.h",
     "r2/holo/Event_0_1.h",
     "r2/holo/Axes_0_1.h",

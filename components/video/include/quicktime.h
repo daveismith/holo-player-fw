@@ -34,6 +34,26 @@ constexpr uint32_t FourCC(char a, char b, char c, char d)
            (uint32_t(uint8_t(c)) << 8) | uint32_t(uint8_t(d));
 }
 
+/*
+ * Where the parser's tables live: as malloc() puts them (internal RAM for a small one), except while
+ * a QuickTimeFile made for a probe parses (its `probe`), when they go to PSRAM first, so that looking
+ * at a clip's header takes no internal RAM a playing clip's frames need. Playback's parse is as it
+ * was. The choice is the parsing task's own (thread_local), so a probe on one task and a clip
+ * starting on another don't mix. Freed with free() either way.
+ */
+void *table_alloc(size_t bytes);
+void table_free(void *p);
+template <typename T> struct TableAlloc {
+    using value_type = T;
+    TableAlloc() = default;
+    template <typename U> TableAlloc(const TableAlloc<U> &) {}
+    T *allocate(size_t n) { return static_cast<T *>(table_alloc(n * sizeof(T))); }
+    void deallocate(T *p, size_t) { table_free(p); }
+    template <typename U> bool operator==(const TableAlloc<U> &) const { return true; }
+    template <typename U> bool operator!=(const TableAlloc<U> &) const { return false; }
+};
+template <typename T> using Table = std::vector<T, TableAlloc<T>>;
+
 /* A seekable file: all the parser needs from its storage. */
 class QTFile {
 public:
@@ -163,10 +183,10 @@ public:
         uint32_t delta;   /* media timescale units per sample */
     };
     TimeToSampleAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth);
-    const std::vector<Entry> &Entries() const { return mEntries; }
+    const Table<Entry> &Entries() const { return mEntries; }
 
 private:
-    std::vector<Entry> mEntries;
+    Table<Entry> mEntries;
 };
 
 class SampleToChunkAtom : public Atom {
@@ -177,10 +197,10 @@ public:
         uint32_t samplesPerChunk;
     };
     SampleToChunkAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth);
-    const std::vector<Entry> &Entries() const { return mEntries; }
+    const Table<Entry> &Entries() const { return mEntries; }
 
 private:
-    std::vector<Entry> mEntries;
+    Table<Entry> mEntries;
 };
 
 class SampleSizeAtom : public Atom {
@@ -196,7 +216,7 @@ public:
 private:
     uint32_t mSampleSize = 0;   /* non-zero: every sample is this size and there is no table */
     size_t mNumberOfEntries = 0;
-    std::vector<uint32_t> mSizes;
+    Table<uint32_t> mSizes;
 };
 
 /* 'stco' (32-bit offsets) or 'co64'. */
@@ -205,10 +225,10 @@ public:
     static constexpr uint32_t TAG = FourCC('s', 't', 'c', 'o');
     static constexpr uint32_t TAG64 = FourCC('c', 'o', '6', '4');
     ChunkOffsetAtom(const QTFile &file, uint64_t offset, uint64_t limit, size_t depth);
-    const std::vector<uint64_t> &Offsets() const { return mOffsets; }
+    const Table<uint64_t> &Offsets() const { return mOffsets; }
 
 private:
-    std::vector<uint64_t> mOffsets;
+    Table<uint64_t> mOffsets;
 };
 
 class SampleTableAtom : public Atom {
@@ -288,8 +308,9 @@ public:
 
 class QuickTimeFile {
 public:
-    /* Parses the file's structure; the FILE must stay open for GetFrame(). */
-    explicit QuickTimeFile(FILE *file);
+    /* Parses the file's structure; the FILE must stay open for GetFrame(). `probe`: only to look at
+     * (media_probe()), its tables in PSRAM first (Table) */
+    explicit QuickTimeFile(FILE *file, bool probe = false);
 
     bool IsValid() const { return mError == nullptr; }
     const char *Error() const { return mError ? mError : ""; }
@@ -321,9 +342,9 @@ private:
     uint32_t mWidth = 0, mHeight = 0, mCodec = 0, mTimeScale = 0;
     size_t mMaxSize = 0, mMinSize = 0, mChunks = 0;
     uint64_t mTotalBytes = 0, mMdatOffset = 0, mMoovOffset = 0;
-    std::vector<uint32_t> mSizes;
-    std::vector<uint32_t> mOffsets;   /* a 16 MB flash holds nothing past 4 GB */
-    std::vector<TimeToSampleAtom::Entry> mDeltas;
+    Table<uint32_t> mSizes;
+    Table<uint32_t> mOffsets;   /* a 16 MB flash holds nothing past 4 GB */
+    Table<TimeToSampleAtom::Entry> mDeltas;
 };
 
 }  // namespace quicktime

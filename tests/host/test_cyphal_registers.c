@@ -802,6 +802,10 @@ static void test_app_registers(void)
     bad[1].name = "R2.release";
     CHECK(!cyphal_reg_init(HOLO, HOLO_N, NAME_REGISTER, bad, 2, why, sizeof(why)));
     bad[1] = APP[1];
+    bad[1].flags |= CYPHAL_REG_READ_ON_WORKER;  /* an application's read that may wait: taken, the flag kept */
+    CHECK(cyphal_reg_init(HOLO, HOLO_N, NAME_REGISTER, bad, 2, why, sizeof(why)) && cyphal_reg_count() == NAMES_N + 2);
+    CHECK(cyphal_reg(NAMES_N + 1)->flags & CYPHAL_REG_READ_ON_WORKER);
+    bad[1] = APP[1];
     CHECK(cyphal_reg_init(HOLO, HOLO_N, NAME_REGISTER, bad, 2, why, sizeof(why)) && cyphal_reg_count() == NAMES_N + 2);
     CHECK(cyphal_reg_init(HOLO, HOLO_N, NAME_REGISTER, NULL, 0, why, sizeof(why)));
 }

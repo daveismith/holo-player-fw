@@ -139,6 +139,13 @@ esp_err_t scenes_start(void);
 cJSON *scene_load(const char *name);
 cJSON *scene_load_slot(int slot);   /* the scene with that slot */
 cJSON *scene_load_all(void);        /* an array, in the order they were first saved */
+/* The saved scenes one at a time, in scene_load_all()'s order (the Cyphal node's r2.holo.ListScenes): how many
+ * there are, counted by their saved lengths alone, and the index-th's name into `name` (empty past the last) and
+ * its slot (0 for none), only that one read and parsed. SCENE_LIST_UNREADABLE if the store can't be opened, or the
+ * index-th doesn't parse (corrupt, which only a restored backup could make, or no memory for it now), which
+ * scene_load_all() and so GET /api/v1/scenes would leave out instead */
+#define SCENE_LIST_UNREADABLE (-1)
+int scene_list_entry(int index, char *name, size_t name_len, int *slot);
 
 /* A saved scene applied (scene_apply()), by its slot, or by `name` (not checked: one that breaks the rules is
  * simply not found) when slot is 0. SCENE_MISSING for none, with why "no scene with slot N" (a NULL name with slot 0
@@ -161,20 +168,28 @@ typedef struct {
     int backlight;                          /* 1..100 */
     int led_brightness;                     /* 1..100 */
     int led_count;                          /* 1..256 */
+    /* Touch reporting at the start (the Cyphal register r2.touch.reporting); CONFIG_BOARD_TOUCH_AUTOSTART's
+     * default until saved. Always false in a build without touch (CONFIG_BOARD_TOUCH_ENABLE). `touch on` and
+     * `touch off` change what is in effect until the next start, not this */
+    bool touch;
 } settings_t;
 
 void settings_defaults(settings_t *out);
 void settings_get(settings_t *out);
 esp_err_t settings_save(const settings_t *s);
-/* Back to the defaults (*out), saved, and the backlight and the LEDs' brightness applied now (their count
- * from the next start): DELETE /api/v1/settings, and the Cyphal node's factory reset */
+/* What applies now of `s`: the backlight and the LEDs' brightness (their count waits for the next start), and
+ * touch reporting with `touch` (only when it is what changed, so that `touch on` or `touch off` stands until the next
+ * start otherwise). A failure to start touch is logged and returned; the rest is applied anyway */
+esp_err_t settings_apply(const settings_t *s, bool touch);
+/* Back to the defaults (*out), saved, and applied now (settings_apply(), only once saved):
+ * DELETE /api/v1/settings, and the Cyphal node's factory reset */
 esp_err_t settings_reset(settings_t *out);
 
 /* The LED count to make the strip with (before leds_init()). */
 int settings_led_count(void);
 
-/* At the start, once the screen, LEDs and holo are up: the backlight and LED brightness, then
- * the boot scene, if one is set. */
+/* At the start, once the screen, LEDs and holo are up: the backlight, LED brightness and touch
+ * reporting, then the boot scene, if one is set. */
 void settings_apply_boot(void);
 
 /* `settings` */

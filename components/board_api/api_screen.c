@@ -200,29 +200,54 @@ static api_reply_t media_get(const api_req_t *req)
     return api_json(200, root);
 }
 
-static api_reply_t media_info_get(const api_req_t *req)
+int api_media_lookup(const char *rel, char *out, size_t out_len, media_info_t *m, const char **error, char *why,
+                     size_t why_len)
 {
-    char rel[256];
-    api_query(req, "path", rel, sizeof(rel));
-    char abs[FS_ABS_MAX];
+    *m = (media_info_t){ 0 };
+    *error = NULL;
+    out[0] = why[0] = '\0';
     if (rel[0] == '\0') {
-        return api_error(400, "bad_request", "give `path`, from the root of the volume: /clips/intro.mov");
+        *error = "bad_request";
+        snprintf(why, why_len, "give `path`, from the root of the volume: /clips/intro.mov");
+        return 400;
     }
-    api_reply_t bad;
-    if (!api_fs_path(rel, abs, sizeof(abs), &bad)) {
-        return bad;
+    char abs[FS_ABS_MAX];
+    char bad[112];          /* api_fs_path()'s */
+    if (fs_path(rel, abs, sizeof(abs), bad, sizeof(bad)) != 0) {
+        *error = "bad_path";
+        snprintf(why, why_len, "%s", bad);
+        return 400;
     }
-    fs_rel(abs, rel, sizeof(rel));
-    media_info_t m;
-    const esp_err_t err = media_probe(abs, &m);
+    fs_rel(abs, out, out_len);
+    const esp_err_t err = media_probe(abs, m);
     if (err == ESP_ERR_NOT_FOUND) {
-        return api_error(404, "not_found", "no such file or directory: %s", rel);
+        *error = "not_found";
+        snprintf(why, why_len, "no such file or directory: %s", out);
+        return 404;
+    }
+    if (err != ESP_OK || !m->playable) {
+        snprintf(why, why_len, "%s: %s", out, m->why);
     }
     if (err != ESP_OK) {
-        return api_error(422, "not_playable", "%s: %s", rel, m.why);
+        *error = "not_playable";
+        return 422;
+    }
+    return 200;
+}
+
+static api_reply_t media_info_get(const api_req_t *req)
+{
+    char rel[256], path[256];
+    char why[sizeof(path) + sizeof(((media_info_t *)0)->why) + 2];
+    const char *error;
+    media_info_t m;
+    api_query(req, "path", rel, sizeof(rel));
+    const int status = api_media_lookup(rel, path, sizeof(path), &m, &error, why, sizeof(why));
+    if (status != 200) {
+        return api_error(status, error, "%s", why);
     }
     cJSON *o = cJSON_CreateObject();
-    cJSON_AddStringToObject(o, "path", rel);
+    cJSON_AddStringToObject(o, "path", path);
     cJSON_AddStringToObject(o, "kind", KINDS[m.kind]);
     cJSON_AddStringToObject(o, "format", FORMATS[m.format]);
     cJSON_AddNumberToObject(o, "width", m.width);

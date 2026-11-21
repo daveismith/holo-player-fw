@@ -1,10 +1,13 @@
 """The holo's own Cyphal ports, for the tests (manual/reference/cyphal.md): r2.holo.Motion, Light, Scene, Screen and
 Ring called, Status, Axes and Event received, setpoints sent, and the board's own view of the same through its
-console. Imported by test_holo.py, test_holo_load.py and test_holo_scenes.py; conftest.py has compiled the DSDL by
-then, and has the console, the calls, the heartbeats and, with --board-host, the HTTP API (its `http` fixture)."""
+console; and the parts of a run under load that test_holo_load.py and test_soak.py share. Imported by test_holo.py,
+test_holo_load.py, test_holo_scenes.py, test_holo_lists.py and test_soak.py; conftest.py has compiled the DSDL by then,
+and has the console, the calls, the heartbeats and, with --board-host, the HTTP API (its `http` fixture)."""
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import math
 import re
 
 import pycyphal.application
@@ -21,10 +24,11 @@ import r2.holo.Screen_0_1 as Screen
 import r2.holo.Status_0_1 as Status
 import uavcan.file.Path_2_0 as Path
 
-from .conftest import call
+from .conftest import call, gaps
 
 # The default ports (r2_cyphal_dsdl's ports/holo.csv)
 STATUS, EVENT, AXES, SETPOINT, MOTION, LIGHT, SCENE, SCREEN, RING_PORT = 2300, 2301, 2302, 2303, 100, 101, 102, 103, 104
+LIST_SCENES, MEDIA_INFO = 105, 106
 NEVER = 0xFFFFFFFF
 NONE = -32768
 KINDS = ["center", "move", "nudge", "twitch", "wag", "nod", "scan", "circle", "stop", "off"]
@@ -270,3 +274,72 @@ def backlight_now(board) -> int:
     m = re.search(r"backlight (\d+)%", board.first_line("lcd"))
     assert m, board.first_line("lcd")
     return int(m.group(1))
+
+
+# ---- a run under load: test_holo_load.py and test_soak.py
+
+def video(board) -> dict:
+    """`video status`: frames shown, over how long, at what rate, and how many late"""
+    text = board.command("video status")
+    shown = re.search(r"shown (\d+) in ([\d.]+) s \(([\d.]+) fps\)", text)
+    late = re.search(r"(\d+) late", text)
+    return {"text": text, "shown": int(shown.group(1)) if shown else 0, "secs": float(shown.group(2)) if shown else 0,
+            "fps": float(shown.group(3)) if shown else 0, "late": int(late.group(1)) if late else None}
+
+
+@contextlib.contextmanager
+def under_load(board, most: int = 30):
+    """The ring's brightness at `most` % at most for the block (the board's own if lower: a ring powered from the
+    board), and afterwards the clip stopped, the holo let go, the ring off and its brightness put back"""
+    brightness = int(re.search(r"; brightness (\d+)%", board.command("leds")).group(1))
+    try:
+        board.command(f"leds bright {min(brightness, most)}")
+        yield
+    finally:
+        board.command("video stop")
+        board.command("holo off")
+        board.command("leds off")
+        board.command(f"leds bright {brightness}")
+
+
+async def ring_made(board) -> None:
+    """The ring's pattern task made (at the ring's first animation, then kept: 3 KB of stack), and the ring off again:
+    before the heap at rest is read, so that a run alone after a restart doesn't count it as kept"""
+    board.command("leds pulse")
+    await asyncio.sleep(0.3)
+    board.command("leds off")
+    await asyncio.sleep(0.5)
+
+
+async def setpoint_burst(pub, x: int, y: int, n: int = 150) -> int:
+    """`n` setpoints at 50 a second (3 s for 150) round an ellipse of x and y hundredths of a percent: how many"""
+    loop = asyncio.get_running_loop()
+    b0 = loop.time()
+    for k in range(n):
+        t = k * 0.02
+        assert await pub.publish(Axes(x=int(x * math.sin(t * 2.5)), y=int(y * math.cos(t * 2.5))))
+        await asyncio.sleep(max(0.0, b0 + (k + 1) * 0.02 - loop.time()))
+    return n
+
+
+def load_checked(beats, first_beat: int, listen, start: dict, after: dict, shown: dict, sent: int) -> str:
+    """What every run under load must show: every setpoint reached the application, the heartbeat never late (1.5 s),
+    Status at its rate (1.3 s), nothing dropped or unread, the libcanard heap never out, and the clip at 30 frames a
+    second with none late. The report's common lines"""
+    between = gaps(beats.times[first_beat:])
+    status_gaps = gaps(listen.status_stamps)
+    msgs = lambda st: st["application"]["messages"]  # noqa: E731
+    text = (f"{sent} setpoints ({msgs(after) - msgs(start)} reached the application); {len(between) + 1} heartbeats, "
+            f"largest gap {max(between):.3f} s; {len(listen.status)} Status, largest gap {max(status_gaps):.3f} s; "
+            f"{len(listen.axes)} Axes; {len(listen.events)} Events\nlibcanard heap at most {after['heap_peak']}; send "
+            f"queue at most {after.get('txq_peak')}; node stack never used {after['stack_unused']}; bus-off "
+            f"{after['bus_off']}\n{shown['text']}")
+    print(text)
+    assert msgs(after) - msgs(start) == sent, "a setpoint didn't reach the application"
+    assert max(between) < 1.5, f"a heartbeat {max(between):.3f} s after the one before"
+    assert max(status_gaps) < 1.3, f"a Status {max(status_gaps):.3f} s after the one before"
+    assert after["bus_off"] == start["bus_off"]
+    assert after["dropped"] == start["dropped"] and after["not_read"] == start["not_read"]
+    assert not after["heap_ran_out"]
+    assert shown["late"] == 0 and shown["fps"] >= 29.5, shown["text"]
+    return text

@@ -274,15 +274,21 @@ the board was doing before the first.
 
 - `boot_scene`: the scene applied at every start, or null for nothing;
 - `screen.backlight`: the backlight it starts at;
-- `leds.brightness`, and `leds.count`, the LEDs on the strip.
+- `leds.brightness`, and `leds.count`, the LEDs on the strip;
+- `touch.reporting`: whether touch reporting (the `touch` events) is on at start; off unless set (on
+  by default in a build with `BOARD_TOUCH_AUTOSTART`). The Cyphal register `r2.touch.reporting` is
+  the same setting.
 
 ```sh
 curl -X PATCH -H "$J" -d '{"boot_scene":"cantina","screen":{"backlight":80}}' "$B/settings"
+curl -X PATCH -H "$J" -d '{"touch":{"reporting":true}}' "$B/settings"
 ```
 
-The backlight and brightness change now too. A new `leds.count` waits for a restart, and the reply
-says so with `"restart_required": true`. `DELETE /api/v1/settings` goes back to the firmware's
-defaults, keeping scenes, calibration and networks.
+The backlight and brightness change now too, and touch reporting does when `touch` is sent (the
+console's `touch on` and `touch off` turn it on or off only until the next start, and a PATCH of
+something else leaves that alone). A new `leds.count` waits for a restart, and the reply says so
+with `"restart_required": true`. `DELETE /api/v1/settings` goes back to the firmware's defaults,
+applied now, keeping scenes, calibration and networks.
 
 ## Network and the web server
 

@@ -1,15 +1,5 @@
 # Cyphal interface
 
-!!! note "Partly in the firmware"
-    This page describes the holo's Cyphal interface, part of it ahead of the firmware. Built so far:
-    the node itself (its node-ID, its heartbeat, `uavcan.node.GetInfo`: [the board on
-    Cyphal](../use/cyphal.md)), its [registers](#registers) (the node's and the ports'), its
-    [commands](#commands), `uavcan.node.port.List`, the holo's [Motion](#motion) and
-    [Light](#light) services, [Axes](#axes) published and subscribed, [Status](#status) whole,
-    [Event](#event), and the [Scene](#scene), [Screen](#screen) and [Ring](#ring) services. Not
-    yet: `ListScenes`, `MediaInfo`, the file services and the holo's registers. What isn't built may
-    still change before it is.
-
 This is the specification of what the board does on a [Cyphal](https://opencyphal.org)/CAN bus:
 every port, every type and its fields, every register and every command. How to use it is on
 [the board on Cyphal](../use/cyphal.md#the-holo-on-cyphal).
@@ -32,7 +22,7 @@ has shipped is never changed, only given a new version.
 | The ports it uses | `uavcan.node.port.List.1.0` | subject 7510 | Every 10 seconds, the first as the node goes online. [Below](#the-port-list) |
 | Registers | `uavcan.register.Access.1.0`, `uavcan.register.List.1.0` | services 384, 385 | [Below](#registers) |
 | Restart, factory reset, identify | `uavcan.node.ExecuteCommand.1.3` | service 435 | [Below](#commands) |
-| The clips and images | `uavcan.file.List.0.2`, `uavcan.file.GetInfo.0.2` | services 406, 405 | The file names and sizes on the storage volume |
+| The clips and images | `uavcan.file.List.0.2`, `uavcan.file.GetInfo.0.2` | services 406, 405 | The files on the storage volume: names, sizes, times. Read only. [Below](#the-files) |
 | What the holo is doing | `r2.holo.Status.0.1` | subject 2300 | Within 250 ms of a change, and once a second |
 | What happened | `r2.holo.Event.0.1` | subject 2301 | As it happens |
 | Where the axes are | `r2.holo.Axes.0.1` | subject 2302 | Ten times a second while the holo moves, once a second at rest |
@@ -43,7 +33,7 @@ has shipped is never changed, only given a new version.
 | The screen | `r2.holo.Screen.0.1` | service 103 | |
 | The LED ring | `r2.holo.Ring.0.1` | service 104 | |
 | The scene list | `r2.holo.ListScenes.0.1` | service 105 | |
-| A file's details | `r2.holo.MediaInfo.0.1` | service 106 | Optional: it may be left out |
+| A file's details | `r2.holo.MediaInfo.0.1` | service 106 | Optional in the types (a board may leave it out); this one serves it |
 
 The standard ports' IDs are fixed by the standard. The `r2.holo` ports' are defaults, in
 Cyphal's unregulated ranges, which [registers](#registers) change. `r2_cyphal_dsdl`'s
@@ -81,12 +71,11 @@ With the registers at their defaults it holds:
 | Publishers | 7509 (the heartbeat), 7510 (the port list), 2300 (`status`), 2301 (`event`), 2302 (`axes`) |
 | Subscribers | 2303 (`setpoint`) |
 | Clients | None |
-| Servers | 100 (`motion`), 101 (`light`), 102 (`scene`), 103 (`screen`), 104 (`ring`), 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
+| Servers | 100 (`motion`), 101 (`light`), 102 (`scene`), 103 (`screen`), 104 (`ring`), 105 (`list_scenes`), 106 (`media_info`), 384 and 385 (registers), 405 and 406 (the file services), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
 
-An `r2.holo` port is in it once the firmware serves, publishes or subscribes to it, on the number
-its register held as the node started; a port turned off (65535) is never in it, nor is one the
-firmware doesn't have yet (`list_scenes`, `media_info`), whatever its register holds. It is 160
-bytes, 24 frames.
+Each `r2.holo` port is in it on the number its register held as the node started; a port turned off
+(65535) is never in it. The servers are a bit mask of every service-ID, so the list is 160 bytes, 24
+frames, whatever it holds.
 
 ### Health
 
@@ -298,11 +287,13 @@ the same refusals. A request that opens a file or waits (showing a file, applyin
 answered when it is done, a few hundred milliseconds at most; while the board is still working
 through the requests already sent to it, another is answered `busy`.
 
-Scene and Screen requests (and [identify](#commands)) are carried out one at a time, in the order
-they came, by a task of their own, so that a still being decoded never holds up the setpoints,
-Status or the other services. Two at most wait there; a third is answered `busy`. Motion, Light and
-Ring requests go on meanwhile, so one sent while a Scene or Screen request is still being carried out
-may be done before it: a controller that needs them in order waits for each response.
+Scene, Screen and MediaInfo requests, the [file services](#the-files) (and [identify](#commands))
+are carried out one at a time, in the order they came, by a task of their own, so that a still being
+decoded, a file's header being read or the storage volume being busy with an upload never holds up
+the setpoints, Status or the other services. Two at most wait there; a third is answered `busy` (or,
+for `uavcan.file.List`, which can't say so, not at all). Motion, Light, Ring and ListScenes requests
+go on meanwhile, so one sent while a Scene or Screen request is still being carried out may be done
+before it: a controller that needs them in order waits for each response.
 
 ### Motion
 
@@ -473,6 +464,13 @@ order they were first saved in (`GET /api/v1/scenes`).
 | `slot` | uint8 | The scene's slot; 0 when it has none |
 | `name` | uint8[<=32] | Its name; empty once `index` reaches `count` |
 
+The board counts its saved scenes by their stored lengths alone, in `GET /api/v1/scenes`' order, and
+reads and parses only the one asked for, so a call costs about the same whatever its index. `result`
+is ok, or `busy` with the board's queue full, or with the scenes not readable at that moment (`busy:
+the scenes can't be read now`); `count` is then 0. A saved scene that doesn't parse, which only a
+restored backup could bring (the board checks a scene before saving it), is counted, and answered
+`busy` at its index; `GET /api/v1/scenes` leaves it out instead.
+
 ### MediaInfo
 
 `r2.holo.MediaInfo.0.1`, on `media_info`: a clip's or an image's details from its header,
@@ -493,12 +491,72 @@ needs more than the names and sizes `uavcan.file.List` and `uavcan.file.GetInfo`
 the message, and still described when it is a kind the board knows. (The HTTP API answers that
 case with 200 and `playable: false`.) No such file is not found.
 
+The board reads the file's header with the code `GET /api/v1/media/info` runs, with its checks and
+words:
+
+| `result.code` | When |
+|---|---|
+| bad request | No path (`` give `path`, from the root of the volume: /clips/intro.mov``), or one the board refuses, in the HTTP API's words (`'..' is not allowed in a path: /../a.png`) |
+| not found | `no such file or directory: /clips/a.mov` |
+| not playable | `<path>: <why>`, the words of the HTTP API's `why` (`/big400.png: 400x300 is larger than the 240x240 screen`), cut to 64 bytes; a file that is no clip or image at all (`/notes.txt: not a clip or an image (.mov, .png, .jpg, .gif)`), and a directory, with `kind` 0 and every field 0 |
+| busy | The second worker already holds two requests |
+
+An image is 1 frame, 0 fps and 0 ms, a GIF of one frame among them. Reading a header can take a
+while (a JPEG is read whole, and a GIF's every frame is looked at), so MediaInfo is carried out with
+Scene and Screen requests, by the second worker, never holding up the setpoints: on the bench a
+median of 16 ms over the 45 clips and images in the board's tree, 125 ms for an 837 KB GIF of 30
+frames. What a header is read into is PSRAM first, so a MediaInfo takes little of the internal
+RAM a playing clip needs (4 to 9 KB, where it took up to 29 KB before 2026-11-21: the GIF decoder,
+the clip's tables, the JPEG's bytes and libpng's state; a JPEG's decoder stays in internal RAM).
+
+### The files
+
+`uavcan.file.List.0.2` (service 406) and `uavcan.file.GetInfo.0.2` (405), the standard services,
+over the board's storage volume: what `fs ls` and the HTTP API's `/api/v1/media` see. Nothing on
+Cyphal writes, moves or deletes a file: there is no `uavcan.file.Read`, `Write` or `Modify`.
+
+**Paths** are from the volume's root, `/`, as in the rest of this interface and in the HTTP API, with
+its rules (at most 159 bytes, no `..`, no empty part; the volume's own root in front is taken too).
+An empty path is the root as well, and a `/` at the end of a directory's path, as `uavcan.file.Path`'s
+convention has it, is optional.
+
+**List** gives a directory's entries one a call: `entry_index` 0, 1, 2… until `entry_base_name`
+comes back empty. They are in byte order of their names, directories among them, each with a `/`
+after its name, so a client tells them apart without a `GetInfo`: the order the storage volume
+(littlefs) keeps a directory in, and so the order `fs ls` prints and `GET /api/v1/media` walks. A
+directory that doesn't exist, a path that is a file or that the board refuses, and an index past the
+last all give the empty name: the type has no other answer. A call reads the directory's names up to
+its index, about 0.1 ms an entry on the board: on the bench, the root's 44 entries (43 files and a
+directory) took 3.8 ms a call at index 0 and 8.4 ms at index 43, from a computer, against 3.5 ms for
+a `uavcan.node.GetInfo`. An entry added or removed between two calls shifts the ones after it, as the
+type warns.
+
+**GetInfo** gives an entry's details:
+
+| Field | On this board |
+|---|---|
+| `error` | `OK`; `NOT_FOUND` (2) for no such file or directory; `INVALID_VALUE` (22) for a path the board refuses; `IO_ERROR` (5) for anything else, and when the board's queue of requests is full (try again) |
+| `size` | Bytes; 0 for a directory |
+| `unix_timestamp_of_last_modification` | When the file was last written, if the board's clock had been set by then (from the network); 0 otherwise |
+| `is_file_not_directory` | As it says |
+| `is_link` | Always false |
+| `is_readable` | True |
+| `is_writeable` | False: nothing on Cyphal writes a file |
+
+Both are carried out by the second worker, with Scene, Screen and MediaInfo requests, since either
+waits for the storage volume, which an upload over Wi-Fi holds through each write (on the bench, during
+a 1 MB upload, a List of the root's last entry took 82 ms in the median and up to half a second); so
+one may wait behind a MediaInfo or a still being shown. A `GetInfo` takes about 1.5 ms on the board at
+rest. With the board's queue full, `GetInfo` answers `IO_ERROR`, and List isn't answered at all: its
+empty name would read as the end of the list, and it carries no count, so the client times out and
+asks again.
+
 ## Error
 
 `r2.holo.Error.0.1`, the `result` of every service. `code` is the host link's
 [status](host-protocol.md#replies), with the same numbers. A busy answer's message is
-`busy: the board is still working through earlier requests` (four of them, or for Scene and Screen,
-two of those):
+`busy: the board is still working through earlier requests` (four of them, or for Scene, Screen and
+MediaInfo, two of those):
 
 | `code` | Name | The JSON errors it covers |
 |---|---|---|
@@ -542,7 +600,7 @@ Read and written with `uavcan.register.Access` and listed with `uavcan.register.
 Cyphal tool. The console's `cyphal register` reads and writes the same table, with the same
 checks. Every mutable register is saved on the board, in NVS, as soon as it is written, and is part
 of a [backup](../use/backup.md); none holds a credential. `List` gives them in the order of the
-tables below: the node's three, then each port's `.id` and `.type`.
+tables below: the node's three, then each port's `.id` and `.type`, then the holo's seven.
 
 A write the board can't take leaves the register as it was, and the response, which always carries
 the register's value after the write, shows it: a value out of range or not a name, one of another
@@ -579,13 +637,11 @@ So `uavcan.pub.status.id` is 2300 until written, and `uavcan.srv.motion.type` re
 name. The standard suggests 65535 as every port's default; the board starts with working
 defaults instead, so it can be used without configuring anything. The special registers for a
 register's minimum, maximum and default (`<name><`, `<name>>`, `<name>=`) aren't provided.
-Until the firmware has a port, its number is kept and checked but not used: it isn't in the
-[port list](#the-port-list), and nothing goes on it.
 
 <a id="port-numbers-in-use"></a>**A number belongs to one port.** Subject-IDs are one set,
 published and subscribed alike (a subscription on a subject the board publishes would take other
 nodes' messages of that type for its own), and service-IDs another. Within each, a number is one
-of the node's own fixed ports' (subjects 7509, 7510 and 8166, services 384, 385, 430 and 435) or
+of the node's own fixed ports' (subjects 7509, 7510 and 8166, services 384, 385, 405, 406, 430 and 435) or
 one `r2.holo` port's, never two: a write of a number another port has is refused with the port that
 has it ("subject 2301 is uavcan.pub.event.id's"), and the register keeps its value. A subject and a
 service may share a number, and any number of ports may be off (65535). So two ports swap through a
@@ -593,20 +649,41 @@ free number, or through off. A saved number that breaks the rule anyway, which o
 from elsewhere can bring (a backup from another firmware), turns the later port in the table off as
 the board starts, with a warning in its log; its register then reads 65535.
 
-**The holo**, from a later phase:
+**The holo:**
 
 | Register | Type | Values | Default | Flags | Takes effect |
 |---|---|---|---|---|---|
-| `r2.holo.horizontal.endpoints_us`, `r2.holo.vertical.endpoints_us` | natural16[2] | Closed, then open, in µs, each within the servo's absolute range (1000–2000 on this board) and not equal; closed above open turns the axis round. [0, 0] goes back to the firmware's default range | The default range: [1150, 1900], [1300, 1950] | mutable, persistent | At once: the next motion uses them |
-| `r2.holo.horizontal.release`, `r2.holo.vertical.release` | bit[3] | The drive policy, for the closed end, the open end and between (the ends are 2 % of the travel wide): true lets the servo go once it has settled, false keeps driving it | [false, false, false] | mutable, persistent | At the servo's next frame |
-| `r2.holo.horizontal.settle_ms`, `r2.holo.vertical.settle_ms` | natural16[1] | How long a command is driven before a release takes effect: 0–65535, under 100 raised to 100 | 0 | mutable, persistent | At once |
-| `r2.touch.reporting` | bit[1] | Touch events on or off | false (true in a build with `BOARD_TOUCH_AUTOSTART`) | mutable, persistent | At once, and at every start |
+| `r2.holo.horizontal.endpoints_us`, `r2.holo.vertical.endpoints_us` | natural16[2] | Closed, then open, in µs, each within the servo's absolute range (1000–2000 on this board) and not equal; closed above open turns the axis round. [0, 0] goes back to the firmware's default range, and clears the drive policy with it | `[1150, 1900]`, `[1300, 1950]`: the default range, not saved | mutable, persistent | At once: the next motion uses them |
+| `r2.holo.horizontal.release`, `r2.holo.vertical.release` | bit[3] | The drive policy, for the closed end, the open end and between (the ends are 2 % of the travel wide): true lets the servo go once it has settled, false keeps driving it | `[false, false, false]` | mutable, persistent | At the servo's next frame |
+| `r2.holo.horizontal.settle_ms`, `r2.holo.vertical.settle_ms` | natural16[1] | How long a command is driven before a release takes effect: 0–65535, under 100 raised to 100 | `100` | mutable, persistent | At once |
+| `r2.touch.reporting` | bit[1] | Touch events on or off | `false` (`true` in a build with `BOARD_TOUCH_AUTOSTART`) | mutable, persistent | At once, and at every start |
 
 The endpoints are the ones `holo endpoints` sets, and the drive policy the one the web app and
-`PUT /api/v1/servos/policy` set: the same saved values. Status's `horizontal` and `vertical` say
-whether each axis is calibrated. `r2.touch.reporting` is saved, unlike `touch on` on the
-console, so that a controller sets it once; `touch on` and `touch off` change it for the moment
-without saving.
+`PUT /api/v1/servos/policy` set: the same saved values, the servos' own, so a change either way shows
+the other way. Two rules come with them from the servos: clearing the endpoints (`[0, 0]`, as `holo
+endpoints <axis> clear` and `DELETE /api/v1/servos/calibration` do) clears the drive policy too, back
+to holding everywhere and 100 ms; and a drive policy once saved has a settle time of 100 ms at
+least, so a `release` written over a policy never saved also saves 100 ms. Status's `horizontal` and
+`vertical` say whether each axis is calibrated and turned round. An axis whose servo isn't fitted reads
+`[0, 0]`, `[false, false, false]` and 0, and refuses a write (`the axis has no servo (not fitted)`). A
+refused write keeps the register as it was, with the reason on the console (``closed and open are each
+1000 to 2000 us, and not the same; [0, 0] goes back to the default range``, ``a settle time is 0 to 65535
+ms``).
+
+A read of these six over Cyphal is carried out by the node's worker, as a write is, from the servos
+themselves (reading them can wait on a save in progress, which the node's own task mustn't): a change
+made on the console or over HTTP reads over Cyphal at once. With the board's queue of requests full,
+such a read isn't answered (`uavcan.register.Access` has no way to say busy), and the client asks
+again.
+
+`r2.touch.reporting` is one of the board's [settings](http-api.md#settings): the same one as
+`touch.reporting` in `/api/v1/settings` and the console's `settings touch`. A write turns touch
+reporting on or off at once and saves it, so that a controller sets it once, and the board starts
+with touch reporting on or off as it says; `DELETE /api/v1/settings` and a factory reset put it back to
+its default. `touch on` and `touch off` on the console change it for the moment without saving; the
+register reads what is in effect, so after a `touch off` it reads false until it is written or the
+board restarts. It isn't a credential or an identity, so it is in a backup (NVS `holo_cfg`, `touch`,
+with the board's other settings).
 
 ## Commands
 
@@ -615,7 +692,7 @@ without saving.
 | Command | Number | Does |
 |---|---|---|
 | Restart | 65535 | Restarts the board a second after the response (by when it has gone). The node comes back with the registers as they now are |
-| Factory reset | 65532 | Every register back to its default (the node-ID, name and bitrate, every port; touch reporting, once it is a register), and the board's [settings](http-api.md#settings) to theirs (the boot scene, the backlight, the LEDs' brightness and count), as `cyphal reset` and `DELETE /api/v1/settings` do; then a restart, a second after the response. Kept: the scenes, the files, the servos' calibration and drive policy, the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards, asking for a node-ID by plug-and-play |
+| Factory reset | 65532 | The node's registers back to their defaults (the node-ID, name and bitrate, every port), as `cyphal reset` does, and the board's [settings](http-api.md#settings) to theirs (the boot scene, the backlight, the LEDs' brightness and count, touch reporting, which is the register `r2.touch.reporting`), as `DELETE /api/v1/settings` does; then a restart, a second after the response. Kept: the scenes, the files, the servos' calibration and drive policy (their registers keep their values), the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards, asking for a node-ID by plug-and-play |
 | Identify | 65529 | The ring blinks white, once a second, and the screen shows the crosshair for 5 seconds, then both go back to what they were doing |
 | Store persistent states | 65530 | Nothing to do: every register is saved when it is written. Answers success |
 | Anything else | | Refused: bad command. Power off, begin software update and emergency stop included |
@@ -650,6 +727,8 @@ is about 130 bits on the wire, so 130 µs at 1 Mbit/s.
 | `Ring` request | 6, 1 | 11, 2 |
 | `ListScenes` request, response | 1, 1; 6, 1 | 1, 1; 102, 15 |
 | `MediaInfo` request, response | 1, 1; 17, 3 | 256, 37; 81, 12 |
+| `uavcan.file.List` request, response | 9, 2; 5, 1 | 264, 38; 260, 38 |
+| `uavcan.file.GetInfo` request, response | 1, 1; 13, 3 | 256, 37; 13, 3 |
 | Any other response | 3, 1 | 67, 10 (a refusal with a 64-byte message) |
 
 The worst cases with a path count 255 bytes; this board's paths are at most 159. In practice a

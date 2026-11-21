@@ -139,7 +139,7 @@ milliseconds):
 | `clip_ended` | A clip or animation has stopped | `path`, from the root of the storage volume; `finished`: `true` when it played to its end, `false` when something replaced or stopped it |
 | `scene_started` | A scene has been applied, saved or given whole | `name`; `slot`, when it has one; `then`: `stay`, `restore` or `off`; `until_clip_ends`: it ends when its clip has played; `duration_s`, when it has one |
 | `scene_ended` | A scene running to its end has ended | `name`; `slot`, when it has one; `then`: what it does at its end; `by`: `clip` (its clip played), `time` (its `duration_s` was up), `end` (`POST /scenes/end`), or `replaced` (another scene or clip took over, and its `then` wasn't done) |
-| `touch` | The screen was touched, or let go. Only while touch reporting is on (`touch on`) | `action`: `down` or `up`; `x`, `y`: 0–239 |
+| `touch` | The screen was touched, or let go. Only while touch reporting is on (the board's `touch` setting in `/api/v1/settings`, or `touch on` until the next start) | `action`: `down` or `up`; `x`, `y`: 0–239 |
 
 **A resource changed.** The event carries the resource under `state`, exactly as its `GET`
 returns it: `screen`, `leds`, `holo`, `scene` (the scene running to its end, or null), `scenes`,

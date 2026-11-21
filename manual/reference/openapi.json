@@ -3326,6 +3326,9 @@
                   "leds": {
                     "brightness": 30,
                     "count": 16
+                  },
+                  "touch": {
+                    "reporting": false
                   }
                 }
               }
@@ -3339,7 +3342,7 @@
         ],
         "operationId": "patchSettings",
         "summary": "Change what the board starts with",
-        "description": "Saved. The backlight and LED brightness also change now; `leds.count` waits for a restart.",
+        "description": "Saved. The backlight and LED brightness also change now, and touch reporting when `touch` is sent; `leds.count` waits for a restart.",
         "security": [
           {},
           {
@@ -3368,6 +3371,13 @@
                       "count": 24
                     }
                   }
+                },
+                "touch": {
+                  "value": {
+                    "touch": {
+                      "reporting": true
+                    }
+                  }
                 }
               }
             }
@@ -3390,6 +3400,9 @@
                     "leds": {
                       "brightness": 30,
                       "count": 24
+                    },
+                    "touch": {
+                      "reporting": false
                     }
                   },
                   "restart_required": true
@@ -3431,7 +3444,7 @@
         ],
         "operationId": "resetSettings",
         "summary": "Back to the firmware's defaults",
-        "description": "Scenes, servo calibration, networks and web settings are kept.",
+        "description": "Scenes, servo calibration, networks and web settings are kept. The backlight, LED brightness and touch reporting change now.",
         "security": [
           {},
           {
@@ -3458,6 +3471,9 @@
                     "leds": {
                       "brightness": 30,
                       "count": 16
+                    },
+                    "touch": {
+                      "reporting": false
                     }
                   },
                   "restart_required": false
@@ -6602,7 +6618,8 @@
         "required": [
           "boot_scene",
           "screen",
-          "leds"
+          "leds",
+          "touch"
         ],
         "properties": {
           "boot_scene": {
@@ -6651,6 +6668,18 @@
                 "description": "LEDs on the strip. Takes effect at the next start."
               }
             }
+          },
+          "touch": {
+            "type": "object",
+            "required": [
+              "reporting"
+            ],
+            "properties": {
+              "reporting": {
+                "type": "boolean",
+                "description": "Touch reporting at every start (the `touch` events): off unless set, or unless the build's `BOARD_TOUCH_AUTOSTART` makes on the default. A PATCH that sets it also turns touch reporting on or off now; the console's `touch on` and `touch off` change it only until the next start. The Cyphal register `r2.touch.reporting` is the same setting"
+              }
+            }
           }
         }
       },
@@ -6694,6 +6723,15 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 256
+              }
+            }
+          },
+          "touch": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reporting": {
+                "type": "boolean"
               }
             }
           }

@@ -41,6 +41,7 @@ Python for them is compiled once into build/pycyphal-dsdl/, and again when eithe
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import re
 import struct
@@ -84,6 +85,7 @@ import usb.core  # noqa: E402
 
 import uavcan.node.GetInfo_1_0 as GetInfo  # noqa: E402
 import uavcan.node.Heartbeat_1_0 as Heartbeat  # noqa: E402
+import uavcan.primitive.array.Bit_1_0 as Bit  # noqa: E402
 import uavcan.primitive.array.Natural16_1_0 as Natural16  # noqa: E402
 import uavcan.primitive.array.Natural32_1_0 as Natural32  # noqa: E402
 import uavcan.primitive.String_1_0 as String  # noqa: E402
@@ -143,6 +145,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--clip", default="leia240.mjpeg.mov", help="a clip on the board for the load tests")
     parser.addoption("--holo-minutes", default=3.0, type=float,
                      help="how long the holo's load test runs (default 3; the phase gates run 10)")
+    parser.addoption("--soak-minutes", default=0.0, type=float,
+                     help="how long the soak runs (test_soak.py; default 0: skipped)")
 
 
 # --------------------------------------------------------------------------------------------- board
@@ -252,6 +256,8 @@ def parse_cyphal(text: str) -> dict:
         ("not_read", r"not read \(queue full\) (\d+)"), ("heap_used", r"libcanard heap (\d+) of"),
         ("heap_peak", r"bytes \((\d+) at most"), ("stack_unused", r"stack (\d+) bytes never used"),
         ("internal_free", r"internal heap (\d+) free"), ("internal_lowest", r"(\d+) lowest"),
+        ("txq_peak", r"send queue at most (\d+)"), ("worker_unused", r"job slots held; its stack (\d+) of"),
+        ("slow_unused", r"the second worker \d+ of \d+, its stack (\d+) of"),
     ]:
         st[key] = _int(pattern, text)
     st["heap_ran_out"] = "it ran out" in text
@@ -310,6 +316,14 @@ def http(request: pytest.FixtureRequest) -> api_smoke.Board | None:
 
 
 # ------------------------------------------------------------------------------------------ the bus
+
+
+@pytest.fixture
+def need_http(http: api_smoke.Board | None) -> api_smoke.Board:
+    """The HTTP side, for a test that compares with it: skipped without --board-host"""
+    if http is None:
+        pytest.skip("compares with the HTTP API: --board-host")
+    return http
 
 
 class Net:
@@ -388,13 +402,17 @@ class Net:
         return self.node
 
     async def close(self) -> None:
+        """Closed while the board is quiet; and closed whatever happens, even if the board can't be made quiet (a
+        stuck console): left open, the adapter would be closed at the process's exit, while the board sends"""
         if self.node is not None:
-            self.board.quiet()
-            self.node.close()
-            self.node = None
-            self.media = None
-            self._capture = None
-            self.closed_at = time.monotonic()     # open() waits out the rest of REOPEN_S
+            try:
+                self.board.quiet()
+            finally:
+                self.node.close()
+                self.node = None
+                self.media = None
+                self._capture = None
+                self.closed_at = time.monotonic()     # open() waits out the rest of REOPEN_S
 
     def capture(self) -> Capture:
         """Every frame on the bus from now until Capture.stop(). One Capture for each open of the
@@ -609,10 +627,17 @@ def string(text: str) -> Value:
     return Value(string=String(text))
 
 
-def plain(value: Value) -> int | list[int] | str | None:
-    """A register's value as Python: one number, several, a string, or None for empty (no register)"""
+def bits(*values: bool) -> Value:
+    return Value(bit=Bit([bool(v) for v in values]))
+
+
+def plain(value: Value) -> int | list[int] | list[bool] | str | None:
+    """A register's value as Python: one number, several, a string, a list of bools for a bit array, or None for empty
+    (no register)"""
     if value.empty is not None:
         return None
+    if value.bit is not None:
+        return [bool(x) for x in value.bit.value]
     if value.string is not None:
         return bytes(value.string.value).decode()
     for kind in ("natural16", "natural32"):
@@ -652,9 +677,20 @@ async def register_names(node: pycyphal.application.Node, server: int) -> list[s
     return names
 
 
+def _reference_value(kind: str, token: str):
+    """A default as the reference page writes it in backticks ("65535", "[1150, 1900]", "false", a name) as plain() gives
+    a value of that type"""
+    if kind == "string":
+        return token
+    value = json.loads(token)
+    if kind.startswith("bit"):
+        return [bool(v) for v in (value if isinstance(value, list) else [value])]
+    return value
+
+
 def reference_registers() -> dict[str, tuple[str, object, bool]]:
-    """The registers manual/reference/cyphal.md gives, as built so far (the node and the ports; not
-    the holo's, from a later phase): name -> (type, default, mutable)"""
+    """The registers manual/reference/cyphal.md gives: the node's, the ports' and the holo's. name -> (type, default,
+    mutable)"""
     page = (REPO / "manual" / "reference" / "cyphal.md").read_text()
     out: dict[str, tuple[str, object, bool]] = {}
     node = page[page.index("**The node:**"):page.index("**The ports**")]
@@ -672,6 +708,15 @@ def reference_registers() -> dict[str, tuple[str, object, bool]]:
         name, kind, default = m.group(1), kinds[m.group(2)], int(m.group(4))
         out[f"uavcan.{kind}.{name}.id"] = ("natural16[1]", default, True)
         out[f"uavcan.{kind}.{name}.type"] = ("string", types[(m.group(3), default)], False)
+    # The holo's: one row for an axis pair (a default each, or one for both) or for touch reporting
+    holo = page[page.index("**The holo:**"):page.index("## Commands")]
+    for m in re.finditer(r"^\| ((?:`[a-z0-9_.]+`(?:, )?)+) \| (natural16\[\d\]|bit\[\d\]) \|[^|]*\| ([^|]+) \| "
+                         r"(mutable|immutable), persistent \|", holo, re.M):
+        names = re.findall(r"`([a-z0-9_.]+)`", m.group(1))
+        defaults = re.findall(r"`([^`]+)`", m.group(3))
+        for i, name in enumerate(names):
+            token = defaults[i] if len(defaults) >= len(names) else defaults[0]
+            out[name] = (m.group(2), _reference_value(m.group(2), token), m.group(4) == "mutable")
     return out
 
 
@@ -679,6 +724,6 @@ def console_registers(text: str) -> dict[str, str]:
     """`cyphal register`'s list: name -> the value as shown"""
     out = {}
     for line in text.splitlines():
-        if m := re.match(r"([a-z0-9_.]+) +(.+?) +(natural16\[1\]|natural32\[2\]|string), ", line):
+        if m := re.match(r"([a-z0-9_.]+) +(.+?) +(natural16\[\d\]|natural32\[2\]|bit\[\d\]|string), ", line):
             out[m.group(1)] = m.group(2)
     return out

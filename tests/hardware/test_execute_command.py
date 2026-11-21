@@ -15,7 +15,7 @@ import uavcan.node.ExecuteCommand_1_3 as ExecuteCommand
 import uavcan.register.Access_1_0 as Access
 import uavcan.register.Name_1_0 as Name
 
-from .conftest import (access, call, console_registers, ensure_node, heartbeats, natural16, plain,
+from .conftest import (access, bits, call, console_registers, ensure_node, heartbeats, natural16, plain,
                        reference_registers, string, until_state)
 
 Request, Response = ExecuteCommand.Request, ExecuteCommand.Response
@@ -185,21 +185,25 @@ async def test_restart(node, net, board, dut_node_id):
 
 
 def board_settings(board) -> dict:
-    """`settings`: the boot scene ("" for none), the backlight, the LEDs' brightness and count"""
+    """`settings`: the boot scene ("" for none), the backlight, the LEDs' brightness and count, touch reporting"""
     text = board.command("settings")
     boot = re.search(r"at start: (.+)", text)
     levels = re.search(r"backlight (\d+)%, LED brightness (\d+)%, (\d+) LEDs", text)
-    assert boot and levels, text
+    touch = re.search(r"^touch reporting (on|off)", text, re.M)
+    assert boot and levels and touch, text
     return {"boot": "" if boot.group(1).strip() == "nothing" else boot.group(1).strip(),
-            "backlight": int(levels.group(1)), "brightness": int(levels.group(2)), "leds": int(levels.group(3))}
+            "backlight": int(levels.group(1)), "brightness": int(levels.group(2)), "leds": int(levels.group(3)),
+            "touch": touch.group(1)}
 
 
 def put_settings_back(board, was: dict) -> None:
-    """The board's settings as board_settings() read them, from the console"""
+    """The board's settings as board_settings() read them, from the console (`settings touch` turns touch reporting
+    on or off now too: what is in effect is the caller's to put back after)"""
     board.command(f"scene boot {was['boot']}" if was["boot"] else "scene boot --clear")
     board.command(f"settings backlight {was['backlight']}")
     board.command(f"settings brightness {was['brightness']}")
     board.command(f"settings leds {was['leds']}")
+    board.command(f"settings touch {was['touch']}")
 
 
 def put_registers_back(board, was: dict[str, str], defaults: dict[str, tuple[str, object, bool]]) -> None:
@@ -207,7 +211,7 @@ def put_registers_back(board, was: dict[str, str], defaults: dict[str, tuple[str
     at its default, written back from the console as `cyphal register` showed it"""
     for name, shown in was.items():
         _, default, mutable = defaults[name]
-        default_shown = " ".join(map(str, default)) if isinstance(default, list) else str(default)
+        default_shown = " ".join(str(int(v)) for v in default) if isinstance(default, list) else str(default)
         if mutable and name != "uavcan.node.id" and shown != default_shown:
             out = board.command(f"cyphal register {name} {shown}")
             assert "not written" not in out, out
@@ -216,9 +220,10 @@ def put_registers_back(board, was: dict[str, str], defaults: dict[str, tuple[str
 @pytest.mark.restarts
 async def test_factory_reset(node, net, board, dut_node_id, request):
     """Factory reset: every register back to its default (the node-ID to plug-and-play), and the board's
-    settings; then a restart. The node comes back asking for a node-ID, which pycyphal's allocator gives.
-    Kept: the scenes, and the host link (or the node wouldn't be on the bus at all). Everything the reset
-    touches (the board's settings, every register) is read first and put back afterwards, from the console.
+    settings (touch reporting among them); then a restart. The node comes back asking for a node-ID, which
+    pycyphal's allocator gives. Kept: the scenes, and the host link (or the node wouldn't be on the bus at all).
+    Everything the reset touches (the board's settings, every register, touch reporting in effect) is read first
+    and put back afterwards, from the console.
     Only at 1 Mbit/s: the node comes back at its default bitrate, which the harness has to be at"""
     if request.config.getoption("--can-bitrate") != 1_000_000:
         pytest.skip("the node comes back from a factory reset at 1 Mbit/s, and the harness isn't at that")
@@ -227,11 +232,13 @@ async def test_factory_reset(node, net, board, dut_node_id, request):
     defaults = reference_registers()
     assert set(registers_was) == set(defaults), registers_was
     scenes = board.command("scene")
+    touch_on = "touch on" in board.command("touch")
     allocator = None
     try:
         assert plain((await access(node, dut_node_id, "uavcan.pub.status.id", natural16(2310))).value) == 2310
         assert plain((await access(node, dut_node_id, "r2.node.name", string("r2.dome.holo.top"))).value)
         board.command("settings backlight 50")
+        assert plain((await access(node, dut_node_id, "r2.touch.reporting", bits(True))).value) == [True]
         allocator = pycyphal.application.plug_and_play.CentralizedAllocator(node)
         mark = board.mark()
         status, _ = await command(node, dut_node_id, Request.COMMAND_FACTORY_RESET)
@@ -247,6 +254,8 @@ async def test_factory_reset(node, net, board, dut_node_id, request):
         after = board.command("settings")
         print(f"\n{worker_stack(board.since(mark))}\n{st['text']}\n{after}\nsettings before {settings_was}")
         assert "at start: nothing" in after and "backlight 100%" in after, after
+        # Touch reporting back to the build's default (off), one of the board's settings: off from the start
+        assert re.search(r"^touch reporting off$", after, re.M) and "touch off" in board.command("touch"), after
         assert board.command("scene") == scenes
         assert f"node {net.local_node_id} asks for a factory reset: done" in board.since(mark)
     finally:
@@ -254,6 +263,7 @@ async def test_factory_reset(node, net, board, dut_node_id, request):
             for port in (allocator._sub1, allocator._sub2, allocator._pub1, allocator._pub2):
                 port.close()
         put_settings_back(board, settings_was)
+        board.command("touch on" if touch_on else "touch off")
         board.command("cyphal reset")
         put_registers_back(board, registers_was, defaults)
         ensure_node(board, dut_node_id)

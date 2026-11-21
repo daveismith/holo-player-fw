@@ -52,7 +52,8 @@
  * and publishes is fixed for a run (the port registers apply from the next start), so that list is
  * serialized once a start, as GetInfo's response is.
  *
- * Work that can wait (a register written to NVS, a restart, a factory reset, identify) is handed to
+ * Work that can wait (a register written to NVS, or read where reading may wait: CYPHAL_REG_READ_ON_WORKER, a
+ * restart, a factory reset, identify) is handed to
  * the worker, a task of its own (worker_task()), so that the node's task never blocks: libcanard
  * stays this task's alone, and so does every frame sent. The hand-over is a small fixed pool of job
  * slots (JOB_SLOTS, in PSRAM, their states in internal RAM for the atomics), for requests only. The
@@ -66,11 +67,12 @@
  * slots again before it sleeps (jobs_done()), as it looks at s_running for a stop's wake. A job keeps the
  * start it came from, and its response is dropped if the node has restarted or stopped since. With no
  * free slot the request is answered at once: busy (ExecuteCommand's failure), or the register as it
- * is, unwritten.
+ * is, unwritten; a register's read meant for the worker isn't answered (Access has no busy).
  *
  * The application's requests go the same way: its decode() on the node's task, into the slot (the
  * decode-once rule: the worker never sees the payload), its work() on the worker, which serializes the
- * response into the same slot; with no slot free, its busy() answers at once. Its subscriptions' messages
+ * response into the same slot; with no slot free, its busy() answers at once (or nothing does, for a type with no
+ * way to say busy, whose busy() gives no response). Its subscriptions' messages
  * are handed to its on_message() on the node's task, which copies them into a mailbox of its own and wakes
  * the worker (cyphal_wake_worker(): a NULL in the work queue, one at most, for which the queue has a place
  * of its own); the worker then runs the application's poll(), which also runs on its own timer, between
@@ -209,8 +211,8 @@ static const service_t SERVICES[] = {
       uavcan_node_ExecuteCommand_Request_1_3_EXTENT_BYTES_, on_command, work_command, NULL },
 };
 #define SERVICE_COUNT (sizeof(SERVICES) / sizeof(SERVICES[0]))
-/* Every row the node can have: its own, and one for each of the application's ports */
-#define ROW_MAX       (SERVICE_COUNT + CYPHAL_PORTS_MAX)
+/* Every row the node can have: its own, one for each of the application's ports, and its fixed services */
+#define ROW_MAX       (SERVICE_COUNT + CYPHAL_PORTS_MAX + CYPHAL_FIXED_SERVICES_MAX)
 _Static_assert(ROW_MAX <= uavcan_node_port_SubjectIDList_1_0_sparse_list_ARRAY_CAPACITY_,
                "the port list holds every subject the node can have");
 
@@ -462,9 +464,30 @@ static void load(cyphal_settings_t *s)
     }
 }
 
-/* The node's own ports, fixed by the standard, for the port registers' rule (cyphal_reg_fixed()): SERVICES[]'
- * fixed rows, and plug-and-play's */
-static cyphal_fixed_port_t s_fixed[SERVICE_COUNT + 1];
+/* The ports fixed by the standard, for the port registers' rule (cyphal_reg_fixed()): SERVICES[]' rows,
+ * plug-and-play's, and the application's fixed services that can be kept (s_app_fixed[]) */
+static cyphal_fixed_port_t s_fixed[SERVICE_COUNT + 1 + CYPHAL_FIXED_SERVICES_MAX];
+static const cyphal_handler_t *s_app_fixed[CYPHAL_FIXED_SERVICES_MAX];
+static size_t s_app_fixed_count;
+
+/* An application's fixed service's fault, if it can't be kept beside the n ports fixed so far: NULL when it can */
+static const char *fixed_fault(const cyphal_handler_t *h, size_t n)
+{
+    if (s_app_fixed_count >= CYPHAL_FIXED_SERVICES_MAX) {
+        return "more than CYPHAL_FIXED_SERVICES_MAX";
+    }
+    if (h->fixed_id > CYPHAL_SERVICE_ID_MAX) {
+        return "not a service-ID";
+    }
+    for (size_t i = 0; i < n; i++) {
+        if (s_fixed[i].kind == CYPHAL_PORT_SRV && s_fixed[i].id == h->fixed_id) {
+            return "its service-ID is taken";
+        }
+    }
+    return h->decode == NULL || h->work == NULL || h->busy == NULL ? "a service needs decode, work and busy"
+           : h->in_size > CYPHAL_APP_REQUEST_MAX ? "its request is over CYPHAL_APP_REQUEST_MAX"
+           : h->extent == 0 ? "no extent" : NULL;
+}
 
 static void fix_ports(void)
 {
@@ -475,6 +498,17 @@ static void fix_ports(void)
         }
     }
     s_fixed[n++] = (cyphal_fixed_port_t){ ALLOCATION.kind, ALLOCATION.port_id };
+    s_app_fixed_count = 0;
+    for (size_t i = 0; s_app.fixed_services != NULL && i < s_app.fixed_service_count; i++) {
+        const cyphal_handler_t *h = &s_app.fixed_services[i];
+        const char *fault = fixed_fault(h, n);
+        if (fault != NULL) {
+            ESP_LOGE(TAG, "the application's service %u: %s; left out", h->fixed_id, fault);
+            continue;
+        }
+        s_app_fixed[s_app_fixed_count++] = h;
+        s_fixed[n++] = (cyphal_fixed_port_t){ CYPHAL_PORT_SRV, h->fixed_id };
+    }
     cyphal_reg_fixed(s_fixed, n);
 }
 
@@ -713,6 +747,15 @@ static void make_rows(void)
             .serve = p->kind == CYPHAL_PORT_SRV ? on_app_request : p->kind == CYPHAL_PORT_SUB ? on_app_message : NULL,
             .work = p->kind == CYPHAL_PORT_SRV ? work_app : NULL,
             .app = h,
+        };
+    }
+    /* The application's services on fixed IDs, checked by fix_ports() */
+    for (size_t i = 0; i < s_app_fixed_count; i++) {
+        const cyphal_handler_t *h = s_app_fixed[i];
+        s_has_slow |= h->slow;
+        s_rows[s_row_count++] = (service_t){
+            .kind = CYPHAL_PORT_SRV, .port_id = h->fixed_id, .app_port = -1, .extent = h->extent,
+            .serve = on_app_request, .work = work_app, .app = h,
         };
     }
 }
@@ -1232,11 +1275,13 @@ static bool collect_mail(node_t *n, int64_t now)
                     .remote_node_id = CANARD_NODE_ID_UNSET,
                     .transfer_id = m->tid++,
                 };
-                queued = push(n, &meta, m->data + (size_t)b * m->max, m->size[b], now);
+                queued = push(n, &meta, m->data + (size_t)b * m->max, m->size[b], now);  /* counts its failure */
+            } else {
+                s_tr_dropped++;         /* committed just before the node stopped, or its port is off this run */
             }
             taskENTER_CRITICAL(&m->mux);
             m->state[b] = BUF_FREE;
-            m->published += queued;     /* not queued: counted as dropped (push()) */
+            m->published += queued;
             taskEXIT_CRITICAL(&m->mux);
         }
     }
@@ -1298,9 +1343,11 @@ static size_t access_response(uavcan_register_Access_Response_1_0 *r, int index,
     return uavcan_register_Access_Response_1_0_serialize_(r, out, &room) < 0 ? 0 : room;
 }
 
-/* A read is answered here (cyphal_register_t's read never waits); a write to a register there is goes to
- * the worker (NVS), and with no slot free, is answered here with the register as it is, unwritten, which
- * tells the caller it wasn't done */
+/* A read is answered here (cyphal_register_t's read never waits), but for a CYPHAL_REG_READ_ON_WORKER register's,
+ * which goes to the worker; a write to a register there is goes to the worker (NVS). With no slot free, a write is
+ * answered here with the register as it is, unwritten, which tells the caller it wasn't done, and a read on the
+ * worker isn't answered at all (Access has no way to say busy): the client times out and asks again. Both count as
+ * busy */
 static void on_access(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now)
 {
     uavcan_register_Access_Request_1_0 *q = &n->rq.access;
@@ -1309,16 +1356,21 @@ static void on_access(node_t *n, const service_t *svc, const struct CanardRxTran
         return;
     }
     const int index = cyphal_reg_find(q->name.name.elements, q->name.name.count);
-    if (index >= 0 && !uavcan_register_Value_1_0_is_empty_(&q->value)) {
+    const cyphal_register_t *reg = index >= 0 ? cyphal_reg((size_t)index) : NULL;
+    const bool write = reg != NULL && !uavcan_register_Value_1_0_is_empty_(&q->value);
+    if (write || (reg != NULL && (reg->flags & CYPHAL_REG_READ_ON_WORKER))) {
         job_t *job = job_for(n, svc, t, false);
         if (job != NULL) {
             job->in.write.index = (size_t)index;
-            job->in.write.value = q->value;
+            job->in.write.value = q->value;     /* empty for a read */
             if (hand_over(job)) {
                 return;
             }
         }
         s_services.busy++;
+        if (!write) {
+            return;
+        }
     } else {
         s_services.register_reads++;
     }
@@ -1416,7 +1468,10 @@ static void on_app_request(node_t *n, const service_t *svc, const struct CanardR
         }
     }
     s_services.busy++;
-    respond(n, t, n->out, h->busy(n->out, OUT_BYTES), now);
+    const size_t size = h->busy(n->out, OUT_BYTES);
+    if (size > 0) {         /* 0: a type with no way to say busy, so no answer at all, and the client asks again */
+        respond(n, t, n->out, size, now);
+    }
 }
 
 /* A message on one of the application's subscriptions: its handler's, at once */
@@ -1514,13 +1569,22 @@ void cyphal_set_health(uint8_t health)
 
 /* ---- the worker */
 
-/* A register written, by the worker, then answered with what it holds now */
+/* A register written, by the worker, then answered with what it holds now; or a CYPHAL_REG_READ_ON_WORKER register
+ * read (an empty value) */
 static bool work_access(job_t *job)
 {
     uavcan_register_Access_Response_1_0 *r = &s_ws->access;
     memset(r, 0, sizeof(*r));
     const size_t index = job->in.write.index;
     const cyphal_register_t *reg = cyphal_reg(index);
+    if (uavcan_register_Value_1_0_is_empty_(&job->in.write.value)) {
+        cyphal_settings_t s;
+        saved_copy(&s);
+        cyphal_reg_read(&s, index, &r->value);
+        s_services.register_reads++;
+        job->size = access_response(r, (int)index, job->data, JOB_BYTES);
+        return false;
+    }
     char why[128];
     const esp_err_t err = cyphal_write_register(index, &job->in.write.value, &r->value, why, sizeof(why));
     if (err == ESP_OK) {

@@ -128,6 +128,10 @@ typedef enum {
 /* One of the node's settings: kept in cyphal_settings_t, saved by the node, in use from the node's next
  * start. Only the node's own registers; the application's take effect as their write says */
 #define CYPHAL_REG_NEXT_START  0x04
+/* An application's register whose read may wait (a mutex another task holds through an NVS write): a read over
+ * Cyphal is carried out by the node's worker, as a write is, instead of on the node's task. With every job slot
+ * held such a read goes unanswered (Access has no way to say busy; counted as busy): the client asks again */
+#define CYPHAL_REG_READ_ON_WORKER 0x08
 
 typedef struct cyphal_register cyphal_register_t;
 struct cyphal_register {
@@ -142,7 +146,9 @@ struct cyphal_register {
     /* Its value into `out`, which comes zeroed. `s` is the node's settings to read a CYPHAL_REG_NEXT_START
      * register from (the saved ones, or those in use); the application's registers ignore it. Runs on the
      * node's task for a read over Cyphal, which must never wait: a copy of a value already in memory,
-     * under nothing slower than a spinlock. No NVS, no file, no mutex another task may hold for long */
+     * under nothing slower than a spinlock. No NVS, no file, no mutex another task may hold for long; a
+     * register whose read needs one is CYPHAL_REG_READ_ON_WORKER, and is read on the node's worker instead.
+     * The console's `cyphal register` reads on the console's task */
     void (*read)(const cyphal_register_t *r, const cyphal_settings_t *s, uavcan_register_Value_1_0 *out);
     /* v written, checked first (cyphal_reg_take_*() convert it and check its size): CYPHAL_REG_OK, or a
      * refusal with the reason in `why`, the register unchanged. A CYPHAL_REG_NEXT_START register writes
