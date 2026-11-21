@@ -3,11 +3,13 @@
 SHELL := /bin/bash
 PY    := .venv/bin/python
 
-.PHONY: help venv docs-setup docs-check api-validate api-smoke docs-image docs-vendor docs-stage-firmware docs-build docs-offline docs-serve docs-preview-versions unit-test can-setup can-test
+.PHONY: help venv docs-setup docs-check api-validate api-smoke docs-image docs-vendor docs-stage-firmware docs-build docs-offline docs-serve docs-preview-versions unit-test can-setup can-test yakut
 
 # The hardware tests' Python (tests/hardware): its own venv, made by `make can-setup`, or another
 # with requirements-can.txt installed: make can-test CAN_PY=/path/to/python
 CAN_PY ?= .venv-can/bin/python
+# A Python with yakut installed, for `make yakut` (not in requirements-can.txt)
+YAKUT_PY ?= python3
 
 help:                  ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-22s %s\n", $$1, $$2}'
@@ -60,11 +62,15 @@ docs-serve:            ## serve the site locally with live reload
 docs-preview-versions: ## serve the local gh-pages branch with the version switcher (after mike deploy)
 	.venv/bin/mike serve
 
-unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, plug-and-play's request, reply, timing and in-use check, and the bus-off back-off (cc only, no ESP-IDF)
+unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, plug-and-play's request, reply, timing and in-use check, the bus-off back-off, and its register table (cc only, no ESP-IDF); and tools/yakut_can.py's refusals (python3, stdlib only)
 	@mkdir -p build/host-tests
 	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -Icomponents/cyphal/include -Icomponents/cyphal/dsdl -o build/host-tests/test_cyphal_util \
 	    tests/host/test_cyphal_util.c components/cyphal/cyphal_util.c
+	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -Icomponents/cyphal/include -Icomponents/cyphal/dsdl -o build/host-tests/test_cyphal_registers \
+	    tests/host/test_cyphal_registers.c components/cyphal/cyphal_registers.c components/cyphal/cyphal_util.c -lm
 	@build/host-tests/test_cyphal_util
+	@build/host-tests/test_cyphal_registers
+	@python3 tools/test_yakut_can.py
 
 can-setup:             ## a venv for the hardware tests (.venv-can, requirements-can.txt)
 	@test -x .venv-can/bin/python || python3 -m venv .venv-can
@@ -72,3 +78,6 @@ can-setup:             ## a venv for the hardware tests (.venv-can, requirements
 
 can-test:              ## the Cyphal node's hardware tests (tests/hardware) against a board and a gs_usb adapter; stop cyphal_service first. ARGS=... goes to pytest
 	@$(CAN_PY) -m pytest tests/hardware $(ARGS)
+
+yakut:                 ## Yakut on the board through the gs_usb adapter, under the adapter's rules (tools/yakut_can.py): ARGS="register-access 52 uavcan.node.id" YAKUT_PY=<a Python with yakut>; then tools/can_check.py flush before cyphal_service, or ARGS="--flush ..."
+	@$(YAKUT_PY) tools/yakut_can.py $(ARGS)

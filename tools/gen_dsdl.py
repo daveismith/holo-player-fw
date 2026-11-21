@@ -3,26 +3,34 @@
 
 The headers are generated here by Nunavut and committed, so that the firmware's build (and the
 release workflow's `v6.1` image, and a clean checkout) needs no Python packages. Run this after
-adding a type to TYPES, or after moving the DSDL submodule:
+adding a type to TYPES, after a change to the port table, or after moving a DSDL submodule:
 
     tools/gen_dsdl.py [--nnvg PATH]
 
 What the committed headers were generated with:
 
     nunavut   2.3.1 (`nnvg`)
-    DSDL      OpenCyphal/public_regulated_data_types a229bb78e76c48a3082be163bc240b2c13ff2d89
-              ("Extend uavcan si angle and length types (#150)", 2025-08-03), the submodule at
-              external/public_regulated_data_types. The hardware tests (tests/hardware/) compile
-              the same tree for pycyphal.
+    DSDL      two root namespaces, from two submodules:
+              uavcan  OpenCyphal/public_regulated_data_types a229bb78e76c48a3082be163bc240b2c13ff2d89
+                      ("Extend uavcan si angle and length types (#150)", 2025-08-03), at
+                      external/public_regulated_data_types
+              r2      daveismith/r2_cyphal_dsdl aac2fe0a5d0c2fe26bb21d3eaf58cfc661d08447
+                      ("r2.holo 0.1: the holo's Cyphal types, its port table, and a checker",
+                      2026-11-20), at external/r2_cyphal_dsdl, with its port table ports/holo.csv
+              The hardware tests (tests/hardware/) compile the same two trees for pycyphal.
 
-The script refuses a different DSDL revision or nunavut version unless told otherwise
+The script refuses another DSDL revision or nunavut version unless told otherwise
 (--any-revision, --any-nunavut), so that the headers and the tests cannot drift apart unseen.
 
-nnvg 2.3.1 generates a whole root namespace, so the uavcan namespace is generated into a temporary
-directory and only the types in TYPES, the headers they include, and Nunavut's serialization
-support header are copied out. Two things nnvg writes into every file are taken out so that the
-same inputs give the same bytes: the absolute path of the source file (made relative to this
-repository) and the time and machine of the run.
+nnvg 2.3.1 generates one whole root namespace a run, so it runs once for each root into the same
+temporary directory, with the other root to look types up in, and only the types in TYPES, the
+headers they include, and Nunavut's serialization support header are copied out. Two things nnvg
+writes into every file are taken out so that the same inputs give the same bytes: the absolute
+path of the source file (made relative to this repository) and the time and machine of the run.
+
+The r2 types have no fixed port-IDs: their defaults are in r2_cyphal_dsdl's ports/holo.csv, which
+this script turns into r2/holo/ports.h (PORTS_HEADER), so that the numbers are written once. Each
+port's register names, its NVS key and its range are checked here.
 
 Needs nunavut (`pip install nunavut==2.3.1`); nothing else.
 """
@@ -30,6 +38,7 @@ Needs nunavut (`pip install nunavut==2.3.1`); nothing else.
 from __future__ import annotations
 
 import argparse
+import csv
 import re
 import shutil
 import subprocess
@@ -38,51 +47,165 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DSDL = ROOT / "external" / "public_regulated_data_types"
+UAVCAN = ROOT / "external" / "public_regulated_data_types"
+R2 = ROOT / "external" / "r2_cyphal_dsdl"
 OUT = ROOT / "components" / "cyphal" / "dsdl"
 
 DSDL_REVISION = "a229bb78e76c48a3082be163bc240b2c13ff2d89"
+R2_REVISION = "aac2fe0a5d0c2fe26bb21d3eaf58cfc661d08447"
 NUNAVUT_VERSION = "2.3.1"
 
-# The types the node uses (phase 4's plug-and-play uses NodeIDAllocationData); their
-# dependencies follow from the #include lines. The firmware zero-initialises these structs rather
-# than calling Nunavut's generated <type>_initialize_(): that deserializes a one-byte buffer, and
-# GCC 15 raises false array-bounds errors in it (-Werror makes them fatal).
+# The types the node uses; their dependencies follow from the #include lines. The firmware
+# zero-initialises these structs rather than calling Nunavut's generated <type>_initialize_(): that
+# deserializes a one-byte buffer, and GCC 15 raises false array-bounds errors in it (-Werror makes
+# them fatal). The r2.holo types are generated now for the phases that serve them.
 TYPES = [
     "uavcan/node/Heartbeat_1_0.h",
     "uavcan/node/GetInfo_1_0.h",
+    "uavcan/node/ExecuteCommand_1_3.h",
+    "uavcan/node/port/List_1_0.h",
     "uavcan/pnp/NodeIDAllocationData_1_0.h",
+    "uavcan/_register/Access_1_0.h",     # `register` is C's: Nunavut's directory and names are _register
+    "uavcan/_register/List_1_0.h",
+    "r2/holo/Status_0_1.h",
+    "r2/holo/Event_0_1.h",
+    "r2/holo/Axes_0_1.h",
+    "r2/holo/Motion_0_1.h",
+    "r2/holo/Light_0_1.h",
+    "r2/holo/Scene_0_1.h",
+    "r2/holo/Screen_0_1.h",
+    "r2/holo/Ring_0_1.h",
+    "r2/holo/ListScenes_0_1.h",
+    "r2/holo/MediaInfo_0_1.h",
 ]
 SUPPORT = "nunavut/support/serialization.h"
+PORTS_CSV = R2 / "ports" / "holo.csv"
+PORTS_HEADER = "r2/holo/ports.h"
 
 INCLUDE_RE = re.compile(r"^#include <([^>]+)>", re.M)
 # The run's time and machine: "// Generated at: ..." and the "// Platform" block under it
 VOLATILE_RE = re.compile(r"^// Generated at:.*\n|^// Platform\n(?://     \S.*\n)+//\n", re.M)
+
+# ports/holo.csv's columns, and what each may hold
+PORT_COLUMNS = ["kind", "name", "type", "default_id", "priority", "register"]
+PORT_KINDS = {"pub": 8191, "sub": 8191, "srv": 511}     # the largest subject-ID or service-ID
+PRIORITIES = ["exceptional", "immediate", "fast", "high", "nominal", "low", "slow", "optional"]
+PORT_NAME_RE = re.compile(r"[a-z_][a-z0-9_]*\Z")        # the standard's [a-zA-Z_][a-zA-Z0-9_.]*, lower case
+TYPE_RE = re.compile(r"r2(\.[a-z_][a-z0-9_]*)+\.[A-Z][A-Za-z0-9]*\.\d+\.\d+\Z")
+NVS_KEY_MAX = 15        # NVS_KEY_NAME_MAX_SIZE - 1: the node saves each port's ID under `<kind>.<name>`
 
 
 def run(argv: list[str]) -> str:
     return subprocess.run(argv, check=True, capture_output=True, text=True).stdout.strip()
 
 
+def read_ports() -> list[dict]:
+    """ports/holo.csv's rows, checked: a mistake in the table is found here, not on the bus"""
+    lines = [line for line in PORTS_CSV.read_text().splitlines() if line.strip() and not line.startswith("#")]
+    rows = list(csv.DictReader(lines))
+    if not rows or list(rows[0].keys()) != PORT_COLUMNS:
+        sys.exit(f"{PORTS_CSV.relative_to(ROOT)}: the columns are not {','.join(PORT_COLUMNS)}")
+    seen: set[str] = set()
+    for row in rows:
+        where = f"{PORTS_CSV.relative_to(ROOT)}, port {row['name']!r}"
+        kind, name = row["kind"], row["name"]
+        if kind not in PORT_KINDS:
+            sys.exit(f"{where}: kind {kind!r} is not one of {', '.join(PORT_KINDS)}")
+        if not PORT_NAME_RE.match(name) or name in seen:
+            sys.exit(f"{where}: not a port name, or a second port of that name")
+        seen.add(name)
+        if not TYPE_RE.match(row["type"]):
+            sys.exit(f"{where}: {row['type']!r} is not an r2 type with its version")
+        # Decimal digits, no leading zero: the number is written into C, where 0100 would be octal
+        if not re.fullmatch(r"0|[1-9][0-9]*", row["default_id"]) or int(row["default_id"]) > PORT_KINDS[kind]:
+            sys.exit(f"{where}: the default {row['default_id']!r} is not 0 to {PORT_KINDS[kind]}, in decimal "
+                     f"without a leading zero")
+        if row["priority"] not in PRIORITIES:
+            sys.exit(f"{where}: priority {row['priority']!r} is not one of {', '.join(PRIORITIES)}")
+        if row["register"] != f"uavcan.{kind}.{name}.id":
+            sys.exit(f"{where}: the register is uavcan.{kind}.{name}.id, not {row['register']!r}")
+        if len(f"{kind}.{name}") > NVS_KEY_MAX:
+            sys.exit(f"{where}: `{kind}.{name}`, its NVS key, is longer than {NVS_KEY_MAX} characters")
+        *namespace, short, major, minor = row["type"].split(".")
+        if not (R2 / Path(*namespace) / f"{short}.{major}.{minor}.dsdl").is_file():
+            sys.exit(f"{where}: no type {row['type']} in {R2.relative_to(ROOT)}")
+    return rows
+
+
+def ports_header(rows: list[dict], revision: str) -> str:
+    """r2/holo/ports.h: an index for each port, and one X-macro line a port, in the table's order"""
+    width = max(len(r["name"]) for r in rows)
+    type_width = max(len(r["type"]) for r in rows) + 2
+    lines = [
+        f"/*",
+        f" * The holo's Cyphal ports and their defaults, from r2_cyphal_dsdl's ports/holo.csv",
+        f" * ({revision[:7]}). Generated by tools/gen_dsdl.py: don't edit.",
+        f" *",
+        f" * R2_HOLO_PORTS(X) calls X once a port, in the table's order, with:",
+        f" *   X(INDEX, kind, name, type, default_id, priority, id_register, type_register, nvs_key)",
+        f" * INDEX is the R2_HOLO_PORT_<INDEX> below, without the prefix; kind is PUB (the board",
+        f" * publishes), SUB (it subscribes) or SRV (it serves), a token; priority a token, one of",
+        f" * Cyphal's eight (EXCEPTIONAL ... OPTIONAL); the rest are C strings and numbers. A subject-ID",
+        f" * is 0 to 8191 and a service-ID 0 to 511, as checked when this was generated.",
+        f" */",
+        f"#pragma once",
+        f"",
+        f"#define R2_HOLO_PORTS_REVISION \"{revision}\"",
+        f"",
+        f"typedef enum {{",
+    ]
+    lines += [f"    R2_HOLO_PORT_{r['name'].upper()}," for r in rows]
+    lines += [
+        f"    R2_HOLO_PORT_COUNT",
+        f"}} r2_holo_port_t;",
+        f"",
+        f"#define R2_HOLO_PORTS(X) \\",
+    ]
+    calls = []
+    for r in rows:
+        kind, name = r["kind"], r["name"]
+        args = [
+            name.upper().ljust(width),
+            kind.upper(),
+            f'"{name}"'.ljust(width + 2),
+            f'"{r["type"]}"'.ljust(type_width),
+            str(int(r["default_id"])).rjust(4),     # decimal, whatever the table held
+            r["priority"].upper().ljust(7),
+            f'"{r["register"]}"',
+            f'"uavcan.{kind}.{name}.type"',
+            f'"{kind}.{name}"',
+        ]
+        calls.append(f"    X({', '.join(args)})")
+    return "\n".join(lines) + "\n" + " \\\n".join(calls) + "\n"
+
+
+def check_revision(path: Path, want: str, name: str, any_revision: bool) -> str:
+    if not path.is_dir() or not any(path.iterdir()):
+        sys.exit(f"no DSDL at {path.relative_to(ROOT)}: git submodule update --init {path.relative_to(ROOT)}")
+    revision = run(["git", "-C", str(path), "rev-parse", "HEAD"])
+    if revision != want and not any_revision:
+        sys.exit(f"{name} is at {revision}, not {want} (--any-revision to go on, then update this script)")
+    return revision
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--nnvg", default=shutil.which("nnvg") or "nnvg", help="the nnvg to run (default: from PATH)")
-    parser.add_argument("--any-revision", action="store_true", help="accept a DSDL checkout at another revision")
+    parser.add_argument("--any-revision", action="store_true", help="accept DSDL checkouts at other revisions")
     parser.add_argument("--any-nunavut", action="store_true", help=f"accept a nunavut other than {NUNAVUT_VERSION}")
     args = parser.parse_args()
 
-    if not (DSDL / "uavcan").is_dir():
-        sys.exit(f"no DSDL at {DSDL.relative_to(ROOT)}: git submodule update --init external/public_regulated_data_types")
-    revision = run(["git", "-C", str(DSDL), "rev-parse", "HEAD"])
-    if revision != DSDL_REVISION and not args.any_revision:
-        sys.exit(f"the DSDL is at {revision}, not {DSDL_REVISION} (--any-revision to go on, then update this script)")
+    uavcan_rev = check_revision(UAVCAN, DSDL_REVISION, "public_regulated_data_types", args.any_revision)
+    r2_rev = check_revision(R2, R2_REVISION, "r2_cyphal_dsdl", args.any_revision)
     version = run([args.nnvg, "--version"])
     if version != NUNAVUT_VERSION and not args.any_nunavut:
         sys.exit(f"nnvg is {version}, not {NUNAVUT_VERSION} (--any-nunavut to go on, then update this script)")
+    ports = read_ports()
 
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run([args.nnvg, "--target-language", "c", "--language-standard", "c11", "--outdir", tmp,
-                        str(DSDL / "uavcan")], check=True)
+        for root, lookup in ((UAVCAN / "uavcan", R2 / "r2"), (R2 / "r2", UAVCAN / "uavcan")):
+            subprocess.run([args.nnvg, "--target-language", "c", "--language-standard", "c11", "--outdir", tmp,
+                            "--lookup-dir", str(lookup), str(root)], check=True)
         generated = Path(tmp)
         # A name asked for that nnvg didn't write is a mistake (a typo, a type moved or renamed),
         # found before anything is deleted. Only a name from an #include line may be another
@@ -109,7 +232,10 @@ def main() -> int:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(text)
             print(f"  {dest.relative_to(ROOT)}")
-    print(f"{len(wanted)} headers from DSDL {revision[:7]}, nunavut {version}")
+    dest = OUT / PORTS_HEADER
+    dest.write_text(ports_header(ports, r2_rev))
+    print(f"  {dest.relative_to(ROOT)}")
+    print(f"{len(wanted) + 1} headers from DSDL {uavcan_rev[:7]} and {r2_rev[:7]} ({len(ports)} ports), nunavut {version}")
     return 0
 
 

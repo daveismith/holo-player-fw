@@ -5,10 +5,13 @@ a [Cyphal](https://opencyphal.org)/CAN bus. So far it does what every Cyphal nod
 
 - it gets a **node-ID**, by plug-and-play or from its settings;
 - it sends a **heartbeat** once a second (`uavcan.node.Heartbeat`);
-- it answers **`uavcan.node.GetInfo`** with its name, its version and its unique ID.
+- it answers **`uavcan.node.GetInfo`** with its name, its version and its unique ID;
+- its settings are **registers** (`uavcan.register.Access` and `List`);
+- it **restarts, resets or identifies itself** when told (`uavcan.node.ExecuteCommand`);
+- it says which **ports** it uses every 10 seconds (`uavcan.node.port.List`).
 
-Scenes, the screen, the LEDs and the holo are not on Cyphal yet. The node is there to be found
-and identified, by a dome controller or by a tool such as
+Scenes, the screen, the LEDs and the holo are not on Cyphal yet. The node is there to be found,
+identified and managed, by a dome controller or by a tool such as
 [cyphal_service](https://github.com/daveismith/cyphal_service) or Yakut. What is being built is
 described [below](#the-holo-on-cyphal).
 
@@ -167,13 +170,14 @@ as a fixed one, or change the allocator's record.
 | `cyphal name <name>\|--reset` | The name `GetInfo` reports. From the node's next start |
 | `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
 | `cyphal restart` | Stop the node and start it again, with the settings as they now are |
-| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
+| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s, every port's default ID |
+| `cyphal register [<name> [<value>…]]` | The same settings as [Cyphal registers](#settings-as-registers), with the holo's port numbers: all of them, one, or one written |
 
-The settings are saved, and they are part of a [backup](backup.md): the node-ID setting, the name
-and the bitrate (NVS namespace `cyphal`: `node_id`, 255 for plug-and-play; `name`; `bitrate`). A
-replacement board restored from a backup takes the old one's name and, if it was fixed, its
-node-ID. `cyphal` shows a setting changed since the node started on a line of its own, until
-`cyphal restart`.
+The settings are saved, and they are part of a [backup](backup.md): the node-ID setting, the name,
+the bitrate and the port numbers (NVS namespace `cyphal`: `node_id`, 255 for plug-and-play;
+`name`; `bitrate`; and one for each port, `pub.status` to `srv.media_info`). A replacement board
+restored from a backup takes the old one's name and, if it was fixed, its node-ID. `cyphal` shows
+a setting changed since the node started on a line of its own, until `cyphal restart`.
 
 The pins are the host link's: `link pins` changes them.
 
@@ -183,9 +187,11 @@ The pins are the host link's: `link pins` changes them.
 cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX)
   unique id 686f6c6f706c61790000e4b0638c2db0, pseudo-ID 8e8b473a6a76 (156728846609014)
   bus: error-active, tx errors 0, rx errors 0, bus-off 0 times
-  transfers: sent 51, received 29; frames: sent 253, received 143; dropped 0
-  up 60 s; frames given to the controller 253, not sent 0, waiting 0; not read (queue full) 0
-  memory: libcanard heap 120 of 16384 bytes (708 at most), stack 1248 bytes never used; internal heap 103347 free, 51192 lowest
+  transfers: sent 57, received 29; frames: sent 385, received 143; dropped 0
+  up 60 s; frames given to the controller 385, not sent 0, waiting 0; not read (queue full) 0
+  memory: libcanard heap 72 of 32768 bytes (1932 at most), stack 1744 bytes never used; internal heap 95327 free, 57236 lowest
+  services: registers read 25, written 1, refused 0, listed 26; commands 1, bad 0; busy 0; port lists 6
+  worker: 0 of 4 job slots held; its stack 4808 of 6144 bytes never used
 ```
 
 The first line starts with the node's state:
@@ -244,10 +250,12 @@ Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats d
 
 ## The holo on Cyphal
 
-!!! note "Not in the firmware yet"
-    This section describes the holo's Cyphal interface ahead of the firmware, for review. None
-    of it can be used yet. The [Cyphal interface](../reference/cyphal.md) reference has every
-    type, port and register.
+!!! note "Partly in the firmware"
+    This section describes the holo's Cyphal interface ahead of the firmware. What can be used
+    now is the node's management: [its registers](#settings-as-registers) and
+    [its commands](#restart-factory-reset-identify). The holo's own messages and services aren't
+    built yet. The [Cyphal interface](../reference/cyphal.md) reference has every type, port and
+    register.
 
 A controller on the bus, the dome panel or an app on a Linux machine, will be able to do with
 this holo what the panel does with a holo of its own: every motion, the light, direct moves of
@@ -336,9 +344,34 @@ The node's settings are Cyphal registers, which any Cyphal tool lists, reads and
 | `uavcan.can.bitrate` | The bitrate (`cyphal bitrate`) | 1000000 |
 | `uavcan.pub.status.id`, … `uavcan.srv.ring.id`, … | Each port's number; 65535 turns the port off | The defaults above |
 
-They are the same saved settings the `cyphal` commands change, and the console will read and
-write the registers by name too (`cyphal register`, to come). A change takes effect when the node
-next starts. Later the holo's calibration, its servos' drive policy and touch reporting become
+They are the same saved settings the `cyphal` commands change, and the console reads and writes
+the registers by name too:
+
+```
+cyphal register
+cyphal register uavcan.sub.setpoint.id
+cyphal register uavcan.sub.setpoint.id 2313
+```
+
+```text
+uavcan.sub.setpoint.id       2313                   natural16[1], mutable, persistent; 2303 until the node's next start
+```
+
+A change takes effect when the node next starts (`cyphal restart`). A value the board can't take
+is refused with the reason, and the register keeps its value:
+
+```text
+cyphal: uavcan.sub.setpoint.id not written: a subject-ID is 0 to 8191, or 65535 to turn the port off
+```
+
+A number another port already has is refused as well, with the port that has it: the subjects,
+published or subscribed, are one set and the services another, and the node's own standard ports
+count ([the rule](../reference/cyphal.md#port-numbers-in-use)). To swap two ports' numbers, move one
+to a free number, or to 65535, first.
+
+Over Cyphal the response says the same by carrying the old value. Until the firmware has a port,
+its number is only kept: the holo's ports aren't built yet, so none of them is used, whatever its
+register holds. Later the holo's calibration, its servos' drive policy and touch reporting become
 registers as well.
 
 The port numbers are saved and go into a [backup](backup.md) with the rest of the node's
@@ -349,12 +382,16 @@ subject.
 
 `uavcan.node.ExecuteCommand`, the standard command service:
 
-- **restart** restarts the board;
+- **restart** restarts the board, a second after it answers;
 - **factory reset** puts every register and the board's settings back to their defaults and
   restarts, keeping the scenes, the files, the servos' calibration, the network settings and the
-  host link's mode (so the node comes back on the bus);
-- **identify** blinks the ring and shows the crosshair for a few seconds, to tell which board on
-  the bus is which.
+  host link's mode (so the node comes back on the bus, asking for a node-ID by plug-and-play);
+- **identify** flickers the ring white and shows the crosshair for 5 seconds, to tell which board
+  on the bus is which, then puts both back. It runs as a short scene called `identify`, so the web
+  app shows it, and it ends a scene that was running.
+
+Every other command, power off and emergency stop among them, is refused as a bad command. The
+board's log says which node asked.
 
 ### From a computer
 
@@ -369,8 +406,27 @@ yakut call 52 motion '{motion: {kind: 4, count: 3}}'
 yakut execute-command 52 restart
 ```
 
+(The call to `motion` waits for the holo's services; the register and the restart work now.)
+
 On macOS a gs_usb adapter (a CANable, candleLight) needs a workaround first: python-can, which
-Yakut uses, asks the system to detach a kernel driver, and macOS refuses without root.
+Yakut uses, asks the system to detach a kernel driver, and macOS refuses without root. This
+repository's `tools/yakut_can.py` runs Yakut with it, and with the adapter opened and closed only
+while the board is quiet, which a candleLight needs; it sets the transport and `CYPHAL_PATH` from
+the repository's own copies of the types, and wants the board on a fixed node-ID:
+
+```sh
+tools/yakut_can.py register-list 52
+tools/yakut_can.py register-access 52 uavcan.srv.motion.id
+tools/yakut_can.py register-access 52 uavcan.pub.status.id 2310
+```
+
+It refuses `execute-command`, and a `call` to `uavcan.node.ExecuteCommand`: on the bench a
+candleLight now and then stopped passing frames to the computer during a Yakut session, every time
+a command was sent and sometimes otherwise, and only the adapter's own bootloader brought it back.
+The repository's hardware tests send the commands instead. It also refuses what would leave the
+board never quiet when the adapter has to close (a write of 65535, plug-and-play, to
+`uavcan.node.id`: use `cyphal id auto` on the console), `register-batch`, and a `--bitrate` other
+than the board's.
 
 ### What stays off Cyphal
 
@@ -379,22 +435,27 @@ backup and firmware updates stay on Wi-Fi and the USB console. So do saving and 
 Cyphal applies a saved one. The [reference](../reference/cyphal.md#not-on-cyphal) has the whole
 list.
 
-`transfers` counts what was sent, whole (heartbeats, `GetInfo` responses and plug-and-play
-requests) and what was received (`GetInfo` requests and plug-and-play messages); `frames` counts
+`transfers` counts what was sent, whole (heartbeats, port lists, responses and plug-and-play
+requests) and what was received (requests and plug-and-play messages); `frames` counts
 what the controller sent and had acknowledged, and what it received. `dropped` counts transfers
-the board gave up on because the bus didn't take them in time (a second, a heartbeat's period).
+the board gave up on because the bus didn't take them in time (a second, a heartbeat's period), or
+that it couldn't queue or put together at all.
 It rises while the board is alone on the bus, about once a second as each heartbeat expires
 (a little less while it waits for a node-ID: each request expires in turn, and the next isn't
 queued until it has), and shouldn't otherwise. The frame the controller was retrying then goes out when another node turns up, a
 little late.
 
-The last two lines are for when something seems wrong: how long the node has run, frames it
+The next two lines are for when something seems wrong: how long the node has run, frames it
 handed to the controller that were never sent (bus-off, or a restart of the node), frames that
-arrived faster than they could be read, and the memory it uses. Its libcanard heap is 16 KB of
-PSRAM, reserved at its first start, of which it has used about 800 bytes at most (500 `GetInfo`
-requests back to back); the internal RAM it takes while it runs is its task's 2.5 KB stack, of which
-at most 1.8 KB has been used, and the CAN driver's queues (about 8 KB, kept once the controller has
-run, the same as for `can`).
+arrived faster than they could be read, and the memory it uses. Its libcanard heap is 32 KB of
+PSRAM, reserved at its first start; a port list waiting to go takes about 1.8 KB of it. The
+internal RAM it takes is its task's 3 KB stack while it runs, the worker's 6 KB stack (the task
+that writes registers and carries out commands, so that the node's own never waits) from its first
+start on, and the CAN driver's queues (about 8 KB, kept once the controller has run, the same as
+for `can`).
+
+`services` counts the register and command requests, the ones refused, and those answered busy
+because the worker already held four; `worker` shows how many it holds now.
 
 ## Testing the wiring: raw frames
 

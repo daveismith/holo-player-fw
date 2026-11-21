@@ -80,6 +80,17 @@ esp_err_t settings_save(const settings_t *s)
     return err;
 }
 
+esp_err_t settings_reset(settings_t *out)
+{
+    settings_defaults(out);
+    const esp_err_t err = settings_save(out);
+    if (err == ESP_OK) {
+        screen_set_backlight(out->backlight);
+        leds_set_brightness(out->led_brightness);
+    }
+    return err;
+}
+
 int settings_led_count(void)
 {
     settings_t s;

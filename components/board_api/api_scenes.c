@@ -265,13 +265,10 @@ static api_reply_t settings_delete(const api_req_t *req)
 {
     (void)req;
     settings_t s;
-    settings_defaults(&s);
-    const esp_err_t err = settings_save(&s);
+    const esp_err_t err = settings_reset(&s);
     if (err != ESP_OK) {
         return api_error(500, "failed", "not saved: %s", esp_err_to_name(err));
     }
-    screen_set_backlight(s.backlight);
-    leds_set_brightness(s.led_brightness);
     return settings_result(&s);
 }
 

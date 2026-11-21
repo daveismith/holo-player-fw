@@ -106,6 +106,8 @@ CONFIG_TWAI_ISR_CACHE_SAFE=y
 # The component's defaults are generic, since it is meant to move to other firmware.
 CONFIG_CYPHAL_UNIQUE_ID_PREFIX="holoplay"
 CONFIG_CYPHAL_DEFAULT_NAME="r2.dome.holo.front"
+# The register that names it (manual/reference/cyphal.md, "Registers")
+CONFIG_CYPHAL_NAME_REGISTER="r2.node.name"
 CONFIG_CYPHAL_HARDWARE_VERSION_MAJOR=1
 CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
 # Its task reads the CAN receive queue and keeps the heartbeat on time, so it runs above the video

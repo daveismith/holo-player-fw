@@ -41,7 +41,11 @@ async def test_alone_for_10_minutes(alone, board, request):
     assert all(s["bus"] in ("error-active", "error-warning", "error-passive") for s in samples)
     assert last["bus_off"] == first["bus_off"] == 0
     assert last["dropped"] > first["dropped"], "alone, the heartbeats should expire"
-    assert max(used) - min(used) <= 256, "libcanard's heap grew"
+    # A sample may catch a transfer waiting out its second in the queue: a heartbeat (one frame), or the
+    # port list (22 frames, 1.8 KB, every 10 s). A leak raises the floor, and the peak once it is reached
+    half = len(used) // 2
+    assert min(used[half:]) - min(used[:half]) <= 256, "libcanard's heap grew"
+    assert last["heap_peak"] - samples[1]["heap_peak"] <= 256, "libcanard's heap reached higher"
     assert min(free) >= first["internal_free"] - 2048, "internal heap fell"
     assert max(s["console_s"] for s in samples) < 2
     if host:

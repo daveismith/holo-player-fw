@@ -20,14 +20,28 @@ extern "C" {
  * was read: the ISR stamps a frame a moment before it queues it, maybe on the other core */
 #define CYPHAL_RX_SLACK_US      1000
 
+#define CYPHAL_PORTS_MAX        16     /* the application's own ports a node keeps the IDs of (cyphal_registers.h) */
+
+#define CYPHAL_NODE_ID_MAX      127
+#define CYPHAL_NODE_ID_AUTO     255    /* the node-ID setting for plug-and-play */
+
 typedef struct {
-    uint8_t node_id;                    /* 0-127, or CYPHAL_NODE_ID_AUTO (cyphal.h) */
+    uint8_t node_id;                    /* 0-127, or CYPHAL_NODE_ID_AUTO */
     char name[CYPHAL_NAME_MAX + 1];     /* bytes after the terminator are not part of it */
     uint32_t bitrate;                   /* 125000, 250000, 500000 or 1000000 */
+    /* Each of the application's ports' subject- or service-ID, CYPHAL_PORT_OFF (65535) for off, in
+     * its table's order (cyphal_reg_init()); 65535 in the slots past its last */
+    uint16_t port_id[CYPHAL_PORTS_MAX];
 } cyphal_settings_t;
 
 /* The same settings: the name compared as a string, whatever follows its terminator */
 bool cyphal_settings_equal(const cyphal_settings_t *a, const cyphal_settings_t *b);
+
+/* A node-ID setting: 0 to CYPHAL_NODE_ID_MAX, or CYPHAL_NODE_ID_AUTO */
+bool cyphal_node_id_valid(uint32_t node_id);
+
+/* One of the bitrates the node runs at: 125000, 250000, 500000 or 1000000 */
+bool cyphal_bitrate_valid(uint32_t bitrate);
 
 /* The listen from the node's start before it sends as a node-ID (D9): a fixed node-ID's before going
  * online, plug-and-play's before taking up an allocated one. In esp_timer microseconds. It is over once

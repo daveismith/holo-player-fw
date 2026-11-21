@@ -182,6 +182,12 @@ test("commands: grouping, lines from the docs, what needs a confirmation", () =>
   assert.ok(danger("cyphal name r2.dome.holo.top"));
   assert.ok(danger("cyphal bitrate 500k"));
   assert.equal(refusal("cyphal restart"), null);
+  assert.match(danger("cyphal reset"), /every port's default ID/);
+  assert.equal(danger("cyphal register"), null);
+  assert.equal(danger("cyphal register uavcan.pub.status.id"), null);
+  assert.match(danger("cyphal register uavcan.pub.status.id 2310"), /writes the Cyphal node's register uavcan\.pub\.status\.id/);
+  assert.match(danger("cyphal register uavcan.can.bitrate 500000 500000"), /uavcan\.can\.bitrate/);
+  assert.equal(refusal("cyphal register uavcan.node.id 52"), null);
   assert.equal(danger("link"), null);
   assert.match(danger("link mode can"), /Cyphal node, which goes on the CAN bus/);
   assert.match(danger("link mode uart -b 115200"), /next restart/);

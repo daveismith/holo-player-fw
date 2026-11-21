@@ -118,6 +118,14 @@ keeps an `Unreleased` section; nothing is tagged outside a release.
   changed and erased, which `cyphal id <n>|auto`, `cyphal name <name>|--reset` and `cyphal reset`
   do; keep that true. `manual/use/backup.md` tells the user that a second
   board restored from the same backup needs its own node-ID.
+- **The holo's Cyphal port numbers stay in too** (NVS `cyphal`, keys `pub.status` …
+  `srv.media_info`, one a port of `r2_cyphal_dsdl`'s `ports/holo.csv`; 2026-11-20). The setpoint
+  subject is per board (two holos on one subject move together), so they are a per-board setting
+  like the node-ID: kept by the precedent of the user's condition for the node-ID and name, decided
+  by the coordinator and flagged to the user for confirmation. The condition holds for them: each
+  can be changed (`cyphal register uavcan.<kind>.<name>.id <n>`) and erased (`cyphal reset`, which
+  puts every register back to its default); keep that true. `manual/use/backup.md` tells the user
+  that a second holo restored from the same backup needs its own setpoint subject.
 - **`nvs_import -` works over this UART console** (2026-10-22). No `stdin_refusal` is installed
   because stdin is always the console's; the host link has a UART of its own. If a second
   console ever shares stdin, install one.
@@ -172,8 +180,9 @@ rejoin (`wifi_known_list`'s `last`), not none saved.
 `components/canbus` (the TWAI controller) and libcanard; `can` is the raw-frame bench command on the
 same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
 
-- **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`), built with the computer's
-  `cc`, no IDF. `make can-test`: pytest in `tests/hardware/` against the console and a gs_usb
+- **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`, and the register table in
+  `cyphal_registers.c`), built with the computer's `cc`, no IDF, and `yakut_can.py`'s refusals.
+  `make can-test`: pytest in `tests/hardware/` against the console and a gs_usb
   adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
   `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
   test that uploads to the spare OTA slot without activating it, and asserts the board still boots
@@ -206,13 +215,50 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   with an even prescaler from 80 MHz rules it out at 1 Mbit/s.
 - **libcanard is pinned at v4.0.0**: v5 can't send anonymous messages, which plug-and-play v1
   needs. v4's anonymous transfers are single-frame (7 bytes); the request fits. Read the pinned
-  header, not memory, before writing against it.
+  header, not memory, before writing against it. `cyphal.c`'s `next_due()` walks v4.0.0's private
+  deadline tree (`deadline_root`, `deadline_base`) as its own expiry does, so that "dropped" counts
+  whole transfers: on a bump, re-read those fields and `txFlushExpiredTransfers()` first.
 - **The DSDL C headers are generated and committed** (`components/cyphal/dsdl/`, from
-  `external/public_regulated_data_types` at `a229bb7`, by `tools/gen_dsdl.py` with Nunavut): the
-  build and the release image need no Python. Don't edit them by hand. Nunavut's `_initialize_()`
-  isn't used: GCC 15 raises false array-bounds errors in it under `-Werror`; zero is the default.
-- **Submodules**: `external/libcanard` (the build needs it) and
-  `external/public_regulated_data_types` (`gen_dsdl.py` and the tests). Clone `--recursive`.
+  `external/public_regulated_data_types` at `a229bb7` and `external/r2_cyphal_dsdl` at `aac2fe0`,
+  by `tools/gen_dsdl.py` with Nunavut, one `nnvg` run a root with the other as lookup): the build
+  and the release image need no Python. Don't edit them by hand. `r2/holo/ports.h` is the port
+  table (`ports/holo.csv`) as an X-macro, which `main.c` turns into the node's port list, so the
+  defaults are written once. Nunavut puts `uavcan.register` in `uavcan/_register/` (C keyword).
+  Nunavut's `_initialize_()` isn't used: GCC 15 raises false array-bounds errors in it under
+  `-Werror`; zero is the default. `r2_cyphal_dsdl` is changed in its own repository and the pin
+  bumped here, as with the kit; a type that has shipped gets a new version, never an edit.
+- **Submodules**: `external/libcanard` (the build needs it), `external/public_regulated_data_types`
+  and `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests). Clone `--recursive`.
+- **Only the node's task calls libcanard** (its heap has no lock). Anything that may wait (a
+  register's NVS write, restart, factory reset, identify; later the holo's routes) goes to the
+  worker through a job slot (`cyphal.c`'s header): a full pool answers busy at once, and the
+  worker wakes the node's task with `canbus_wake()` (a marker `canbus_receive()` skips, so its
+  false still means "queue empty"); a stop wakes it the same way, and nothing uses
+  `xTaskAbortDelay()`. `flush()`'s own `drain()` can read and skip the worker's wake, so the task
+  looks at the slots again before it sleeps (`jobs_done()`): without that a response waited for
+  the next timer, up to a second (`test_worker_responses_prompt`: 16 of 90 over 250 ms before). Responses are pushed by the node's task and sent only by `flush()`, so the
+  order below holds. The node's own ports are one table, `SERVICES[]`, that subscribes them and
+  makes the port list; a later phase's port is a row.
+- **A restart over Cyphal happens with the adapter open.** The harness then sends nothing until
+  the board is back (`Net.muted()` in `tests/hardware/conftest.py`); a factory reset brings the
+  node back with plug-and-play, never quiet, which the tests handle with pycyphal's allocator.
+- **Yakut wedges the CANable** (2026-11-20). `tools/yakut_can.py` opens and closes it in the
+  board's listens, runs each `cyphal restart` to its prompt (linenoise swallows input until its
+  `ESC[6n` is answered: a `cyphal restart` written without reading the reply was lost, and the
+  adapter closed while the board sent) and closes while pycyphal still reads. It empties the
+  adapter afterwards only with `--flush` (another open and close); without it,
+  `tools/can_check.py flush` before cyphal_service, as after any python-can session. Its console is
+  `tools/board_console.py`, the hardware tests' too. Even so, 4 of 13 Yakut sessions after that
+  wedged it (all three `execute-command`s, and a read and a list), each needing the `dfu-util`
+  recovery below, while the pycyphal tests never did. So the wrapper refuses
+  `execute-command` and a `call` to ExecuteCommand (435), and the tests are the way to exercise
+  commands. It also refuses a write of 65535 to `uavcan.node.id` (the closing `cyphal restart`
+  would come back in plug-and-play, never quiet), `register-batch`, and a `--bitrate` other than
+  the one `cyphal` shows; its close always closes the adapter, after giving the node its fixed
+  node-ID back if it isn't listening. Those refusals are `tools/test_yakut_can.py` (stdlib, in
+  `make unit-test`); the wrapper's adapter paths have not been run on the bench since (2026-11-20).
+  Yakut is not in `requirements-can.txt`: r2_rp2040_rust's venv has it (use it, install nothing
+  into it).
 - **canbus has one owner at a time, by handle**: `canbus_start()` returns it, and stop, send,
   receive and recover with any other are refused. `can` only reports while the node holds it.
 - **Nothing is sent before every received frame has been checked for our node-ID** (`cyphal.c`'s
@@ -252,6 +298,7 @@ to CANL for 5 s (4 bus-offs, the back-off as designed, error-active again 11 s a
 one frame lost per bus-off, none leaked; the service logs `InvalidFrame` at 13,000 lines a second
 during the short and recovers without a flush). A second plug-and-play board on the same bus (the
 shoulder sensor, 6.3) was dropped from the plan and has never been tried; nor has bus-off from a
-short under `can`. By reading only: a failed controller stop in `cyphal restart`, the abort-delay race at a
-stop, a node start that fails at boot. Plug-and-play's hold while another node is heard on the
-allocated ID is proven by the host tests, not by timing on the bench.
+short under `can`. By reading only: a failed controller stop in `cyphal restart`, a stop's wake
+read by the task's last `drain()` (the task looks at `s_running` once more before it sleeps), a
+node start that fails at boot. Plug-and-play's hold while another node is heard on the allocated
+ID is proven by the host tests, not by timing on the bench.

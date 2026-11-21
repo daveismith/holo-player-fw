@@ -46,7 +46,17 @@ void cyphal_unique_id(uint8_t out[CYPHAL_UNIQUE_ID_SIZE], const char prefix[CYPH
 bool cyphal_settings_equal(const cyphal_settings_t *a, const cyphal_settings_t *b)
 {
     return a->node_id == b->node_id && a->bitrate == b->bitrate &&
-           strncmp(a->name, b->name, sizeof(a->name)) == 0;
+           strncmp(a->name, b->name, sizeof(a->name)) == 0 && memcmp(a->port_id, b->port_id, sizeof(a->port_id)) == 0;
+}
+
+bool cyphal_node_id_valid(uint32_t node_id)
+{
+    return node_id <= CYPHAL_NODE_ID_MAX || node_id == CYPHAL_NODE_ID_AUTO;
+}
+
+bool cyphal_bitrate_valid(uint32_t b)
+{
+    return b == 125000 || b == 250000 || b == 500000 || b == 1000000;
 }
 
 void cyphal_listen_start(cyphal_listen_t *l, int64_t now_us, int64_t length_us)

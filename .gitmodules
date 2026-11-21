@@ -10,3 +10,6 @@
 [submodule "external/public_regulated_data_types"]
 	path = external/public_regulated_data_types
 	url = https://github.com/OpenCyphal/public_regulated_data_types.git
+[submodule "external/r2_cyphal_dsdl"]
+	path = external/r2_cyphal_dsdl
+	url = https://github.com/daveismith/r2_cyphal_dsdl.git

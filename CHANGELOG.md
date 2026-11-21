@@ -58,6 +58,31 @@ so the release tag is the version baked into the image and reported by `version`
   plug-and-play's request, reply, timing and in-use check with the computer's compiler;
   `make can-test` runs the hardware tests in `tests/hardware/` (pytest and pycyphal, through a
   gs_usb adapter, with pycyphal's allocator for plug-and-play; `make can-setup` makes their venv).
+- **The Cyphal node is managed the standard way.** Its settings are registers
+  (`uavcan.register.Access` and `List`): `uavcan.node.id`, `r2.node.name` and
+  `uavcan.can.bitrate`, the same saved settings as `cyphal id`, `name` and `bitrate`, and a pair
+  for each of the holo's eleven ports, `uavcan.pub.status.id` and so on (the port number, saved,
+  65535 for off) and `uavcan.pub.status.type` (its type, read-only), with the defaults of
+  `r2_cyphal_dsdl`'s port table. A write is checked, saved and applies from the node's next start;
+  one the board can't take leaves the register as it was, a port number another port has (the
+  node's own included) among them. `uavcan.node.ExecuteCommand`'s factory reset is all or nothing. `uavcan.node.ExecuteCommand` restarts
+  the board, resets it to the factory settings (every register and the board's settings, keeping
+  the scenes, files, servo calibration, network and host link), identifies it (the ring flickers
+  white and the screen shows the crosshair for 5 s, then both go back) or stores (nothing to do);
+  other commands are refused. `uavcan.node.port.List` goes out every 10 s. The holo's own ports
+  are numbers only so far: none is served or published yet, and the port list says so.
+  Documented in the manual's *The board on Cyphal* and *Cyphal interface*.
+- **`cyphal register [<name> [<value>…]]`**: the same registers on the console, listed, read or
+  written with the same checks. `cyphal` shows the services' counters and the worker that does
+  their waiting (a register's write to flash, a restart, identify), so that the node's own task
+  never waits.
+- **`r2_cyphal_dsdl`** (`external/r2_cyphal_dsdl`, the holo's own Cyphal types and port table) as
+  a submodule; `tools/gen_dsdl.py` generates the C headers from it and the standard types
+  together, and the port defaults from its port table.
+- **`tools/yakut_can.py`** (`make yakut`): Yakut on the board through a gs_usb adapter on macOS,
+  opening and closing the adapter only while the board is quiet; registers only (it refuses
+  `execute-command` and calls to ExecuteCommand, during which a candleLight stopped passing frames
+  on the bench, and what would leave the board never quiet as the adapter closes).
 
 ### Changed
 
@@ -79,6 +104,10 @@ so the release tag is the version baked into the image and reported by `version`
 - The CAN controller's sample point is 85 % of the bit, not the 87.5 % asked for: IDF 6.1's timing
   on the ESP32-S3 gives 20 time quanta at every bitrate, and 87.5 % is out of the controller's
   reach at 1 Mbit/s. The manual says so.
+- `cyphal reset` puts the port numbers back to their defaults too.
+- The Cyphal node's libcanard heap is 32 KB of PSRAM (was 16 KB), its transmit queue 160 frames
+  (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 6 KB stack joins it at its
+  first start.
 
 ## [1.1.0] - 2026-10-22
 

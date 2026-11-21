@@ -6,18 +6,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include "check.h"
 #include "cyphal_util.h"
-
-static int s_failed, s_checks;
-
-#define CHECK(cond)                                                                                 \
-    do {                                                                                            \
-        s_checks++;                                                                                 \
-        if (!(cond)) {                                                                              \
-            s_failed++;                                                                             \
-            printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond);                                  \
-        }                                                                                           \
-    } while (0)
 
 static void test_crc64we(void)
 {

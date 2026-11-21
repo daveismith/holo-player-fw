@@ -38,7 +38,9 @@ node-ID are in a backup, so a replacement board restored from it answers to the 
 address. Setting up a *second* board from one's backup (`--other-board`, below) copies them too:
 give it its own name, address and node-ID afterwards (two nodes with one node-ID
 [stop](cyphal.md#a-node-id-that-is-already-taken); with plug-and-play each board is given its
-own).
+own). The Cyphal port numbers come with the rest of the node's settings: a second holo restored
+from the same backup needs its own setpoint subject as well (`uavcan.sub.setpoint.id`), or the two
+[move together](cyphal.md#moving-the-holo).
 
 ## Making one
 

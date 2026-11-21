@@ -1,10 +1,12 @@
 # Cyphal interface
 
-!!! note "Not in the firmware yet"
-    This page describes the holo's Cyphal interface ahead of the firmware, for review. Only the
-    node itself is built so far: its node-ID, its heartbeat and `uavcan.node.GetInfo`
-    ([the board on Cyphal](../use/cyphal.md)). The types, ports, registers and commands below are
-    what is being built, and may still change before they are.
+!!! note "Partly in the firmware"
+    This page describes the holo's Cyphal interface ahead of the firmware. Built so far: the node
+    itself (its node-ID, its heartbeat, `uavcan.node.GetInfo`: [the board on Cyphal](../use/cyphal.md)),
+    its [registers](#registers) (the node's and the ports'), its [commands](#commands) and
+    `uavcan.node.port.List`. The holo's own types and ports (`r2.holo.*`) are not built yet: their
+    port numbers are registers already, and nothing is published, subscribed or served on them. They
+    may still change before they are.
 
 This is the specification of what the board does on a [Cyphal](https://opencyphal.org)/CAN bus:
 every port, every type and its fields, every register and every command. How to use it is on
@@ -25,7 +27,7 @@ has shipped is never changed, only given a new version.
 | Heartbeat | `uavcan.node.Heartbeat.1.0` | subject 7509 | Once a second. Its health is advisory while the holo can't move |
 | Node information | `uavcan.node.GetInfo.1.0` | service 430 | Its name, version and unique ID |
 | Plug-and-play | `uavcan.pnp.NodeIDAllocationData.1.0` | subject 8166 | Only while it asks for a node-ID |
-| The ports it uses | `uavcan.node.port.List.1.0` | subject 7510 | Every 10 seconds, and when they change |
+| The ports it uses | `uavcan.node.port.List.1.0` | subject 7510 | Every 10 seconds, the first as the node goes online. [Below](#the-port-list) |
 | Registers | `uavcan.register.Access.1.0`, `uavcan.register.List.1.0` | services 384, 385 | [Below](#registers) |
 | Restart, factory reset, identify | `uavcan.node.ExecuteCommand.1.3` | service 435 | [Below](#commands) |
 | The clips and images | `uavcan.file.List.0.2`, `uavcan.file.GetInfo.0.2` | services 406, 405 | The file names and sizes on the storage volume |
@@ -64,6 +66,24 @@ addressed to the board's node-ID, so two holos on one bus serve them on the same
 trouble. A subject is shared by the whole bus: two holos can publish `status` on 2300 (a
 receiver tells them apart by node-ID), but two holos subscribed to `setpoint` on 2303 move
 together, so each gets a subject of its own.
+
+### The port list
+
+`uavcan.node.port.List` names the ports the node really has while it runs, at the optional
+priority, as the type asks. A port's number changes only when the node starts (the registers apply
+from then), so the list does too: it goes out as the node goes online, and every 10 seconds after.
+Today it holds:
+
+| | |
+|---|---|
+| Publishers | 7509 (the heartbeat), 7510 (the port list) |
+| Subscribers | None |
+| Clients | None |
+| Servers | 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
+
+An `r2.holo` port joins it once the firmware serves, publishes or subscribes to it, on the number
+its register held as the node started; a port turned off (65535) is never in it. None does yet.
+It is 152 bytes, 22 frames.
 
 ## Conventions
 
@@ -414,9 +434,20 @@ API use.
 ## Registers
 
 Read and written with `uavcan.register.Access` and listed with `uavcan.register.List`, by any
-Cyphal tool. The console's `cyphal register` (to come) reads and writes the same table. Every
-mutable register is saved on the board, in NVS, as soon as it is written, and is part of a
-[backup](../use/backup.md); none holds a credential.
+Cyphal tool. The console's `cyphal register` reads and writes the same table, with the same
+checks. Every mutable register is saved on the board, in NVS, as soon as it is written, and is part
+of a [backup](../use/backup.md); none holds a credential. `List` gives them in the order of the
+tables below: the node's three, then each port's `.id` and `.type`.
+
+A write the board can't take leaves the register as it was, and the response, which always carries
+the register's value after the write, shows it: a value out of range or not a name, one of another
+type, a port number another port has ([below](#port-numbers-in-use)), or a `.type` register. A
+number of another type is taken when it converts exactly (a `natural8`, an `integer64` or a
+`real32` 52 all write 52 to `uavcan.node.id`), and the name takes `unstructured` bytes as well as a
+string. A register that doesn't exist reads empty, and a write to
+one does nothing. The board's log says what was written and by which node, or why it wasn't. While
+the board is still writing earlier requests (four at once), another write is answered with the
+register as it is, unwritten: send it again.
 
 **The node:**
 
@@ -443,6 +474,19 @@ So `uavcan.pub.status.id` is 2300 until written, and `uavcan.srv.motion.type` re
 name. The standard suggests 65535 as every port's default; the board starts with working
 defaults instead, so it can be used without configuring anything. The special registers for a
 register's minimum, maximum and default (`<name><`, `<name>>`, `<name>=`) aren't provided.
+Until the firmware has a port, its number is kept and checked but not used: it isn't in the
+[port list](#the-port-list), and nothing goes on it.
+
+<a id="port-numbers-in-use"></a>**A number belongs to one port.** Subject-IDs are one set,
+published and subscribed alike (a subscription on a subject the board publishes would take other
+nodes' messages of that type for its own), and service-IDs another. Within each, a number is one
+of the node's own fixed ports' (subjects 7509, 7510 and 8166, services 384, 385, 430 and 435) or
+one `r2.holo` port's, never two: a write of a number another port has is refused with the port that
+has it ("subject 2301 is uavcan.pub.event.id's"), and the register keeps its value. A subject and a
+service may share a number, and any number of ports may be off (65535). So two ports swap through a
+free number, or through off. A saved number that breaks the rule anyway, which only a configuration
+from elsewhere can bring (a backup from another firmware), turns the later port in the table off as
+the board starts, with a warning in its log; its register then reads 65535.
 
 **The holo**, from a later phase:
 
@@ -465,13 +509,23 @@ without saving.
 
 | Command | Number | Does |
 |---|---|---|
-| Restart | 65535 | Restarts the board, after the response. The node comes back with the registers as they now are |
-| Factory reset | 65532 | Every register back to its default (the node-ID, name and bitrate, every port, touch reporting), and the board's [settings](http-api.md#settings) to theirs (the boot scene, the backlight, the LEDs' brightness and count); then a restart. Kept: the scenes, the files, the servos' calibration and drive policy, the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards |
-| Identify | 65529 | The ring blinks white and the screen shows the crosshair for 5 seconds, then both go back to what they were doing |
+| Restart | 65535 | Restarts the board a second after the response (by when it has gone). The node comes back with the registers as they now are |
+| Factory reset | 65532 | Every register back to its default (the node-ID, name and bitrate, every port; touch reporting, once it is a register), and the board's [settings](http-api.md#settings) to theirs (the boot scene, the backlight, the LEDs' brightness and count), as `cyphal reset` and `DELETE /api/v1/settings` do; then a restart, a second after the response. Kept: the scenes, the files, the servos' calibration and drive policy, the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards, asking for a node-ID by plug-and-play |
+| Identify | 65529 | The ring flickers white and the screen shows the crosshair for 5 seconds, then both go back to what they were doing. The ring blinks once it has a blink mode (with the [Light](#light) service) |
 | Store persistent states | 65530 | Nothing to do: every register is saved when it is written. Answers success |
 | Anything else | | Refused: bad command. Power off, begin software update and emergency stop included |
 
-A response's `status` is success when the command was taken, before a restart.
+A response's `status` is success when the command was taken, before a restart; failure when the
+board is still working through four earlier requests (send it again); internal error if a
+factory reset couldn't save, in which case nothing is reset (what was saved before is put back) and
+the board doesn't restart. `output` is always empty.
+
+Identify is a five-second scene, `identify`, applied as a scene of the board's own would be:
+the web app, the HTTP API's `GET /api/v1/scenes` and the events show it running, and it ends a
+scene that is running to its end. At its end the screen, the ring and the holo go back to what
+they were doing before it, as with any scene whose `then` is `restore` (a twitch or a scan starts
+again; a clip on its way to its end doesn't), or, if it ended a scene that restores, to what that
+scene would have restored.
 
 ## Sizes and bus load
 
@@ -501,7 +555,7 @@ What the board sends, at 1 Mbit/s:
 | Traffic | Frames a second | Share of the bus |
 |---|---|---|
 | Heartbeat, once a second | 1 | 0.013 % |
-| Port list, 24 frames every 10 s | 2.4 | 0.03 % |
+| Port list, 22 frames every 10 s (more as the holo's ports join it) | 2.2 | 0.03 % |
 | Status once a second, 17 frames | 17 | 0.22 % |
 | Status four times a second (while things change) | 68 | 0.88 % |
 | Axes while moving, ten a second | 10 | 0.13 % |

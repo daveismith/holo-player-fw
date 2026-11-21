@@ -169,7 +169,10 @@ See [the board on Cyphal](../use/cyphal.md), and [the wiring](../connect/host-ca
 | `cyphal name <name>\|--reset` | The name `uavcan.node.GetInfo` reports: `r2.dome.holo.front` until changed. From the node's next start |
 | `cyphal bitrate <125k\|250k\|500k\|1m>` | The bus's bitrate. From the node's next start |
 | `cyphal restart` | Stop the node and start it again, with the settings as they now are: also how a node that stopped over a node-ID in use is started again |
-| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s |
+| `cyphal reset` | Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s, and every port's default ID |
+| `cyphal register` | The node's [Cyphal registers](cyphal.md#registers): each one's value, type and flags, and the value in use when a write waits for the node's next start |
+| `cyphal register <name>` | One register |
+| `cyphal register <name> <value>…` | Write one, as `uavcan.register.Access` does, with the same checks, saved: a number for a port or the node-ID (65535 for off or plug-and-play), one or two for the bitrate, a word for the name. From the node's next start |
 | `can` | Raw CAN frames, for testing the wiring while the node is off: whether it's running, the bus's state and error counters, and frames sent and received. While the node runs it only reports, and its sub-commands refuse |
 | `can start [-b <bitrate>] [--listen\|--selftest]` | Start the controller. `--listen` receives without sending or acknowledging; `--selftest` receives its own frames and needs no second node |
 | `can stop` | Stop, and release the pins; `dump` and `echo` go off |

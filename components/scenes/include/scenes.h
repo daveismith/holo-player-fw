@@ -109,6 +109,9 @@ typedef struct {
 void settings_defaults(settings_t *out);
 void settings_get(settings_t *out);
 esp_err_t settings_save(const settings_t *s);
+/* Back to the defaults (*out), saved, and the backlight and the LEDs' brightness applied now (their count
+ * from the next start): DELETE /api/v1/settings, and the Cyphal node's factory reset */
+esp_err_t settings_reset(settings_t *out);
 
 /* The LED count to make the strip with (before leds_init()). */
 int settings_led_count(void);
