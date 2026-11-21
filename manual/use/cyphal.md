@@ -190,12 +190,12 @@ cyphal: node 52 (fixed), r2.dome.holo.front, 1 Mbit/s on GPIO21 (TX), GPIO33 (RX
   unique id 686f6c6f706c61790000e4b0638c2db0, pseudo-ID 8e8b473a6a76 (156728846609014)
   bus: error-active, tx errors 0, rx errors 0, bus-off 0 times
   transfers: sent 57, received 29; frames: sent 385, received 143; dropped 0
-  up 60 s; frames given to the controller 385, not sent 0, waiting 0; not read (queue full) 0
-  memory: libcanard heap 72 of 32768 bytes (1932 at most), stack 1744 bytes never used; internal heap 95327 free, 57236 lowest
+  up 60 s; frames given to the controller 385, not sent 0, waiting 0; not read (queue full) 0; send queue at most 31 of 160 frames
+  memory: libcanard heap 72 of 32768 bytes (1932 at most), stack 1744 bytes never used; internal heap 85327 free, 47236 lowest
   services: registers read 25, written 1, refused 0, listed 26; commands 1, bad 0; busy 0; port lists 6
   application: requests 12, messages 250; health nominal
-  published: status 70 (0 replaced), axes 60 (0 replaced)
-  worker: 0 of 4 job slots held; its stack 4808 of 6144 bytes never used
+  published: status 70 (0 replaced), event 6 (0 refused, full), axes 60 (0 replaced)
+  worker: 0 of 4 job slots held; its stack 2852 of 4608 bytes never used; the second worker 0 of 2, its stack 2724 of 7680 never used
 ```
 
 The first line starts with the node's state:
@@ -257,9 +257,10 @@ Each bus-off costs the frame that was on the wire (`not sent`); the heartbeats d
 !!! note "Partly in the firmware"
     This section describes the holo's Cyphal interface, part of it ahead of the firmware. What
     can be used now: the node's management ([its registers](#settings-as-registers) and
-    [its commands](#restart-factory-reset-identify)), and the holo itself: `r2.holo.Motion`,
-    `r2.holo.Light`, `r2.holo.Axes` both ways and `r2.holo.Status`. Still to come: scenes, the
-    screen, the ring's own service, the board's events, and the lists. The
+    [its commands](#restart-factory-reset-identify)), the holo itself (`r2.holo.Motion`,
+    `r2.holo.Light`, `r2.holo.Axes` both ways and `r2.holo.Status`), and the board's own features:
+    `r2.holo.Scene`, `r2.holo.Screen`, `r2.holo.Ring` and `r2.holo.Event`. Still to come: the lists
+    of scenes and files, and the holo's calibration as registers. The
     [Cyphal interface](../reference/cyphal.md) reference has every type, port and register, and says
     which are built.
 
@@ -344,8 +345,21 @@ a second whatever changes.
 `r2.holo.Event` carries the board's happenings, the same ones as its
 [JSON events](../reference/http-api.md#events): a clip or a scene starting or ending, with its
 path or name, and a touch on the screen while touch reporting is on. Each is numbered with the
-board's sequence number. There is no catching up on Cyphal: a controller that sees a number
-skipped has missed something, and reads the next `Status` for how things are now.
+board's sequence number, the one the web app and the host link see. There is no catching up on
+Cyphal: a controller that sees a number skipped has missed something, and reads the next `Status`
+for how things are now.
+
+### Scenes, the screen and the ring
+
+`r2.holo.Scene` applies a saved scene by its slot or its name, or ends the one running to its end;
+`r2.holo.Screen` shows a clip, an image, a colour, the crosshair or nothing, and sets the
+backlight; `r2.holo.Ring` sets the LED ring's mode, colour, loop, period and brightness. Each runs the
+HTTP API's own code, so a missing file is refused as `not found` and one the screen can't show as
+`not playable`, in the same words. Showing a still decodes it, which takes up to a few hundred
+milliseconds: Scene and Screen requests are carried out one at a time by a task of their own, so
+the holo's setpoints and the board's `Status` never wait for them, and a controller waits for each
+response before it counts on the next request being done after it. The scenes themselves are made
+in the web app or with the HTTP API.
 
 ### Settings as registers
 
@@ -384,8 +398,8 @@ count ([the rule](../reference/cyphal.md#port-numbers-in-use)). To swap two port
 to a free number, or to 65535, first.
 
 Over Cyphal the response says the same by carrying the old value. Until the firmware has a port,
-its number is only kept: of the holo's ports, `status`, `axes`, `setpoint`, `motion` and `light` are
-built; the rest aren't used, whatever their registers hold. Later the holo's calibration, its servos'
+its number is only kept: of the holo's ports, all but `list_scenes` and `media_info` are built;
+those two aren't used, whatever their registers hold. Later the holo's calibration, its servos'
 drive policy and touch reporting become registers as well.
 
 The port numbers are saved and go into a [backup](backup.md) with the rest of the node's
@@ -460,21 +474,27 @@ little late.
 
 The next two lines are for when something seems wrong: how long the node has run, frames it
 handed to the controller that were never sent (bus-off, or a restart of the node), frames that
-arrived faster than they could be read, and the memory it uses. Its libcanard heap is 32 KB of
-PSRAM, reserved at its first start; a port list waiting to go takes about 1.8 KB of it. The
-internal RAM it takes is its task's 3 KB stack while it runs, the worker's 6 KB stack (the task
-that writes registers, carries out commands and the holo's requests and setpoints, and builds what
-the holo publishes, so that the node's own never waits) from its first start on, and the CAN
+arrived faster than they could be read, the most frames its transmit queue has held since the start
+(of the 160 it can), and the memory it uses. Its libcanard heap is 32 KB of PSRAM, reserved at its
+first start; a port list waiting to go takes about 1.8 KB of it. The internal RAM it takes is its
+task's 3 KB stack while it runs, the worker's 4.5 KB stack (the task that writes registers, carries
+out the holo's Motion, Light and Ring requests and its setpoints, and builds what the holo
+publishes, so that the node's own never waits) from its first start on, the second worker's 7.5 KB
+stack (the task that carries out Scene and Screen requests and identify, which may decode an image;
+the host link's own task, which runs the same routes on 10 KB, doesn't run while the node has its pins), and the CAN
 driver's queues (about 8 KB, kept once the controller has run, the same as for `can`). The holo's
 mailboxes and the worker's copy of Status are in PSRAM.
 
 `services` counts the register and command requests, the ones refused, and those answered busy
-because the worker already held four; `worker` shows how many it holds now. `application` counts the
-holo's own: requests to `motion` and `light` handed to the worker and setpoints received, and gives
-the health the heartbeat reports. `published` counts each message the holo publishes, Status and
-Axes, that was queued for the bus, and in brackets those a newer one replaced before they were
-(none, on a quiet bus). One the transmit queue had no room for is counted with the transfers
-dropped instead; one queued that then waited there past its second is counted in both.
+because the worker already held four, or the second worker two; `worker` shows how many each holds
+now. `application` counts the holo's own: requests to its services handed to the workers and
+setpoints received, and gives the health the heartbeat reports. `published` counts each message the
+holo publishes, Status, Event and Axes, that was queued for the bus, and in brackets, for Status and
+Axes, those a newer one replaced before they went (none, on a quiet bus), and for Event, those its
+full queue refused (each offer refused: the Event is offered again a moment later, and the happenings
+after it are read from the board's record once it has gone). A message waits in its mailbox until the
+transmit queue has room for the whole of it; one queued that then waited there past its second is
+counted with the transfers dropped.
 
 ## Testing the wiring: raw frames
 

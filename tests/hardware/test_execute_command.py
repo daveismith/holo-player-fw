@@ -12,6 +12,8 @@ import re
 import pycyphal.application.plug_and_play
 import pytest
 import uavcan.node.ExecuteCommand_1_3 as ExecuteCommand
+import uavcan.register.Access_1_0 as Access
+import uavcan.register.Name_1_0 as Name
 
 from .conftest import (access, call, console_registers, ensure_node, heartbeats, natural16, plain,
                        reference_registers, string, until_state)
@@ -89,8 +91,9 @@ async def test_identify(node, board, dut_node_id):
 
 
 async def test_busy(node, board, dut_node_id):
-    """Six identify commands at once: the worker holds four (JOB_SLOTS), and the rest are answered at once
-    with failure, never waited for. All six answered; the board counts the busy ones"""
+    """Six identify commands at once: identify applies a scene, so it is the second worker's, which holds two
+    (CYPHAL_SLOW_JOBS), and the rest are answered at once with failure, never waited for. All six answered; the
+    board counts the busy ones"""
     before = board.cyphal()["services"]
     try:
         results = await asyncio.gather(*[command(node, dut_node_id, Request.COMMAND_IDENTIFY) for _ in range(6)])
@@ -104,8 +107,61 @@ async def test_busy(node, board, dut_node_id):
     print(f"\nstatuses {statuses}; seconds {[round(t, 3) for _, t in results]}; busy {after['busy'] - before['busy']}")
     failed = statuses.count(Response.STATUS_FAILURE)
     assert set(statuses) <= {Response.STATUS_SUCCESS, Response.STATUS_FAILURE}, statuses
-    assert statuses.count(Response.STATUS_SUCCESS) >= 4 and failed >= 1, statuses
+    assert statuses.count(Response.STATUS_SUCCESS) >= 2 and failed >= 1, statuses
     assert after["busy"] - before["busy"] == failed
+
+
+async def test_identify_during_register_writes(node, board, dut_node_id):
+    """Identify (a scene: the second worker's) answered while register writes (the worker's) are answered, round
+    after round: the two workers build their responses at the same moments, and each must build its own in its own
+    memory. Every Access response carries the value written (each write is of the register's own value, nonzero, so
+    nothing changes and a response zeroed under it shows), every identify its own status, success, with no output
+    (command() checks); nothing dropped or answered busy. A clash is a matter of microseconds, so this is many
+    rounds, two writes in flight throughout each identify"""
+    names = ["uavcan.srv.ring.id", "uavcan.srv.scene.id", "uavcan.pub.event.id", "uavcan.srv.screen.id"]
+    values = {n: plain((await access(node, dut_node_id, n)).value) for n in names}
+    assert all(values.values()), values
+    rounds = 60
+    before = board.cyphal()
+    wrong: list[str] = []
+    statuses: list[int] = []
+    writes = 0
+
+    async def writer(first: int, done: asyncio.Event) -> None:
+        nonlocal writes
+        i = first
+        while not done.is_set():
+            name = names[i % len(names)]
+            i += 2
+            r = await call(node, Access, dut_node_id, Access.Request(name=Name(name), value=natural16(values[name])),
+                           timeout=2.0)
+            writes += 1
+            if plain(r.value) != values[name] or not r.persistent:
+                wrong.append(f"{name}: {r}")
+
+    try:
+        for _ in range(rounds):
+            done = asyncio.Event()
+            tasks = [asyncio.create_task(writer(k, done)) for k in range(2)]
+            await asyncio.sleep(0.01)
+            status, _ = await command(node, dut_node_id, Request.COMMAND_IDENTIFY)
+            statuses.append(status)
+            await asyncio.sleep(0.02)
+            done.set()
+            await asyncio.gather(*tasks)
+        await poll(lambda: board.command("scene"), lambda text: "running: identify" not in text, IDENTIFY_S + 5.0)
+    finally:
+        board.command("leds off")
+        board.command("screen clear")
+    after = board.cyphal()
+    print(f"\n{rounds} identifies, {writes} register writes during them; statuses {sorted(set(statuses))}; busy "
+          f"{after['services']['busy'] - before['services']['busy']}; dropped {after['dropped'] - before['dropped']}")
+    assert not wrong, "\n".join(wrong[:20])
+    assert statuses == [Response.STATUS_SUCCESS] * rounds, statuses
+    assert after["services"]["register_writes"] - before["services"]["register_writes"] == writes
+    assert after["services"]["busy"] == before["services"]["busy"]
+    assert after["dropped"] == before["dropped"]
+    assert writes >= 2 * rounds
 
 
 @pytest.mark.restarts

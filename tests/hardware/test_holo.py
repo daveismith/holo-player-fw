@@ -11,21 +11,13 @@ from __future__ import annotations
 
 import asyncio
 import math
-import re
 
 import pytest
 import r2.holo.Axes_0_1 as Axes
 
 from .conftest import access, natural16, open_checked, plain, until_state
 from .holo_ports import (BAD_REQUEST, KINDS, MOTIONS, NEVER, NONE, OK, RING, Listen, holo_console, light, message,
-                         motion, motion_json, same_spec, setpoints, spec, spec_text)
-
-
-def ring_brightness(board) -> int:
-    """The ring's brightness now, from the console's `leds`"""
-    m = re.search(r"; brightness (\d+)%", board.first_line("leds"))
-    assert m, board.first_line("leds")
-    return int(m.group(1))
+                         motion, motion_json, ring_brightness, same_spec, setpoints, spec, spec_text)
 
 
 def scaled(brightness: int, level: int) -> int:

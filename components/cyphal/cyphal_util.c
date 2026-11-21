@@ -134,6 +134,11 @@ bool cyphal_name_valid(const char *name, char *why, size_t why_len)
     }
 }
 
+size_t cyphal_frames(size_t size)
+{
+    return size <= 7 ? 1 : (size + 2 + 6) / 7;
+}
+
 int cyphal_frame_source(uint32_t can_id, bool ext, bool rtr, uint8_t len)
 {
     /* Cyphal/CAN v1.0 frames are 29-bit data frames ending in a tail byte */

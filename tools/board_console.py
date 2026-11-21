@@ -2,7 +2,7 @@
 tests (tests/hardware/conftest.py) and tools/yakut_can.py.
 
 On the kit's fs_xfer.Console (opened without resetting the board; linenoise's terminal queries
-answered), it adds the console's second trap (CLAUDE.md, "Flashing"): a log line printed after a
+answered, here even when a query is split between two reads: _Port), it adds the console's second trap (CLAUDE.md, "Flashing"): a log line printed after a
 command's prompt leaves the output not ending at a prompt, and linenoise won't print another, so an
 empty line is sent once the output goes quiet. And the one step every open or close of the adapter
 waits for: `cyphal restart`, after which a node with a fixed node-ID listens for 2 s, sending nothing.
@@ -23,6 +23,37 @@ import fs_xfer  # noqa: E402
 # The adapter resets as it closes and goes off USB for a moment: what it takes to come back
 ADAPTER_REOPEN_S = 2.0
 
+# linenoise's terminal queries and the answers fs_xfer gives them
+QUERIES = ((b"\x1b[6n", b"\x1b[24;80R"), (b"\x1b[5n", b"\x1b[0n"))
+
+
+# TEMPORARY, a known exception to CLAUDE.md's kit rule ("esp-console-kit"): this is a fix to the kit's
+# fs_xfer.Console.pump(), kept here, not in the kit, until the user decides on kit changes. The kit change is this
+# _tail and count logic moved into fs_xfer.Console.pump(); once the kit has it and its pin is bumped, delete _Port and
+# open fs_xfer.Console in Console.__init__() again.
+class _Port(fs_xfer.Console):
+    """The kit's console, answering linenoise's queries even when one arrives split across two reads. fs_xfer looks
+    for each query within one read's bytes, and a read ends wherever the serial driver's buffer did: a query cut in
+    two by that went unanswered, and linenoise, which waits for the answer before it takes any more input, swallowed
+    the command typed next and never gave a prompt (the console's stuck-prompt trap, seen three times in the
+    hardware tests). Here the last bytes of each read are kept, and a query that ends in the next is answered then;
+    each query once, however many come in one read."""
+
+    def __init__(self, port: str, baud: int):
+        super().__init__(port, baud)
+        self._tail = b""
+
+    def pump(self) -> bytes:
+        data = self.s.read(4096)
+        if data:
+            seen = self._tail + data
+            for query, answer in QUERIES:
+                for _ in range(seen.count(query) - self._tail.count(query)):
+                    self.s.write(answer)
+            self._tail = seen[-3:]
+            self.buf += data
+        return data
+
 
 class Console:
     """The board's console. Commands are sent once each, never repeated: a timeout fails the caller.
@@ -34,7 +65,7 @@ class Console:
     PROMPT_THEN_LOG = re.compile(r"(?:^|\n)\S+> (?=\S)")
 
     def __init__(self, port: str):
-        self.con = fs_xfer.Console(port, 115200)
+        self.con = _Port(port, 115200)
         self.log = ""
 
     def close(self) -> None:

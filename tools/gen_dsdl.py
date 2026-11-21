@@ -14,9 +14,10 @@ What the committed headers were generated with:
               uavcan  OpenCyphal/public_regulated_data_types a229bb78e76c48a3082be163bc240b2c13ff2d89
                       ("Extend uavcan si angle and length types (#150)", 2025-08-03), at
                       external/public_regulated_data_types
-              r2      daveismith/r2_cyphal_dsdl aac2fe0a5d0c2fe26bb21d3eaf58cfc661d08447
-                      ("r2.holo 0.1: the holo's Cyphal types, its port table, and a checker",
-                      2026-11-20), at external/r2_cyphal_dsdl, with its port table ports/holo.csv
+              r2      daveismith/r2_cyphal_dsdl 30acd0ffe38dce14c6678ff63bd7bcab7d2b2578
+                      ("MotionSpec: kind's comment names the host link's HOLO numbering, not the
+                      engine's", 2026-11-21), at external/r2_cyphal_dsdl, with its port table
+                      ports/holo.csv
               The hardware tests (tests/hardware/) compile the same two trees for pycyphal.
 
 The script refuses another DSDL revision or nunavut version unless told otherwise
@@ -52,7 +53,7 @@ R2 = ROOT / "external" / "r2_cyphal_dsdl"
 OUT = ROOT / "components" / "cyphal" / "dsdl"
 
 DSDL_REVISION = "a229bb78e76c48a3082be163bc240b2c13ff2d89"
-R2_REVISION = "aac2fe0a5d0c2fe26bb21d3eaf58cfc661d08447"
+R2_REVISION = "30acd0ffe38dce14c6678ff63bd7bcab7d2b2578"
 NUNAVUT_VERSION = "2.3.1"
 
 # The types the node uses; their dependencies follow from the #include lines. The firmware

@@ -279,17 +279,21 @@ void play_clip(const Request &req)
         return;
     }
 
+    /* Built whole, then put in place at once: this task never takes the screen's lock, and a reader (GET /screen, the
+     * Cyphal node's Status) mustn't catch the clip half-written, its path empty and 0 frames, between prime_stats()'s
+     * and these. The per-frame counts after this are single words */
+    Stats fresh = {};
+    strlcpy(fresh.path, req.path, sizeof(fresh.path));
+    fresh.plays = req.plays > 0 ? (uint32_t)req.plays : req.plays == 0 ? 0 : 1;
+    fresh.loop = fresh.plays == 0;
+    fresh.width = w;
+    fresh.height = h;
+    fresh.frames = (uint32_t)qt.FrameCount();
+    fresh.fps = qt.DurationUs() ? fresh.frames * 1e6 / qt.DurationUs() : 0;
+    fresh.mode = streamed ? "streamed in 16-line blocks"
+                 : esp_ptr_internal(fb) ? "whole frame, in internal RAM" : "whole frame, in PSRAM";
+    s_stats = fresh;
     Stats &s = s_stats;
-    s = {};
-    strlcpy(s.path, req.path, sizeof(s.path));
-    s.plays = req.plays > 0 ? (uint32_t)req.plays : req.plays == 0 ? 0 : 1;
-    s.loop = s.plays == 0;
-    s.width = w;
-    s.height = h;
-    s.frames = (uint32_t)qt.FrameCount();
-    s.fps = qt.DurationUs() ? s.frames * 1e6 / qt.DurationUs() : 0;
-    s.mode = streamed ? "streamed in 16-line blocks"
-             : esp_ptr_internal(fb) ? "whole frame, in internal RAM" : "whole frame, in PSRAM";
 
     /* Blanked, then on -- the panel lit and showing black around the clip's square -- before
      * the first frame is drawn or the clip's clock starts, so frame 0 is seen. */
@@ -373,23 +377,26 @@ void play_gif(const Request &req)
 {
     GifFile *g = req.gif;
     const GifHeader &hdr = req.gif_hdr;
+    /* Built whole, then put in place at once, as play_clip()'s: no reader catches it half-written. With the passes
+     * (as many as asked, 0 forever; by default, as the file says) before the panel wakes (up to 120 ms), so that
+     * whoever reads the screen's state meanwhile (GET /screen, the Cyphal node's Status) doesn't see 0 */
+    const int passes = req.plays >= 0 ? req.plays : hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
+    Stats fresh = {};
+    strlcpy(fresh.path, req.path, sizeof(fresh.path));
+    fresh.width = hdr.width;
+    fresh.height = hdr.height;
+    fresh.frames = (uint32_t)hdr.frames;
+    fresh.fps = hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0;
+    fresh.mode = "changed area only, from a PSRAM canvas";
+    fresh.gif = true;
+    fresh.plays = (uint32_t)passes;
+    fresh.loop = passes == 0;
+    s_stats = fresh;
     Stats &s = s_stats;
-    s = {};
-    strlcpy(s.path, req.path, sizeof(s.path));
-    s.width = hdr.width;
-    s.height = hdr.height;
-    s.frames = (uint32_t)hdr.frames;
-    s.fps = hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0;
-    s.mode = "changed area only, from a PSRAM canvas";
-    s.gif = true;
 
     board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
-    /* As many times as asked (0 forever); by default, as the file says */
-    const int passes = req.plays >= 0 ? req.plays : hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
-    s.plays = (uint32_t)passes;
-    s.loop = passes == 0;
 
     s.started_us = now_us();
     bool held = false, broken = false;
@@ -909,6 +916,20 @@ extern "C" esp_err_t screen_set_backlight(int percent)
     const esp_err_t err = board_lcd_set_backlight(percent);
     events_changed("screen");
     return err;
+}
+
+extern "C" bool screen_peek_state(screen_state_t *out)
+{
+    if (s_lock == nullptr) {
+        screen_lock();      /* made by the first to lock it, as everywhere */
+        screen_unlock();
+    }
+    if (xSemaphoreTakeRecursive(s_lock, 0) != pdTRUE) {
+        return false;
+    }
+    screen_get_state(out);  /* recursive: the lock is taken again, at once */
+    screen_unlock();
+    return true;
 }
 
 extern "C" void screen_get_state(screen_state_t *out)

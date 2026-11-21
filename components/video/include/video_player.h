@@ -111,6 +111,10 @@ typedef struct {
 } screen_state_t;
 
 void screen_get_state(screen_state_t *out);
+/* The same, but only if nothing is drawing or changing what shows at this moment (an image decoding, a clip
+ * starting or stopping, the panel going to sleep): false, `out` untouched, rather than waiting for it. For a task
+ * that mustn't wait (the Cyphal node's worker, which builds Status); it asks again a little later */
+bool screen_peek_state(screen_state_t *out);
 
 /* A clip or animation playing from `path` -- the file, or anything under a directory -- stops,
  * and the screen clears: the file is about to be replaced, moved or deleted. True if it did. */

@@ -1,7 +1,7 @@
 /*
  * The holo's own ports on the Cyphal node (components/cyphal; manual/reference/cyphal.md): what the node
- * does with r2.holo.Motion, Light, the setpoint subscription, Status and Axes, as handlers for
- * cyphal_app_t, and its poll. The pure parts are holo_cyphal_util.h.
+ * does with r2.holo.Motion, Light, Scene, Screen, Ring, the setpoint subscription, Status, Event and Axes, as
+ * handlers for cyphal_app_t, and its poll. The pure parts are holo_cyphal_util.h.
  */
 #pragma once
 
@@ -18,8 +18,8 @@ extern "C" {
 extern const cyphal_handler_t HOLO_CYPHAL_HANDLERS[];
 extern const size_t HOLO_CYPHAL_HANDLER_COUNT;
 
-/* cyphal_app_t.poll: the setpoints carried out, Status and Axes published at their rates, the heartbeat's
- * health kept */
+/* cyphal_app_t.poll: the setpoints carried out, Status and Axes published at their rates, the board's
+ * happenings published as Event, the heartbeat's health kept */
 uint32_t holo_cyphal_poll(bool online);
 
 #ifdef __cplusplus

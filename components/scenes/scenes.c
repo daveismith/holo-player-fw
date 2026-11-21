@@ -182,19 +182,41 @@ cJSON *scene_load(const char *name)
     return scene;
 }
 
+/* One scene parsed at a time, as find() does: the first, in NVS order (scene_load_all()'s), with that slot */
 cJSON *scene_load_slot(int slot)
 {
-    cJSON *all = scene_load_all();
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) {
+        return NULL;
+    }
     cJSON *found = NULL;
-    const cJSON *s;
-    cJSON_ArrayForEach(s, all) {
+    for (int i = 0; found == NULL && i < SCENE_MAX; i++) {
+        cJSON *s = load_idx(h, i);
         const cJSON *n = cJSON_GetObjectItem(s, "slot");
-        if (found == NULL && cJSON_IsNumber(n) && n->valueint == slot) {
-            found = cJSON_Duplicate(s, true);
+        if (cJSON_IsNumber(n) && n->valueint == slot) {
+            found = s;
+        } else {
+            cJSON_Delete(s);
         }
     }
-    cJSON_Delete(all);
+    nvs_close(h);
     return found;
+}
+
+scene_err_t scene_apply_by(const char *name, int slot, char *why, size_t why_len)
+{
+    cJSON *scene = slot != 0 ? scene_load_slot(slot) : name != NULL ? scene_load(name) : NULL;
+    if (scene == NULL) {
+        if (slot != 0 || name == NULL) {
+            snprintf(why, why_len, "no scene with slot %d", slot);
+        } else {
+            snprintf(why, why_len, "no scene '%s'", name);
+        }
+        return SCENE_MISSING;
+    }
+    const scene_err_t err = scene_apply(scene, why, why_len);
+    cJSON_Delete(scene);
+    return err;
 }
 
 cJSON *scene_load_all(void)
@@ -451,27 +473,25 @@ static int cmd_scene(int argc, char **argv)
         printf("deleted '%s'\n", name);
         return 0;
     }
+    if (strcmp(sub, "apply") == 0) {
+        char why[128];
+        if (scene_apply_by(name, 0, why, sizeof(why)) != SCENE_OK) {
+            printf("scene: %s\n", why);
+            return 1;
+        }
+        printf("applied '%s'\n", name);
+        return 0;
+    }
     cJSON *scene = scene_load(name);
     if (scene == NULL) {
         printf("scene: no scene '%s'\n", name);
         return 1;
     }
-    int rc = 0;
-    if (strcmp(sub, "show") == 0) {
-        char *text = cJSON_Print(scene);
-        printf("%s\n", text != NULL ? text : "?");
-        cJSON_free(text);
-    } else {
-        char why[128];
-        if (scene_apply(scene, why, sizeof(why)) != SCENE_OK) {
-            printf("scene: %s\n", why);
-            rc = 1;
-        } else {
-            printf("applied '%s'\n", name);
-        }
-    }
+    char *text = cJSON_Print(scene);
+    printf("%s\n", text != NULL ? text : "?");
+    cJSON_free(text);
     cJSON_Delete(scene);
-    return rc;
+    return 0;
 }
 
 void scene_register_commands(void)

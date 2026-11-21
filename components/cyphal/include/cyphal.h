@@ -22,11 +22,11 @@
  *
  * The application's ports are served, published and subscribed to through handlers it gives
  * (cyphal_handler_t): a request is decoded on the node's task into a job slot and worked on, and its
- * response serialized, on the node's worker task; a message received is handed to the application on the
- * node's task, for a mailbox of its own; a message the application publishes goes into the port's
- * mailbox (cyphal_publish()), from any task, and the node's task gives it its port, priority and
- * transfer-ID. A mailbox of depth 1 keeps the newest, replacing one not yet sent; a deeper one is a queue
- * that never replaces. libcanard stays the node task's alone.
+ * response serialized, on the node's worker task (or, for one whose work can take long, its second
+ * worker); a message received is handed to the application on the node's task, for a mailbox of its own; a
+ * message the application publishes goes into the port's mailbox (cyphal_publish()), from any task, and the
+ * node's task gives it its port, priority and transfer-ID. A mailbox of depth 1 keeps the newest, replacing
+ * one not yet sent; a deeper one is a queue that never replaces. libcanard stays the node task's alone.
  */
 #pragma once
 
@@ -44,6 +44,7 @@ extern "C" {
 #define CYPHAL_APP_REQUEST_MAX  320  /* an application's request, deserialized, in a job slot: bytes at most */
 #define CYPHAL_PUBLISH_MAX      400  /* an application's message, serialized, in its mailbox: bytes at most */
 #define CYPHAL_PUBLISH_DEPTH_MAX  8  /* messages a published port's mailbox holds at most */
+#define CYPHAL_SLOW_JOBS        2    /* requests in the second worker's hands at once (cyphal_handler_t.slow) */
 
 /* uavcan.node.Health, for cyphal_set_health() */
 #define CYPHAL_HEALTH_NOMINAL   0
@@ -105,6 +106,11 @@ typedef struct {
     cyphal_services_t services;
     uint32_t jobs_held, job_slots;      /* job slots not free (with the worker, or done and not yet sent), of all */
     uint32_t worker_stack_unused;       /* bytes of the worker's stack never used, 0 before the first start */
+    bool slow_worker;                   /* the second worker runs (a handler or identify is slow: cyphal_handler_t,
+                                         * cyphal_app_t) */
+    uint32_t slow_held;                 /* job slots in its hands now, of CYPHAL_SLOW_JOBS */
+    uint32_t slow_stack_unused;         /* bytes of its stack never used, 0 before the first start */
+    uint32_t txq_peak, txq_capacity;    /* libcanard's transmit queue: the most frames in it since the start, of all */
     uint8_t health;                     /* the heartbeat's: CYPHAL_HEALTH_* (cyphal_set_health()) */
     cyphal_mail_t mail[CYPHAL_PORTS_MAX];   /* the published ports' mailboxes, in the handlers' order */
     size_t mail_count;
@@ -129,6 +135,11 @@ typedef struct {
     size_t in_size;
     size_t (*work)(const void *in, uint8_t from, uint8_t *out, size_t room);
     size_t (*busy)(uint8_t *out, size_t room);
+    /* CYPHAL_PORT_SRV: work() can take long (a file opened, an image decoded, a scene applied). It runs on the
+     * node's second worker, a task of its own (CONFIG_CYPHAL_SLOW_STACK), in the order handed over, so that the
+     * worker's own jobs and the application's poll never wait behind it. CYPHAL_SLOW_JOBS of the job slots at
+     * most are its at once: another such request is answered busy() */
+    bool slow;
     /* CYPHAL_PORT_SUB, on the node's task, which it must not hold up: a message from node `from` (255:
      * anonymous). A copy into the application's own mailbox, and cyphal_wake_worker() for the work */
     void (*on_message)(const uint8_t *payload, size_t size, uint8_t from);
@@ -161,6 +172,9 @@ typedef struct {
     esp_err_t (*factory_reset)(void);
     /* Show which board this is, for a few seconds, and return. NULL: identify is a bad command */
     esp_err_t (*identify)(void);
+    /* identify() can take long (it shows things on a screen, say): it runs on the node's second worker, as a slow
+     * handler's work does (cyphal_handler_t.slow), not on the worker */
+    bool identify_slow;
     /* What the node does with its ports (cyphal_handler_t), one at most a port. Kept, not copied: a static
      * table. NULL for none */
     const cyphal_handler_t *handlers;
@@ -213,8 +227,9 @@ esp_err_t cyphal_reg_error(cyphal_reg_result_t r);
 void cyphal_status(cyphal_status_t *out);
 
 /* A message on the application's port `port` (a CYPHAL_PORT_PUB with a handler), serialized: copied into its
- * mailbox for the node's task to send at the port's priority, in the order given. With depth 1 it replaces one
- * not yet sent. From any task; it never waits. ESP_ERR_NOT_FINISHED when the mailbox is full: a queue's depth
+ * mailbox for the node's task to send at the port's priority, in the order given. The message waits in the mailbox
+ * until the transmit queue has room for the whole of it; the caller never waits. With depth 1 it replaces one not
+ * yet sent. From any task. ESP_ERR_NOT_FINISHED when the mailbox is full: a queue's depth
  * waiting (nothing replaced: the caller learns it, and may try again), or, with depth 1, no buffer free because
  * another task is publishing on the port at the same moment. ESP_ERR_INVALID_STATE while the node isn't online
  * (nothing is kept), ESP_ERR_NOT_SUPPORTED for a port that is off this run, has no handler or isn't

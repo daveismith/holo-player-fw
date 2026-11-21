@@ -112,6 +112,14 @@ static void test_frame_source(void)
     CHECK(cyphal_frame_source((hb & ~0x7Fu) | 127, true, false, 8) == 127);
 }
 
+/* A transfer's frames on classic CAN: one up to 7 bytes, then the bytes and a 2-byte CRC, 7 a frame */
+static void test_frames(void)
+{
+    CHECK(cyphal_frames(0) == 1 && cyphal_frames(1) == 1 && cyphal_frames(7) == 1);
+    CHECK(cyphal_frames(8) == 2 && cyphal_frames(12) == 2 && cyphal_frames(13) == 3 && cyphal_frames(14) == 3);
+    CHECK(cyphal_frames(86) == 13 && cyphal_frames(116) == 17 && cyphal_frames(265) == 39 && cyphal_frames(375) == 54);
+}
+
 static void test_software_version(void)
 {
     struct {
@@ -525,6 +533,7 @@ int main(void)
     test_unique_id();
     test_names();
     test_frame_source();
+    test_frames();
     test_software_version();
     test_settings_equal();
     test_listen();

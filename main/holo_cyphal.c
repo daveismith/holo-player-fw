@@ -1,14 +1,8 @@
 /*
- * The holo on Cyphal: the node's handlers for the holo's ports (cyphal_handler_t), and its poll on the
- * node's worker (manual/reference/cyphal.md). Everything here but the setpoint's mailbox runs on the
- * worker, which may wait; nothing here touches libcanard.
- *
- * Motion goes through the code POST /api/v1/holo/motion runs once it has read its JSON, as the host link's
- * requests do: scene_holo_change(), which checks, refuses and starts a motion exactly as for HTTP. The request
- * becomes the engine's motion (holo_motion_args(), its kind mapped by SPEC_OF_KIND[]), and the refusal its
- * Error, in the same words. `off`, the release, also turns the ring off, since the ring is the holo's light
- * here, whatever the engine said. Light goes through the code PATCH /api/v1/leds runs (scene_leds_change()), which takes a leia's mark
- * besides; a leia's centre is the same motion code's `center`.
+ * The holo on Cyphal, its core: the poll on the node's worker (cyphal_app_t.poll), which carries out the setpoints
+ * and builds Status and Axes (manual/reference/cyphal.md). holo_cyphal_services.c has the request handlers and the
+ * table, holo_cyphal_events.c the listener and Event, holo_cyphal_internal.h what they share. Everything here but the
+ * setpoint's mailbox runs on the worker, which may wait; nothing here touches libcanard.
  *
  * A setpoint (r2.holo.Axes on the subscribed port) is copied into a mailbox on the node's task, the newest
  * replacing one not yet carried out, and carried out here: a direct move, as the dome panel makes for a ROS
@@ -20,14 +14,17 @@
  * unplaced axis to be), in whole percent, and then again, exactly, once the engine has carried that out
  * (s_again). While the holo can't move, a setpoint moves nothing.
  *
- * Status and Axes are built here on the poll from the state the HTTP API's GET /holo and GET /leds report
- * (holo_status(), leds_state()), and published through the node's mailboxes at their rates (holo_rate_due()).
- * Neither is looked at while none can go: inside the 250 ms after a Status, or the 100 ms after an Axes, the
- * poll sleeps the rest. Then the holo, which signals nothing, is looked at every POLL_MS; the ring is read
- * again only when its change event (the kit's events, "leds") says it changed, and for the time left in a
- * Status that goes. A Status counts as changed when a part differs, its times aside, from the one sent. A
- * message whose port is off this run (its register 65535) isn't built at all until the node next goes online. The
- * heartbeat's health follows the holo: advisory while it can't move.
+ * Status and Axes are built here on the poll from the state the HTTP API's GET /holo, GET /leds, GET /screen and
+ * GET /scenes (`active`) report (holo_status(), leds_state(), screen_peek_state(), scene_active()), and published
+ * through the node's mailboxes at their rates (holo_rate_due()). Neither is looked at while none can go: inside the
+ * 250 ms after a Status, or the 100 ms after an Axes, the poll sleeps the rest. Then the holo, which signals nothing
+ * the poll listens to, is looked at every POLL_MS; the ring, the screen and the scene are read again only when their
+ * change events (the kit's events: "leds", "screen", "scene") say they changed, and once more as a Status goes, for
+ * the time left, a clip's progress and the scene's time left. The screen is read only when nothing holds it
+ * (screen_peek_state()): while a still is drawn or a clip starts, its part stays as it was and is read again at the
+ * next look, so the worker never waits for the screen. A Status counts as changed when a part differs, its times and
+ * a clip's progress aside, from the one sent. A message whose port is off this run (its register 65535) isn't built
+ * at all until the node next goes online. The heartbeat's health follows the holo: advisory while it can't move.
  */
 #include "holo_cyphal.h"
 
@@ -35,52 +32,50 @@
 #include <stdio.h>
 #include <string.h>
 #include "board.h"
-#include "board_api.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "events.h"
 #include "freertos/FreeRTOS.h"
 #include "holo.h"
+#include "holo_cyphal_internal.h"
 #include "holo_cyphal_util.h"
 #include "leds.h"
+#include "fs_ops.h"
 #include "r2/holo/Axes_0_1.h"
-#include "r2/holo/Light_0_1.h"
-#include "r2/holo/Motion_0_1.h"
 #include "r2/holo/Status_0_1.h"
 #include "r2/holo/ports.h"
 #include "scenes.h"
 #include "servo.h"
+#include "video_player.h"
 
 static const char *TAG = "holo_cyphal";
 
-#define POLL_MS         50      /* the poll's longest sleep while a Status may go: the holo's change is seen this soon */
-#define OFFLINE_POLL_MS 1000    /* and while not: the node's going online wakes it anyway */
+#define OFFLINE_POLL_MS 1000    /* the poll's sleep while the node isn't online: its going online wakes it anyway */
 #define NEVER           r2_holo_state_Holo_0_1_NEVER
 
 _Static_assert((int)HOLO_RING_PULSE == (int)LEDS_PULSE && (int)HOLO_RING_BLINK == (int)LEDS_BLINK &&
                (int)HOLO_RING_FLICKER == (int)LEDS_FLICKER && (int)HOLO_RING_SOLID == (int)LEDS_SOLID &&
                (int)HOLO_RING_OFF == (int)LEDS_OFF, "the ring's numbers are the leds component's");
 _Static_assert(LEDS_MODES - 1 == r2_holo_state_RingSetting_0_1_BLINK, "state.RingSetting numbers the ring's modes");
-_Static_assert(sizeof(r2_holo_Motion_Request_0_1) <= CYPHAL_APP_REQUEST_MAX &&
-               sizeof(r2_holo_Light_Request_0_1) <= CYPHAL_APP_REQUEST_MAX, "a request fits a job slot");
-_Static_assert(r2_holo_Status_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_ <= CYPHAL_PUBLISH_MAX, "a Status fits a mailbox");
-_Static_assert(API_CODE_OK == r2_holo_Error_0_1_OK && API_CODE_BAD_REQUEST == r2_holo_Error_0_1_BAD_REQUEST &&
-               API_CODE_NOT_FOUND == r2_holo_Error_0_1_NOT_FOUND && API_CODE_NOT_PLAYABLE == r2_holo_Error_0_1_NOT_PLAYABLE &&
-               API_CODE_NOT_READY == r2_holo_Error_0_1_NOT_READY && API_CODE_BUSY == r2_holo_Error_0_1_BUSY &&
-               API_CODE_FAILED == r2_holo_Error_0_1_FAILED, "Error's codes are the routes' (api_codes.h)");
+_Static_assert(r2_holo_Status_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_ <= CYPHAL_PUBLISH_MAX &&
+               r2_holo_Event_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_ <= CYPHAL_PUBLISH_MAX, "a message fits a mailbox");
+_Static_assert((int)SCREEN_NOTHING == r2_holo_state_Screen_0_1_NOTHING && (int)SCREEN_COLOUR == r2_holo_state_Screen_0_1_COLOUR &&
+               (int)SCREEN_CALIBRATION == r2_holo_state_Screen_0_1_CALIBRATION &&
+               (int)SCREEN_IMAGE == r2_holo_state_Screen_0_1_IMAGE && (int)SCREEN_CLIP == r2_holo_state_Screen_0_1_CLIP,
+               "state.Screen numbers what shows as the video component does");
+_Static_assert((int)SCENE_THEN_RESTORE == r2_holo_state_Scene_0_1_RESTORE && (int)SCENE_THEN_OFF == r2_holo_state_Scene_0_1_OFF &&
+               (int)SCENE_THEN_STAY == r2_holo_events_SceneStarted_0_1_STAY, "state.Scene numbers `then` as the scenes do");
 
-/* MotionSpec's kind for each of the engine's: the two number them differently (the engine has SCAN at 4, MotionSpec
- * and the host link's HOLO frame at 6). One table, looked up both ways */
-static const uint8_t SPEC_OF_KIND[] = {
+/* MotionSpec's kind for each of the engine's (holo_cyphal_internal.h) */
+const uint8_t HOLO_SPEC_OF_KIND[HOLO_OFF + 1] = {
     [HOLO_CENTER] = r2_holo_MotionSpec_0_1_CENTER, [HOLO_MOVE] = r2_holo_MotionSpec_0_1_MOVE,
     [HOLO_NUDGE] = r2_holo_MotionSpec_0_1_NUDGE, [HOLO_TWITCH] = r2_holo_MotionSpec_0_1_TWITCH,
     [HOLO_SCAN] = r2_holo_MotionSpec_0_1_SCAN, [HOLO_WAG] = r2_holo_MotionSpec_0_1_WAG,
     [HOLO_NOD] = r2_holo_MotionSpec_0_1_NOD, [HOLO_CIRCLE] = r2_holo_MotionSpec_0_1_CIRCLE,
     [HOLO_STOP] = r2_holo_MotionSpec_0_1_STOP, [HOLO_OFF] = r2_holo_MotionSpec_0_1_OFF,
 };
-_Static_assert(sizeof(SPEC_OF_KIND) == HOLO_OFF + 1 && HOLO_OFF == r2_holo_MotionSpec_0_1_OFF,
-               "each engine kind has a MotionSpec kind, and each MotionSpec kind an engine kind");
+_Static_assert(HOLO_OFF == r2_holo_MotionSpec_0_1_OFF, "each engine kind has a MotionSpec kind, and each MotionSpec kind an "
+               "engine kind");
 
 /* The setpoint's mailbox: the newest, from the node's task */
 static portMUX_TYPE s_sp_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -107,171 +102,20 @@ typedef struct {
     r2_holo_Axes_0_1 axes;      /* the last Axes sent */
     bool online;                /* as the last poll saw the node */
     bool status_off, axes_off;  /* the port is off this run (cyphal_publish() said so): not built until the next */
+    screen_state_t screen;      /* screen_peek_state()'s */
+    r2_holo_state_Screen_0_1 screen_now;    /* the screen's part as read, before it is compared with the one sent */
+    holo_events_t events;       /* Event's */
 } poll_t;
 static poll_t *s_poll;          /* PSRAM where there is some, at the first poll */
 
-/* The ring's change event: a listener of the kit's events (one of EVENTS_MAX_SINKS) that marks the ring changed and
- * wakes the poll. Without one (none free), the ring is read every time the holo is */
-static int s_ring_sink = -1;
-static bool s_ring_sink_tried;
-static uint32_t s_ring_changed = 1;     /* __atomic: the ring's state is to be read again */
-
-/* ------------------------------------------------------------------ responses */
-
-/* An Error: the code, the reason, and the message (empty for none) */
-static r2_holo_Error_0_1 error_of(uint8_t code, r2_holo_Reason_0_1 reason, const char *message)
-{
-    r2_holo_Error_0_1 e = { .code = code, .reason = reason };
-    holo_error_message(&e, message);
-    return e;
-}
-
-static const r2_holo_Reason_0_1 NO_REASON = { r2_holo_Reason_0_1_NONE, r2_holo_Reason_0_1_AXIS_NONE };
-
-/* Why the holo can't move, by the engine, now: the reason a refusal for not ready carries */
-static r2_holo_Reason_0_1 holo_why(void)
-{
-    holo_status_t st;
-    holo_desc_t d = { 0 };
-    if (holo_status(0, &st) != ESP_OK) {
-        return (r2_holo_Reason_0_1){ r2_holo_Reason_0_1_NOT_FITTED, r2_holo_Reason_0_1_AXIS_NONE };
-    }
-    holo_describe(0, &d);
-    const r2_holo_Reason_0_1 r = holo_reason(st.why, st.why_axis, d.h, d.v);
-    return r.why == r2_holo_Reason_0_1_NONE ? (r2_holo_Reason_0_1){ r2_holo_Reason_0_1_OTHER, 0 } : r;
-}
-
-static size_t motion_response(const r2_holo_Error_0_1 *e, uint8_t *out, size_t room)
-{
-    const r2_holo_Motion_Response_0_1 r = { .result = *e };
-    return r2_holo_Motion_Response_0_1_serialize_(&r, out, &room) < 0 ? 0 : room;
-}
-
-static size_t light_response(const r2_holo_Error_0_1 *e, bool centred, uint8_t *out, size_t room)
-{
-    const r2_holo_Light_Response_0_1 r = { .result = *e, .centred = centred };
-    return r2_holo_Light_Response_0_1_serialize_(&r, out, &room) < 0 ? 0 : room;
-}
-
-/* The words a busy answer carries (the node's job slots all held) */
-#define BUSY_WORDS "busy: the board is still working through earlier requests"
-
-/* ------------------------------------------------------------------ Motion */
-
-static bool motion_decode(const uint8_t *payload, size_t size, void *in)
-{
-    return r2_holo_Motion_Request_0_1_deserialize_(in, payload, &size) >= 0;
-}
-
-/* The engine's kind for MotionSpec's, or one past HOLO_OFF, which scene_holo_change() refuses, for none */
-static holo_motion_kind_t kind_of_spec(unsigned spec)
-{
-    for (size_t k = 0; k < sizeof(SPEC_OF_KIND); k++) {
-        if (SPEC_OF_KIND[k] == spec) {
-            return (holo_motion_kind_t)k;
-        }
-    }
-    return (holo_motion_kind_t)(HOLO_OFF + 1);
-}
-
-/* A motion, as POST /api/v1/holo/motion's code checks and starts it: Error's code, and the words in `why` */
-static uint8_t holo_change(const holo_motion_t *m, char *why, size_t len)
-{
-    why[0] = '\0';
-    const scene_err_t err = scene_holo_change(m, false, why, len);
-    if (err == SCENE_OK) {
-        why[0] = '\0';
-    }
-    return (uint8_t)api_scene_code(err);
-}
-
-static size_t motion_work(const void *in, uint8_t from, uint8_t *out, size_t room)
-{
-    const r2_holo_Motion_Request_0_1 *q = in;
-    holo_motion_args_t a;
-    holo_motion_args(&q->motion, &a);
-    const holo_motion_t m = {
-        .kind = kind_of_spec(a.kind), .x = a.x, .y = a.y, .duration_ms = a.duration_ms, .range = a.range,
-        .count = a.count, .period_ms = a.period_ms, .interval_min_s = a.interval_min_s,
-        .interval_max_s = a.interval_max_s, .time_s = a.time_s,
-    };
-    s_again.polls = 0;          /* a motion asked for after a setpoint replaces it: not to be applied again */
-    char message[128];
-    const uint8_t code = holo_change(&m, message, sizeof(message));
-    if (code != r2_holo_Error_0_1_OK) {
-        ESP_LOGI(TAG, "node %u's motion refused: %s", from, message);
-    }
-    if (q->motion.kind == r2_holo_MotionSpec_0_1_OFF) {
-        /* The release turns the holo's light off too, which on this board is the ring (the engine's own
-         * light, which the motion turns off, is none here); whatever the motion half said, as a leia's light
-         * half runs whatever its centre says, so that `off` always turns the light off. A refusal of the
-         * motion half (no holo engine) is still the answer */
-        const scene_leds_t off = { .has_mode = true, .mode = LEDS_OFF };
-        char why[64];
-        scene_leds_change(&off, false, why, sizeof(why));
-    }
-    const r2_holo_Error_0_1 e = error_of(code, code == r2_holo_Error_0_1_NOT_READY ? holo_why() : NO_REASON, message);
-    return motion_response(&e, out, room);
-}
-
-static size_t motion_busy(uint8_t *out, size_t room)
-{
-    const r2_holo_Error_0_1 e = error_of(r2_holo_Error_0_1_BUSY, NO_REASON, BUSY_WORDS);
-    return motion_response(&e, out, room);
-}
-
-/* ------------------------------------------------------------------ Light */
-
-static bool light_decode(const uint8_t *payload, size_t size, void *in)
-{
-    return r2_holo_Light_Request_0_1_deserialize_(in, payload, &size) >= 0;
-}
-
-static size_t light_work(const void *in, uint8_t from, uint8_t *out, size_t room)
-{
-    const r2_holo_Light_Request_0_1 *q = in;
-    char why[128];
-    holo_light_change_t c;
-    if (!holo_light_change(q, &c, why, sizeof(why))) {
-        const r2_holo_Error_0_1 e = error_of(r2_holo_Error_0_1_BAD_REQUEST, NO_REASON, why);
-        return light_response(&e, false, out, room);
-    }
-    const scene_leds_t change = {
-        .has_mode = true, .mode = c.mode,
-        .has_colour = c.has_colour, .rgb = { c.rgb[0], c.rgb[1], c.rgb[2] },
-        .has_period = c.has_period, .period_ms = c.period_ms,
-        .has_level = c.has_level, .level = c.level,
-        .has_time = c.has_time, .time_s = c.time_s,
-        .leia = c.leia,
-    };
-    const scene_err_t err = scene_leds_change(&change, false, why, sizeof(why));
-    if (err != SCENE_OK) {
-        ESP_LOGI(TAG, "node %u's light refused: %s", from, why);
-        const r2_holo_Error_0_1 e = error_of((uint8_t)api_scene_code(err), NO_REASON, why);
-        return light_response(&e, false, out, room);
-    }
-    if (!c.centre) {
-        const r2_holo_Error_0_1 e = error_of(r2_holo_Error_0_1_OK, NO_REASON, NULL);
-        return light_response(&e, false, out, room);
-    }
-    /* A leia: the light half has run; the centre if the holo can, and why not if it can't */
-    s_again.polls = 0;
-    const holo_motion_t centre = { .kind = HOLO_CENTER, .duration_ms = -1 };
-    const bool centred = holo_change(&centre, why, sizeof(why)) == r2_holo_Error_0_1_OK;
-    const r2_holo_Error_0_1 e = error_of(r2_holo_Error_0_1_OK, centred ? NO_REASON : holo_why(), centred ? NULL : why);
-    return light_response(&e, centred, out, room);
-}
-
-static size_t light_busy(uint8_t *out, size_t room)
-{
-    const r2_holo_Error_0_1 e = error_of(r2_holo_Error_0_1_BUSY, NO_REASON, BUSY_WORDS);
-    return light_response(&e, false, out, room);
-}
-
 /* ------------------------------------------------------------------ the setpoint */
 
-/* On the node's task: into the mailbox, and the worker woken */
-static void setpoint_message(const uint8_t *payload, size_t size, uint8_t from)
+void holo_setpoint_forget(void)
+{
+    s_again.polls = 0;
+}
+
+void holo_setpoint_message(const uint8_t *payload, size_t size, uint8_t from)
 {
     (void)from;
     r2_holo_Axes_0_1 a;
@@ -388,9 +232,9 @@ static void holo_part(const holo_status_t *st, r2_holo_state_Holo_0_1 *h)
     axis_of(d.v, st->placed, &h->vertical);
     /* The last motion asked for, as asked */
     holo_motion_t m;
-    if (holo_last_motion(0, &m) && (unsigned)m.kind < sizeof(SPEC_OF_KIND)) {
+    if (holo_last_motion(0, &m) && (unsigned)m.kind < sizeof(HOLO_SPEC_OF_KIND)) {
         const holo_motion_args_t asked = {
-            .kind = SPEC_OF_KIND[m.kind], .x = m.x, .y = m.y, .duration_ms = m.duration_ms, .range = m.range,
+            .kind = HOLO_SPEC_OF_KIND[m.kind], .x = m.x, .y = m.y, .duration_ms = m.duration_ms, .range = m.range,
             .count = m.count, .period_ms = m.period_ms, .interval_min_s = m.interval_min_s,
             .interval_max_s = m.interval_max_s, .time_s = m.time_s,
         };
@@ -441,42 +285,75 @@ static bool take_ring(r2_holo_state_Ring_0_1 *r)
     return changed;
 }
 
-/* The ring changed, says its event: on the task that changed it, which this must not hold up */
-static void ring_changed(void *ctx)
+/* The screen's part into s, when nothing holds the screen (screen_peek_state()), and whether it changed but for a
+ * clip's progress. False in `read`, the part as it was and no change, while something does */
+static bool take_screen(poll_t *p, r2_holo_state_Screen_0_1 *s, bool *read)
 {
-    (void)ctx;
-    __atomic_store_n(&s_ring_changed, 1, __ATOMIC_RELEASE);
-    cyphal_wake_worker();
+    const screen_state_t *st = &p->screen;
+    *read = screen_peek_state(&p->screen);
+    if (!*read) {
+        return false;
+    }
+    char rel[FS_PATH_MAX + 8] = "";
+    const bool file = st->showing == SCREEN_IMAGE || st->showing == SCREEN_CLIP;
+    if (file) {
+        fs_rel(st->path, rel, sizeof(rel));
+    }
+    const holo_screen_in_t in = {
+        .showing = st->showing, .backlight = st->backlight, .rgb = { st->rgb[0], st->rgb[1], st->rgb[2] },
+        .frames = st->frames, .shown = st->shown, .loops = st->loops, .plays = st->plays, .fps = st->fps,
+        .path = file ? rel : NULL,
+    };
+    holo_screen_part(&in, &p->screen_now);
+    const bool changed = holo_screen_differs(&p->screen_now, s);
+    memcpy(s, &p->screen_now, sizeof(*s));
+    return changed;
 }
 
-/* Whether the ring is to be read again: its event came, or there is no listener to say. The listener is made the
- * first time the ring's event exists to listen to */
-static bool ring_dirty(void)
+/* The scene's part into s, and whether it changed but for its time left */
+static bool take_scene(r2_holo_state_Scene_0_1 *s)
 {
-    if (s_ring_sink < 0 && !s_ring_sink_tried) {
-        const events_mask_t bit = events_bit("leds");
-        if (bit != 0) {
-            s_ring_sink_tried = true;
-            s_ring_sink = events_listen(bit, ring_changed, NULL);
-            if (s_ring_sink < 0) {
-                ESP_LOGW(TAG, "no events listener free: the ring is read on every look at the holo");
-            }
+    scene_active_t a;
+    const bool on = scene_active(&a);
+    r2_holo_state_Scene_0_1 now;
+    holo_scene_part(on, on ? a.name : NULL, on ? a.slot : 0, on ? (int)a.then : 0, on && a.clip,
+                    on ? a.remaining_s : -1, &now);
+    const bool changed = holo_scene_differs(&now, s);
+    memcpy(s, &now, sizeof(*s));
+    return changed;
+}
+
+/* The parts in `parts` (HOLO_DIRTY_*) into Status, and whether any changed. A screen that couldn't be read is marked
+ * to be read again */
+static bool take_parts(poll_t *p, uint32_t parts)
+{
+    r2_holo_Status_0_1 *s = &p->status;
+    bool changed = false;
+    if (parts & HOLO_DIRTY_RING) {
+        changed |= take_ring(&s->ring);
+    }
+    if (parts & HOLO_DIRTY_SCREEN) {
+        bool read;
+        changed |= take_screen(p, &s->screen, &read);
+        if (!read) {
+            holo_events_mark(HOLO_DIRTY_SCREEN);
         }
     }
-    return __atomic_exchange_n(&s_ring_changed, 0, __ATOMIC_ACQ_REL) != 0 || s_ring_sink < 0;
+    if (parts & HOLO_DIRTY_SCENE) {
+        changed |= take_scene(&s->scene);
+    }
+    return changed;
 }
 
-/* Status, now that one may go (250 ms after the last): the holo looked at, the ring if it changed; sent if anything
- * did, or a second after the last. The microseconds until the poll is to look again */
+/* Status, now that one may go (250 ms after the last): the holo looked at, the ring, the screen and the scene if they
+ * changed; sent if anything did, or a second after the last. The microseconds until the poll is to look again */
 static int64_t publish_status(poll_t *p, const holo_status_t *st, int64_t now)
 {
     r2_holo_Status_0_1 *s = &p->status;
     bool changed = take_holo(&s->holo, st);
-    const bool ring = ring_dirty();
-    if (ring) {
-        changed |= take_ring(&s->ring);
-    }
-    const uint16_t seq = events_seq();
+    const uint32_t dirty = holo_events_dirty();
+    changed |= take_parts(p, dirty);
+    const uint16_t seq = holo_events_last(&p->events);
     bool touch = false;
 #if CONFIG_BOARD_TOUCH_ENABLE
     touch = board_touch_running();
@@ -484,13 +361,10 @@ static int64_t publish_status(poll_t *p, const holo_status_t *st, int64_t now)
     changed |= seq != s->event_seq || touch != s->reporting_touch;
     s->event_seq = seq;
     s->reporting_touch = touch;
-    /* The screen and the scene aren't filled in yet: they are nothing, and no scene, as zeroed */
     if (!holo_rate_due(&p->status_rate, now, changed, HOLO_STATUS_SOONEST_US, HOLO_STATUS_LATEST_US)) {
         return holo_rate_next(&p->status_rate, false, HOLO_STATUS_SOONEST_US, HOLO_STATUS_LATEST_US) - now;
     }
-    if (!ring) {
-        take_ring(&s->ring);        /* its time left, now */
-    }
+    take_parts(p, HOLO_DIRTY_ALL & ~dirty);     /* the rest as they are now: times left, a clip's progress */
     size_t size = sizeof(p->buf);
     const esp_err_t err = r2_holo_Status_0_1_serialize_(s, p->buf, &size) < 0 ? ESP_FAIL
                           : cyphal_publish(R2_HOLO_PORT_STATUS, p->buf, size);
@@ -555,6 +429,7 @@ uint32_t holo_cyphal_poll(bool online)
     sp = s_sp;
     s_sp_new = false;
     taskEXIT_CRITICAL(&s_sp_mux);
+    holo_events_look(esp_timer_get_time());
     holo_status_t st;
     bool have = holo_status(0, &st) == ESP_OK;
     cyphal_set_health(have && st.ready ? CYPHAL_HEALTH_NOMINAL : CYPHAL_HEALTH_ADVISORY);
@@ -576,8 +451,9 @@ uint32_t holo_cyphal_poll(bool online)
         p->online = true;
         p->status_rate.sent = p->axes_rate.sent = false;
         p->status_off = p->axes_off = false;
+        holo_events_online(&p->events);     /* what happened before isn't sent */
         p->axes = (r2_holo_Axes_0_1){ r2_holo_Axes_0_1_NONE, r2_holo_Axes_0_1_NONE };
-        __atomic_store_n(&s_ring_changed, 1, __ATOMIC_RELEASE);
+        holo_events_mark(HOLO_DIRTY_ALL);
     }
     /* Only what may go is looked at: the rest waits out its spacing, and a port that is off isn't looked at */
     const int64_t now = esp_timer_get_time();
@@ -586,22 +462,12 @@ uint32_t holo_cyphal_poll(bool online)
     if (moved && (status_wait == 0 || axes_wait == 0) && have) {
         have = holo_status(0, &st) == ESP_OK;       /* the setpoint has just changed it */
     }
+    /* Events first, so that a Status built now carries the number of the latest one handed to Event's mailbox */
+    const int64_t e_wait = (int64_t)holo_events_publish(&p->events, now) * 1000;
     const int64_t s_wait = status_wait > 0 ? status_wait : publish_status(p, have ? &st : NULL, now);
     const int64_t a_wait = axes_wait > 0 ? axes_wait : publish_axes(p, have ? &st : NULL, now);
-    const int64_t wait = s_wait < a_wait ? s_wait : a_wait;
+    int64_t wait = s_wait < a_wait ? s_wait : a_wait;
+    wait = e_wait < wait ? e_wait : wait;
     const int64_t ms = wait >= (int64_t)longest * 1000 ? longest : (wait + 999) / 1000;
     return ms < 1 ? 1 : (uint32_t)ms;
 }
-
-/* ------------------------------------------------------------------ the table */
-
-const cyphal_handler_t HOLO_CYPHAL_HANDLERS[] = {
-    { .port = R2_HOLO_PORT_STATUS, .publish_max = r2_holo_Status_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_ },
-    { .port = R2_HOLO_PORT_AXES, .publish_max = r2_holo_Axes_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_ },
-    { .port = R2_HOLO_PORT_SETPOINT, .extent = r2_holo_Axes_0_1_EXTENT_BYTES_, .on_message = setpoint_message },
-    { .port = R2_HOLO_PORT_MOTION, .extent = r2_holo_Motion_Request_0_1_EXTENT_BYTES_, .decode = motion_decode,
-      .in_size = sizeof(r2_holo_Motion_Request_0_1), .work = motion_work, .busy = motion_busy },
-    { .port = R2_HOLO_PORT_LIGHT, .extent = r2_holo_Light_Request_0_1_EXTENT_BYTES_, .decode = light_decode,
-      .in_size = sizeof(r2_holo_Light_Request_0_1), .work = light_work, .busy = light_busy },
-};
-const size_t HOLO_CYPHAL_HANDLER_COUNT = sizeof(HOLO_CYPHAL_HANDLERS) / sizeof(HOLO_CYPHAL_HANDLERS[0]);

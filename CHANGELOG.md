@@ -80,10 +80,22 @@ so the release tag is the version baked into the image and reported by `version`
   a stream of setpoints, each a direct move with no easing that stops the motion running; `Axes`
   published (2302) is where the board has put the axes, ten times a second while they move and once a
   second at rest. `Status` (2300) is the holo's motion and readiness, the last motion asked for, both
-  axes, and the ring with its timed mode, within 250 ms of a change and once a second (the screen and
-  scene parts come later). The heartbeat's health is advisory while the holo can't move. `cyphal`
+  axes, the ring with its timed mode, the screen (what shows, a clip's progress, the backlight) and the
+  scene running to its end, within 250 ms of a change and once a second. The heartbeat's health is advisory while the holo can't move. `cyphal`
   counts the holo's requests and setpoints, and each port's messages queued for the bus with those a
   newer one replaced before they were.
+- **The board's own features on Cyphal**: `Scene` (service 102) applies a saved scene by its slot or
+  its name, or ends the one running, through the code `POST /scenes/apply` and `/scenes/end` run;
+  `Screen` (103) shows a clip, an image, a colour, the crosshair or nothing and sets the backlight,
+  through `POST /screen/show`'s, `DELETE /screen`'s and `PATCH /screen`'s; `Ring` (104) sets the LED
+  ring as `PATCH /leds` does. Each is refused as the HTTP API refuses it, in the same words. `Event`
+  (subject 2301) carries every clip and scene starting and ending, and touches while touch reporting
+  is on, with the board's own sequence number, from the record the HTTP API's events come from: two
+  at once both go, in order, and none is lost while that record still has it. Scene and Screen
+  requests, and identify, are carried out one at a time by a second worker task (7.5 KB stack), so that
+  a still being decoded never holds up the setpoints or Status. `cyphal` shows that worker, Event's
+  queue, and the most frames the transmit queue has held. Documented in the manual's *The board on
+  Cyphal* and *Cyphal interface*.
 - **The LED ring pulses and blinks**, and has the holo light's level and timed modes: `leds pulse`
   and `leds blink` with `-p <ms>`; `-l <pct>` (a share of the brightness) on every mode but `off`, and
   `-t <s>` (then back to what it was doing) on `colour`, `off`, `flicker`, `pulse` and `blink`. A
@@ -130,11 +142,22 @@ so the release tag is the version baked into the image and reported by `version`
   reach at 1 Mbit/s. The manual says so.
 - `cyphal reset` puts the port numbers back to their defaults too.
 - The Cyphal node's libcanard heap is 32 KB of PSRAM (was 16 KB), its transmit queue 160 frames
-  (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 6 KB stack joins it at its
+  (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 4.5 KB stack joins it at its
   first start.
+- A message the Cyphal node publishes waits in its mailbox until the transmit queue has room for the
+  whole of it, rather than being dropped.
+- The hardware tests' console answers linenoise's terminal queries even when one arrives split
+  between two reads of the port; one that went unanswered left the console with no prompt (seen
+  three times in the tests).
 - `leds` shows a pulse's or a blink's period, a level other than 100, and a timed mode's time left
   and what follows. `leds rainbow` keeps the ring's colour for the next mode that has one, rather than
   forgetting it.
+
+### Fixed
+
+- A timed scene past its time, in the moment before it ends, read as one with no duration: `GET
+  /scenes`'s `remaining_s` null, the host link's status block 0xFFFF, now 0.
+- `GET /screen` could catch a clip that had just started half-recorded (no path, 0 frames).
 
 ## [1.1.0] - 2026-10-22
 

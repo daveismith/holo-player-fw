@@ -31,6 +31,60 @@ static bool only_keys(const cJSON *o, const char *const *keys, size_t n, const c
 
 /* ------------------------------------------------------------------ the screen */
 
+scene_err_t scene_screen_change(const scene_screen_t *s, bool dry, char *why, size_t why_len)
+{
+    switch (s->show) {
+    case SCENE_SCREEN_CALIBRATION:
+        if (!dry && screen_show_calibration() != ESP_OK) {
+            return BAD(SCENE_FAILED, "the panel did not take it");
+        }
+        return SCENE_OK;
+    case SCENE_SCREEN_CLEAR:
+        if (!dry) {
+            screen_clear();
+        }
+        return SCENE_OK;
+    case SCENE_SCREEN_COLOUR:
+        if (!dry && screen_show_rgb(s->rgb) != ESP_OK) {
+            return BAD(SCENE_FAILED, "the panel did not take it");
+        }
+        return SCENE_OK;
+    case SCENE_SCREEN_FILE:
+        break;
+    default:
+        return BAD(SCENE_BAD, "give one of `path`, `colour` or `calibration`");
+    }
+    if (s->loops < 0 || s->loops > 1000) {
+        return BAD(SCENE_BAD, "`loops` is how many times it plays: 1..1000");
+    }
+    if (s->loops > 0 && s->loop) {
+        return BAD(SCENE_BAD, "give `loop` (forever) or `loops` (a number of times), not both");
+    }
+    /* Times through: forever, a number, or the default (a clip once, a GIF as the file says) */
+    const int plays = s->loop ? 0 : s->loops > 0 ? s->loops : -1;
+    char abs[FS_ABS_MAX], rel[FS_PATH_MAX + 8];
+    char reason[112];
+    if (fs_path(s->path, abs, sizeof(abs), reason, sizeof(reason)) != 0) {
+        return BAD(SCENE_BAD_PATH, "%s", reason);
+    }
+    if (dry) {
+        return SCENE_OK;
+    }
+    fs_rel(abs, rel, sizeof(rel));
+    char msg[96] = "";
+    const esp_err_t err = screen_show_file(abs, plays, s->whole_frame, msg, sizeof(msg));
+    if (err == ESP_ERR_NOT_FOUND) {
+        return BAD(SCENE_MISSING, "no such file: %s", rel);
+    }
+    if (err == ESP_ERR_INVALID_ARG) {
+        return BAD(SCENE_UNPLAYABLE, "%s: %s", rel, msg);
+    }
+    if (err != ESP_OK) {
+        return BAD(SCENE_FAILED, "%s: %s", rel, msg);
+    }
+    return SCENE_OK;
+}
+
 scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *why, size_t why_len)
 {
     static const char *const KEYS[] = { "path", "loop", "loops", "whole_frame", "colour", "calibration", "clear" };
@@ -51,65 +105,29 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
     if ((calib && !cJSON_IsTrue(calib)) || (clear && !cJSON_IsTrue(clear))) {
         return BAD(SCENE_BAD, "`%s` is true", calib ? "calibration" : "clear");
     }
-    if (calib) {
-        if (!dry && screen_show_calibration() != ESP_OK) {
-            return BAD(SCENE_FAILED, "the panel did not take it");
+    scene_screen_t s = { .show = calib ? SCENE_SCREEN_CALIBRATION : clear ? SCENE_SCREEN_CLEAR
+                                 : colour ? SCENE_SCREEN_COLOUR : SCENE_SCREEN_FILE };
+    if (colour && !(cJSON_IsString(colour) && board_parse_rgb(colour->valuestring, s.rgb))) {
+        return BAD(SCENE_BAD, "not a colour: '%s' (#rrggbb, R,G,B, or a name: red, orange, ...)",
+                   cJSON_IsString(colour) ? colour->valuestring : "?");
+    }
+    if (path) {
+        const cJSON *loop = cJSON_GetObjectItem(show, "loop");
+        const cJSON *loops = cJSON_GetObjectItem(show, "loops");
+        const cJSON *whole = cJSON_GetObjectItem(show, "whole_frame");
+        if (!cJSON_IsString(path) || (loop && !cJSON_IsBool(loop)) || (whole && !cJSON_IsBool(whole))) {
+            return BAD(SCENE_BAD, "`path` is a string; `loop` and `whole_frame` are true or false");
         }
-        return SCENE_OK;
-    }
-    if (clear) {
-        if (!dry) {
-            screen_clear();
+        if (loops && !(cJSON_IsNumber(loops) && loops->valuedouble >= 1 && loops->valuedouble <= 1000 &&
+                       loops->valuedouble == (int)loops->valuedouble)) {
+            return BAD(SCENE_BAD, "`loops` is how many times it plays: 1..1000");
         }
-        return SCENE_OK;
+        s.path = path->valuestring;
+        s.loop = cJSON_IsTrue(loop);
+        s.loops = loops ? (int)loops->valuedouble : 0;
+        s.whole_frame = cJSON_IsTrue(whole);
     }
-    if (colour) {
-        uint8_t rgb[3];
-        if (!cJSON_IsString(colour) || !board_parse_rgb(colour->valuestring, rgb)) {
-            return BAD(SCENE_BAD, "not a colour: '%s' (#rrggbb, R,G,B, or a name: red, orange, ...)",
-                       cJSON_IsString(colour) ? colour->valuestring : "?");
-        }
-        if (!dry && screen_show_rgb(rgb) != ESP_OK) {
-            return BAD(SCENE_FAILED, "the panel did not take it");
-        }
-        return SCENE_OK;
-    }
-    const cJSON *loop = cJSON_GetObjectItem(show, "loop");
-    const cJSON *loops = cJSON_GetObjectItem(show, "loops");
-    const cJSON *whole = cJSON_GetObjectItem(show, "whole_frame");
-    if (!cJSON_IsString(path) || (loop && !cJSON_IsBool(loop)) || (whole && !cJSON_IsBool(whole))) {
-        return BAD(SCENE_BAD, "`path` is a string; `loop` and `whole_frame` are true or false");
-    }
-    if (loops && !(cJSON_IsNumber(loops) && loops->valuedouble >= 1 && loops->valuedouble <= 1000 &&
-                   loops->valuedouble == (int)loops->valuedouble)) {
-        return BAD(SCENE_BAD, "`loops` is how many times it plays: 1..1000");
-    }
-    if (loops && cJSON_IsTrue(loop)) {
-        return BAD(SCENE_BAD, "give `loop` (forever) or `loops` (a number of times), not both");
-    }
-    /* Times through: forever, a number, or the default (a clip once, a GIF as the file says) */
-    const int plays = cJSON_IsTrue(loop) ? 0 : loops ? (int)loops->valuedouble : -1;
-    char abs[FS_ABS_MAX], rel[FS_PATH_MAX + 8];
-    char reason[112];
-    if (fs_path(path->valuestring, abs, sizeof(abs), reason, sizeof(reason)) != 0) {
-        return BAD(SCENE_BAD_PATH, "%s", reason);
-    }
-    if (dry) {
-        return SCENE_OK;
-    }
-    fs_rel(abs, rel, sizeof(rel));
-    char msg[96] = "";
-    const esp_err_t err = screen_show_file(abs, plays, cJSON_IsTrue(whole), msg, sizeof(msg));
-    if (err == ESP_ERR_NOT_FOUND) {
-        return BAD(SCENE_MISSING, "no such file: %s", rel);
-    }
-    if (err == ESP_ERR_INVALID_ARG) {
-        return BAD(SCENE_UNPLAYABLE, "%s: %s", rel, msg);
-    }
-    if (err != ESP_OK) {
-        return BAD(SCENE_FAILED, "%s: %s", rel, msg);
-    }
-    return SCENE_OK;
+    return scene_screen_change(&s, dry, why, why_len);
 }
 
 /* ------------------------------------------------------------------ the LEDs */

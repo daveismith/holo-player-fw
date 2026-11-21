@@ -94,19 +94,20 @@ menu "Cyphal node (cyphal)"
 
     config CYPHAL_WORKER_STACK
         int "The node's worker task's stack (bytes)"
-        default 6144
+        default 4608
         help
             In internal RAM, from the node's first start on. The worker does what the node's task
             may not wait for: a register written to NVS, a restart, a factory reset (NVS), and
-            identify, which applies a scene (the screen and the LED ring, on this board). Measured
-            2026-11-20: 2,844 bytes used at most (3,300 never used), after identify five times and
-            refused register writes with their log lines. It also runs the holo's Motion (the HTTP
-            API's motion code) and Light, carries out its setpoints, and builds its Status
-            and Axes (the application's poll): 3,052 used at most (3,092 never used) over the holo's
-            tests and 10 minutes of motions and lights during a clip while Motion still built the
-            route's JSON; 2,064 (4,080 never used) without it, 2026-11-21, over the holo's tests and 3
-            minutes of them during a clip. A later phase's routes (an
-            image shown, which decodes it) will want more, as the host link's task has (10 KB).
+            identify, unless the application says identify can take long (cyphal_app_t.identify_slow,
+            as this board does). It also runs the holo's Motion (the HTTP API's motion code), Light and
+            Ring, carries out its setpoints, and builds its Status, Event (a happening's JSON parsed)
+            and Axes, reading the screen without waiting for it (the application's poll). Work that
+            can take long (an image shown, which decodes it; a scene applied; identify) goes to the
+            second worker instead (CONFIG_CYPHAL_SLOW_STACK). Measured 2026-11-21 on 6,144 bytes over
+            the holo's, the scenes', screen and ring, register and command tests and 5 minutes of the
+            holo's load test: 2,088 bytes used at most (2,012 by a factory reset's NVS writes, logged
+            before the restart). 4,608 leaves 2.5 KB of that unused.
+            (Earlier, with identify on the worker: 2,844; while Motion built the route's JSON: 3,052.)
 
     config CYPHAL_WORKER_PRIORITY
         int "The node's worker task's priority"
@@ -115,5 +116,32 @@ menu "Cyphal node (cyphal)"
         help
             Below the node's task (CONFIG_CYPHAL_TASK_PRIORITY), which must never wait for it; the
             host link's task, which runs the same kind of work, is at 5.
+
+    config CYPHAL_SLOW_STACK
+        int "The node's second worker's stack (bytes)"
+        default 7680
+        help
+            In internal RAM, from the node's first start on, and only when the application has work
+            that can take long (cyphal_handler_t.slow, cyphal_app_t.identify_slow): on this board
+            r2.holo.Scene and Screen, which show a file (an image is decoded on the task that shows
+            it), and identify, which applies a scene. It can't be in PSRAM, as the kit's servo task's
+            can (SERVO_TASK_STACK_IN_PSRAM): this task reads LittleFS (the file shown) and NVS (the
+            scene), and a flash access turns the cache off, which leaves PSRAM unreachable here (no
+            XIP from PSRAM: CONFIG_SPIRAM_XIP_FROM_PSRAM and CONFIG_SPIRAM_FETCH_INSTRUCTIONS are off),
+            a stack in it included; servo never touches flash. Measured 2026-11-21 on 8,192 bytes over
+            the Scene, Screen and event tests and every still on the board through Screen (PNGs of
+            each kind, an interlaced and a worst-case PNG, JPEGs, clips, GIFs, refusals, scenes that
+            show them, identify): 5,708 bytes used at most, by a palette PNG; 7,680 leaves 1.9 KB of
+            that unused. The host link's task (CONFIG_HOSTLINK_TASK_STACK) and the web server's run
+            the same routes on 10 KB; the host link's doesn't run while its pins are the node's.
+
+    config CYPHAL_SLOW_PRIORITY
+        int "The node's second worker's priority"
+        default 4
+        range 1 24
+        help
+            Below the worker (CONFIG_CYPHAL_WORKER_PRIORITY): an image decoding here doesn't keep the
+            worker's setpoints and published messages waiting. The scenes' own task, which decodes an
+            image when a scene puts the screen back, is at 4 too.
 
 endmenu

@@ -4,11 +4,11 @@
     This page describes the holo's Cyphal interface, part of it ahead of the firmware. Built so far:
     the node itself (its node-ID, its heartbeat, `uavcan.node.GetInfo`: [the board on
     Cyphal](../use/cyphal.md)), its [registers](#registers) (the node's and the ports'), its
-    [commands](#commands), `uavcan.node.port.List`, and the holo's [Motion](#motion) and
-    [Light](#light) services, [Axes](#axes) published and subscribed, and [Status](#status) with its
-    holo and ring parts. Not yet: `Event`, `Scene`, `Screen`, `Ring`, `ListScenes`, `MediaInfo`, the
-    file services, the holo's registers, and Status's screen and scene parts (which read as nothing
-    showing and no scene). What isn't built may still change before it is.
+    [commands](#commands), `uavcan.node.port.List`, the holo's [Motion](#motion) and
+    [Light](#light) services, [Axes](#axes) published and subscribed, [Status](#status) whole,
+    [Event](#event), and the [Scene](#scene), [Screen](#screen) and [Ring](#ring) services. Not
+    yet: `ListScenes`, `MediaInfo`, the file services and the holo's registers. What isn't built may
+    still change before it is.
 
 This is the specification of what the board does on a [Cyphal](https://opencyphal.org)/CAN bus:
 every port, every type and its fields, every register and every command. How to use it is on
@@ -78,15 +78,15 @@ With the registers at their defaults it holds:
 
 | | |
 |---|---|
-| Publishers | 7509 (the heartbeat), 7510 (the port list), 2300 (`status`), 2302 (`axes`) |
+| Publishers | 7509 (the heartbeat), 7510 (the port list), 2300 (`status`), 2301 (`event`), 2302 (`axes`) |
 | Subscribers | 2303 (`setpoint`) |
 | Clients | None |
-| Servers | 100 (`motion`), 101 (`light`), 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
+| Servers | 100 (`motion`), 101 (`light`), 102 (`scene`), 103 (`screen`), 104 (`ring`), 384 and 385 (registers), 430 (`GetInfo`), 435 (`ExecuteCommand`) |
 
 An `r2.holo` port is in it once the firmware serves, publishes or subscribes to it, on the number
 its register held as the node started; a port turned off (65535) is never in it, nor is one the
-firmware doesn't have yet (`event`, `scene`, `screen`, `ring`, `list_scenes`, `media_info`), whatever
-its register holds. It is 158 bytes, 23 frames.
+firmware doesn't have yet (`list_scenes`, `media_info`), whatever its register holds. It is 160
+bytes, 24 frames.
 
 ### Health
 
@@ -125,12 +125,14 @@ the holo ready, and nominal.
 so that each is a consistent snapshot. It goes out within 250 ms of a change, never more than
 four times a second, and once a second whatever changes. A change is a change to any field but
 a time or a clip's progress (`*_age_ms`, `*_remaining_ms`, `shown`, `passes`), which the
-once-a-second message keeps current. The board builds it from the same state `GET /api/v1/holo`
-and `GET /api/v1/leds` report. Once another Status may go (250 ms after the last), it looks at the
-holo for a change every 50 ms; the ring tells it of its own changes, as it tells the HTTP API's
-event stream. Until the screen and scenes are
-on Cyphal, `screen` reads as nothing showing (every field 0 or empty) and `scene` as none running:
-86 bytes, 13 frames.
+once-a-second message keeps current. The board builds it from the same state `GET /api/v1/holo`,
+`GET /api/v1/leds`, `GET /api/v1/screen` and `GET /api/v1/scenes` (its `active`) report. Once
+another Status may go (250 ms after the last), it looks at the holo, the screen and the scene for a
+change every 50 ms; the ring tells it of its own changes, as it tells the HTTP API's event stream.
+While the screen is being changed (a still decoding, a clip starting, the panel going to sleep),
+the board doesn't wait for it: `screen` stays as it was in the Status that goes meanwhile, and the
+change follows within 50 ms of its end. With nothing showing and no scene it is 86 bytes, 13
+frames; with a 20-byte path and a 10-byte scene name, 116 bytes, 17 frames.
 
 | Field | Type | What it is |
 |---|---|---|
@@ -223,6 +225,17 @@ is applied and done, and leaves nothing running.
 once, as it happens, and there is no catching up: a receiver that misses one sees the gap in
 `seq` (or in Status's `event_seq`) and reads [Status](#status) for what is going on now.
 
+The board publishes them from its own record of happenings, the one the HTTP API's
+`GET /api/v1/events?after=` reads, which keeps the last 32: each is sent in turn, oldest first,
+with the number the record gave it, whatever started it (Cyphal, the console, the HTTP API, the
+host link or a scene). Happenings that come together (a scene applied over another can make four
+at once) wait in a queue of 8 for the bus, never replacing one another; if that queue is full, the
+one it refused is offered again a moment later, then at longer intervals while it stays full, and the
+rest are read from the record once it has gone. So none is lost while the record still has it,
+and one it no longer has shows as a jump in `seq`, as a missed one does. What happened before the
+node went online isn't sent: the first `seq` after it may be any number. Status's `event_seq` is
+the latest Event's, once it has gone into that queue.
+
 | Field | Type | What it is |
 |---|---|---|
 | `seq` | uint16 | The board's number for this happening: 1–65535, then 1 again. One count for every happening on the board, shared with the web app and the host link |
@@ -284,6 +297,12 @@ does what the same request over the HTTP API or the host link does, through the 
 the same refusals. A request that opens a file or waits (showing a file, applying a scene) is
 answered when it is done, a few hundred milliseconds at most; while the board is still working
 through the requests already sent to it, another is answered `busy`.
+
+Scene and Screen requests (and [identify](#commands)) are carried out one at a time, in the order
+they came, by a task of their own, so that a still being decoded never holds up the setpoints,
+Status or the other services. Two at most wait there; a third is answered `busy`. Motion, Light and
+Ring requests go on meanwhile, so one sent while a Scene or Screen request is still being carried out
+may be done before it: a controller that needs them in order waits for each response.
 
 ### Motion
 
@@ -371,13 +390,21 @@ Another light or ring command during a timed mode replaces it, and the wait ends
 | `slot` | uint8 | Apply: the scene's slot, 1–255; 0 to apply it by `name` |
 | `name` | uint8[<=32] | Apply with slot 0: the scene's name |
 
+The board loads the scene saved with that slot or name and applies it with the code
+`POST /api/v1/scenes/apply` runs; end is `POST /api/v1/scenes/end`'s. The refusals carry the HTTP API's
+words:
+
 | `result.code` | When |
 |---|---|
-| not found | No scene with that slot or name; for end, no scene running to its end |
-| not playable | Its screen part can't be shown, its file missing included |
+| bad request | `action` is none (`` `action` is 0 (apply) or 1 (end)``); apply with slot 0 and no name (`` give `slot` (1..255), or `name` with slot 0``); a name that can't be a scene's (`` give `name`: 1-32 letters, digits, spaces, _ . and -``) |
+| not found | No scene with that slot (`no scene with slot 7`) or name (`no scene 'cantina'`); for end, no scene running to its end (`no scene is running to its end`) |
+| not playable | Its screen part can't be shown, its file missing included (`screen: no such file: /clips/a.mov`) |
 | not ready | Its holo motion can't run |
 
-A part that fails stops the parts after it: the screen, then the LEDs, then the holo.
+A part that fails stops the parts after it: the screen, then the LEDs, then the holo. A scene
+applied starts and ends as one applied any other way: [Event](#event) carries its `scene_started`,
+and its `scene_ended` with why it ended; [Status](#status)'s `scene` shows it while it runs to its
+end.
 
 ### Screen
 
@@ -394,13 +421,19 @@ A part that fails stops the parts after it: the screen, then the LEDs, then the 
 | `backlight` | uint8[<=1] | Percent, 0–100, until the board next starts. Empty: as it is. With `show` 0, this is all the request does |
 | `path` | `uavcan.file.Path.2.0` | A file: a QuickTime Motion-JPEG clip (`.mov`), a PNG, a baseline JPEG or a GIF |
 
-The file is checked before the response, so a refusal means the screen didn't change.
+The board runs the code `POST /api/v1/screen/show` runs for a file, a colour or the crosshair,
+`DELETE /api/v1/screen`'s for nothing, and then, if `backlight` is given, `PATCH /api/v1/screen`'s.
+The file is checked before the response, so a refusal means the screen didn't change, and the
+backlight is set only once what shows has been done. `show` 0 with no backlight changes nothing,
+and is answered ok. A path is taken as the HTTP API takes it: from the root of the volume, at most
+159 bytes (of the 255 the type has room for), or with the volume's own root in front
+(`/data/clips/intro.mov`).
 
 | `result.code` | When |
 |---|---|
-| bad request | A path the board refuses (`..`, too long), `loop` with `loops`, a field out of range |
-| not found | No such file |
-| not playable | A file it can't show: the codec, the size, not a clip or an image. The message says which |
+| bad request | A path the board refuses (`'..' is not allowed in a path: /../a.png`, `a path may be at most 159 bytes`, `a path starts with /, …`, a control character or a NUL in it), `loop` with `loops` (`` give `loop` (forever) or `loops` (a number of times), not both``), `loops` over 1000, `backlight` over 100 (`` `backlight` is 0..100``), a `show` that is none |
+| not found | No such file (`no such file: /clips/a.mov`) |
+| not playable | A file it can't show: the codec, the size, not a clip or an image. The message says which, as the HTTP API's does (`/big.png: 400x300 is larger than the 240x240 screen`) |
 
 ### Ring
 
@@ -416,6 +449,16 @@ starts. A request with nothing in it changes nothing.
 | `loop` | bool[<=1] | Wipe, rainbow: again and again, or once. Empty: once with a new mode; without one, as it is |
 | `brightness` | uint8 | Percent, 1–100. 0: as it is |
 | `period_ms` | uint16 | Pulse, blink: 200–60000. 0: pulse 2000, blink 1000 |
+
+The board runs the code `PATCH /api/v1/leds` runs, with what the request gives and nothing else, as
+the host link's `LEDS` does. `brightness` is the ring's own brightness (`leds bright`, `GET
+/api/v1/leds`'s `brightness`), the one [Light](#light)'s level is a share of: Ring never sets a level.
+A new mode starts at level 100, so it undoes a Light's level; a colour, a loop or a period alone
+keeps the level the ring has, as `PATCH /api/v1/leds` does. Status's ring shows the product.
+
+| `result.code` | When |
+|---|---|
+| bad request | `` `mode` is off, solid, wipe, rainbow, flicker, pulse or blink`` (a mode over 6), `` `brightness` is 1..100``, `` `period_ms` is 200..60000`` |
 
 ### ListScenes
 
@@ -454,7 +497,8 @@ case with 200 and `playable: false`.) No such file is not found.
 
 `r2.holo.Error.0.1`, the `result` of every service. `code` is the host link's
 [status](host-protocol.md#replies), with the same numbers. A busy answer's message is
-`busy: the board is still working through earlier requests`:
+`busy: the board is still working through earlier requests` (four of them, or for Scene and Screen,
+two of those):
 
 | `code` | Name | The JSON errors it covers |
 |---|---|---|
@@ -577,7 +621,8 @@ without saving.
 | Anything else | | Refused: bad command. Power off, begin software update and emergency stop included |
 
 A response's `status` is success when the command was taken, before a restart; failure when the
-board is still working through four earlier requests (send it again); internal error if a
+board is still working through four earlier requests, or for identify, which is carried out with the
+Scene and Screen requests, two of those (send it again); internal error if a
 factory reset couldn't save, in which case nothing is reset (what was saved before is put back) and
 the board doesn't restart. `output` is always empty.
 
@@ -616,8 +661,8 @@ What the board sends, at 1 Mbit/s:
 | Traffic | Frames a second | Share of the bus |
 |---|---|---|
 | Heartbeat, once a second | 1 | 0.013 % |
-| Port list, 23 frames every 10 s (more as the holo's ports join it) | 2.3 | 0.03 % |
-| Status once a second, 17 frames (13 until the screen and scenes are on Cyphal) | 17 | 0.22 % |
+| Port list, 24 frames every 10 s | 2.4 | 0.03 % |
+| Status once a second, 17 frames (13 with nothing showing and no scene) | 17 | 0.22 % |
 | Status four times a second (while things change) | 68 | 0.88 % |
 | Axes while moving, ten a second | 10 | 0.13 % |
 | Axes at rest | 1 | 0.013 % |

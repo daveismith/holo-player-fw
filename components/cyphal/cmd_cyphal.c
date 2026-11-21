@@ -122,9 +122,10 @@ static void print_status(void)
     printf("  transfers: sent %lu, received %lu; frames: sent %lu, received %lu; dropped %lu\n",
            (unsigned long)st.transfers_sent, (unsigned long)st.transfers_received, (unsigned long)bus.tx_frames,
            (unsigned long)bus.rx_frames, (unsigned long)st.transfers_dropped);
-    printf("  up %lu s; frames given to the controller %lu, not sent %lu, waiting %lu; not read (queue full) %lu\n",
-           (unsigned long)st.uptime_s, (unsigned long)st.frames_queued, (unsigned long)bus.tx_failed,
-           (unsigned long)bus.tx_pending, (unsigned long)bus.rx_dropped);
+    printf("  up %lu s; frames given to the controller %lu, not sent %lu, waiting %lu; not read (queue full) %lu; "
+           "send queue at most %lu of %lu frames\n", (unsigned long)st.uptime_s, (unsigned long)st.frames_queued,
+           (unsigned long)bus.tx_failed, (unsigned long)bus.tx_pending, (unsigned long)bus.rx_dropped,
+           (unsigned long)st.txq_peak, (unsigned long)st.txq_capacity);
     printf("  memory: libcanard heap %lu of %lu bytes (%lu at most%s), stack %lu bytes never used; "
            "internal heap %u free, %u lowest\n", (unsigned long)st.heap_used, (unsigned long)st.heap_size,
            (unsigned long)st.heap_peak, st.heap_failed ? ", and it ran out" : "", (unsigned long)st.stack_unused,
@@ -146,8 +147,13 @@ static void print_status(void)
                (unsigned long)m->published, (unsigned long)(m->depth > 1 ? m->refused : m->replaced),
                m->depth > 1 ? "refused, full" : "replaced", i + 1 < st.mail_count ? ", " : "\n");
     }
-    printf("  worker: %lu of %lu job slots held; its stack %lu of %d bytes never used\n", (unsigned long)st.jobs_held,
+    printf("  worker: %lu of %lu job slots held; its stack %lu of %d bytes never used", (unsigned long)st.jobs_held,
            (unsigned long)st.job_slots, (unsigned long)st.worker_stack_unused, CONFIG_CYPHAL_WORKER_STACK);
+    if (st.slow_worker) {
+        printf("; the second worker %lu of %d, its stack %lu of %d never used", (unsigned long)st.slow_held,
+               CYPHAL_SLOW_JOBS, (unsigned long)st.slow_stack_unused, CONFIG_CYPHAL_SLOW_STACK);
+    }
+    printf("\n");
     if (!cyphal_settings_equal(&st.saved, &st.running)) {
         print_settings("  from the next start (`cyphal restart`): ", &st.saved);
         print_ports_changed(&st.saved, &st.running);

@@ -87,6 +87,15 @@ A pin bump is not neutral: read the kit's log for the range first. The ones on 2
 the servo objects into PSRAM, added three console commands, a component and a change to Wi-Fi at
 boot, and changed what `cmd_i2c` and `servo` require.
 
+**A known, temporary exception (2026-11-21): `tools/board_console.py`'s `_Port`.** The kit's
+`tools/fs_xfer.py` `Console.pump()` answers linenoise's `ESC[6n`/`ESC[5n` only when a query is whole
+within one serial read, and once a read however many came: a query split across two reads went
+unanswered, and linenoise swallowed the next command (the console's stuck prompt). `_Port` overrides
+`pump()` here, keeping the last bytes of each read (`_tail`) and answering each query by count. It is
+not a patched kit file, but it is a kit fix living outside the kit, left so until the user decides on
+kit changes. The kit change is that `_tail` and count logic moved into `fs_xfer.Console.pump()`;
+once the kit has it and the pin is bumped, `_Port` goes and `Console` uses `fs_xfer.Console` again.
+
 ## The docs gate
 
 **`make docs-check` must pass** (stdlib only, no venv needed):
@@ -174,6 +183,25 @@ and 38.4 KB after the register and command tests too (the ring's 3 KB stack is n
 where it used to come and go); the worker's stack 1,912-2,064 used. `make api-smoke WRITE=1`
 takes the lowest to 23.4 KB, before and after: the kit's file routes (`PUT /fs/file`, then
 `GET /fs/entry?sha256` and `GET /fs/file`), each tens of KB of internal RAM for a moment, not Cyphal.
+With the holo's scenes, screen and events (2026-11-21, after phase 4's clean-up): 84.4 KB free idle at
+boot (83.9 before it), 43-46 KB at the lowest at boot. What moves the lowest is the screen, not Cyphal: a
+clip's JPEG decoder takes 8.9 KB for every frame and gives it back (free reads about 50 KB between frames,
+41 KB during one), so anything else that allocates during a frame (a request, a console command, a Wi-Fi
+packet) can set a new lowest at any minute (steps of 0.3-3.9 KB seen). That is not a leak: the holo's load
+test (`tests/hardware/test_holo_load.py`) now checks that nothing is kept at rest (free after the run within
+1 KB of free before it) and that the lowest moves by at most one frame's decoder (`DECODER_BYTES`), not to
+the byte. A worst-case PNG takes it to about
+32 KB, a clip replacing a clip to 24-26 KB, a GIF replacing a GIF to 5-12 KB (both GIFs' buffers at once;
+the decoder is 24 KB, internal first by design, so whenever a block that big is free it takes it, and the
+lowest there is whatever is left: more free RAM elsewhere lowers it). **Rapid screen replacement starves
+internal RAM** (pre-existing, in the video player; not fixed): clips replaced 8-10 times a second, over HTTP
+or Cyphal Screen alike, took the free heap to under 1 KB, and GIF replacing GIF to about 5 KB; shows are then
+refused ("it could not be drawn") until the screen is cleared, and nothing crashed. The events store keeps
+its 32 happenings' JSON in internal RAM (150-250 B each), so the free heap falls a little until it is full.
+The largest free block read 31,744 B at rest throughout: no fragmentation seen. Two ways to give the Cyphal
+side more room were offered to the user on 2026-11-21 and not taken: running the slow jobs (Scene, Screen,
+identify) on the scenes runner's task instead of a second worker (7.5 KB of stack back), and a cJSON
+allocator that prefers PSRAM (the events store, Event's parse, the routes' JSON).
 The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
 (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
 ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for
@@ -198,7 +226,9 @@ rejoin (`wifi_known_list`'s `last`), not none saved.
 same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
 
 - **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`, and the register table in
-  `cyphal_registers.c`), built with the computer's `cc`, no IDF, and `yakut_can.py`'s refusals.
+  `cyphal_registers.c`), built with the computer's `cc`, no IDF, and `yakut_can.py`'s refusals; the board's
+  happenings decoder (`components/scenes/happening.c`) and the host link's event records (`hl_record.c`) with
+  the cJSON the component manager puts in `managed_components/` (a first build fetches it; or `CJSON_DIR=`).
   `make can-test`: pytest in `tests/hardware/` against the console and a gs_usb
   adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
   `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
@@ -244,14 +274,17 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   deadline tree (`deadline_root`, `deadline_base`) as its own expiry does, so that "dropped" counts
   whole transfers: on a bump, re-read those fields and `txFlushExpiredTransfers()` first.
 - **The DSDL C headers are generated and committed** (`components/cyphal/dsdl/`, from
-  `external/public_regulated_data_types` at `a229bb7` and `external/r2_cyphal_dsdl` at `aac2fe0`,
+  `external/public_regulated_data_types` at `a229bb7` and `external/r2_cyphal_dsdl` at `30acd0f`,
   by `tools/gen_dsdl.py` with Nunavut, one `nnvg` run a root with the other as lookup): the build
   and the release image need no Python. Don't edit them by hand. `r2/holo/ports.h` is the port
   table (`ports/holo.csv`) as an X-macro, which `main.c` turns into the node's port list, so the
   defaults are written once. Nunavut puts `uavcan.register` in `uavcan/_register/` (C keyword).
   Nunavut's `_initialize_()` isn't used: GCC 15 raises false array-bounds errors in it under
   `-Werror`; zero is the default. `r2_cyphal_dsdl` is changed in its own repository and the pin
-  bumped here, as with the kit; a type that has shipped gets a new version, never an edit.
+  bumped here, as with the kit; a type that has shipped gets a new version, never an edit. **Push
+  `r2_cyphal_dsdl` before pushing a pin that names an unpushed commit of it**: the release workflow
+  and every clone fetch the pin from GitHub. As of 2026-11-21 the pin is `30acd0f` (a comment in
+  `MotionSpec`), which is only in the local checkout; its `origin/main` is `aac2fe0`.
 - **Submodules**: `external/libcanard` (the build needs it), `external/public_regulated_data_types`
   and `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests). Clone `--recursive`.
 - **Only the node's task calls libcanard** (its heap has no lock). Anything that may wait (a
@@ -300,6 +333,48 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   one-shot (single-shot is the whole node's). Two allocatees whose requests share a CAN ID
   (1 in 128) could collide in lockstep; running the controller single-shot while waiting would fix
   it. Left for the user.
+- **Nothing on the node's worker may wait** (`main/holo_cyphal.c`): its poll carries out the setpoints and
+  builds Status, Axes and Event. Work that can take long is a `slow` handler (`cyphal_handler_t`, and
+  `cyphal_app_t.identify_slow`): Scene and Screen, and identify, run on the second worker (`cyphal_slow`, 7.5 KB
+  stack: a palette PNG shown used 5,708 B on 2026-11-21; in internal RAM because it reads flash; the host link's
+  10 KB task doesn't run in `link mode can`), two at most, in order. The worker's stack is 4.5 KB (2,088 B used
+  at most over the tests). The poll reads the screen only through `screen_peek_state()`, which gives up rather
+  than wait for the screen's lock: a PNG decode holds that lock for up to ~half a second. A new read in the poll
+  must not take a lock a slow job holds.
+- **Event is published from the kit's events store** (`main/holo_cyphal_events.c`), by a cursor, not from the
+  listener's notify, one walk of the store a poll (8 at most). One the full queue (8) refuses is kept serialized
+  and offered again, alone, 10 ms later and then at twice the interval to 160 ms, the store unread meanwhile; the
+  store keeps 32, past which the gap shows in `seq`. The node has one events listener (`EVENTS_MAX_SINKS` is 4:
+  the web server's, the host link's, this) for the happenings and for Status's ring, screen and scene parts, which
+  are read only when their state kind says they changed (and once more as a Status goes); the board re-marks the
+  screen and the scene every 5 s while a clip or a scene runs, which the parts' comparison ignores. `touch` is
+  declared only when touch starts, so the kinds are looked at again each second.
+- **The board's happenings are read back in one place**: `components/scenes/happening.c` (`happening_of()`, host-
+  tested), for both the host link's native records (`hl_record.c`, host-tested byte for byte) and Cyphal's Event;
+  each consumer keeps its own rounding (the host link's whole seconds, rounded up; Event's milliseconds).
+- **A published message waits in its mailbox until the transmit queue has room for all of it**
+  (`collect_mail()`), so a burst of Events can't be dropped by libcanard; `cyphal` shows the queue's peak.
+  Such a message is no new mail to `node_task()`: `collect()` says it held one, and the task then waits as
+  the queue does (a tick while bus-off, when canbus refuses at once). Read as new mail it made the wait 0,
+  and the task, the highest on core 0, spun until frames expired (found by review 2026-11-21; the bus-off
+  method under "Not tested on the board" reproduces it).
+- **What phase 4 saw of Event on the board** (2026-11-21): with the queue (8) full, 19 happenings were
+  queued and all went in order as room came; 90 made at once went out 60 delivered and 30 as jumps in `seq`,
+  once the store (32) had overwritten them before their turn: by design, as for a receiver that missed
+  them. A happening the poll can't parse for want of memory is tried again (cursor kept), up to about 4 s.
+- **Two workers, nothing shared that either writes**: the worker's Access response is built in `s_ws`; the
+  second worker (Scene, Screen, identify) builds every response on its own stack, `work_command()`'s
+  included (the two once shared `s_ws`, and an identify could zero a register write's answer). The poll's
+  state (`s_poll`, `s_again`, the events statics) is the worker's alone; the second worker reaches only the
+  scenes, screen and LEDs code that HTTP and the host link already call from their own tasks. Keep any new
+  state on one side, or lock it.
+- **A file at a 159-byte path can't be shown** (seen 2026-11-21), though 159 is the routes' limit
+  (`FS_PATH_MAX`) and `Status`'s path holds it. Probably the video player's 160-byte `PATH_LEN` against
+  the absolute path (`/data` and 159 bytes); not looked into further, not fixed.
+- **The console's stuck prompt was linenoise's cursor query split across two serial reads**: fs_xfer looks
+  for `ESC[6n` within one read, so a query cut in two (or a second one in the same read) went unanswered, and
+  linenoise swallowed the next command waiting for it. `tools/board_console.py` answers across reads; the kit's
+  `fs_xfer.Console.pump()` still has the bug (a kit fix, not made here: "esp-console-kit" has the exception).
 - **The `gpio` table's host link entries are live** (`main.c`): `hostlink_start()` fills them
   through `hostlink_set_on_pins()`'s callback, as `can` fills its own through `on_pins`, named for
   the holder, empty if the start failed.

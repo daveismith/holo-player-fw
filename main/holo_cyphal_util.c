@@ -219,3 +219,228 @@ int64_t holo_rate_next(const holo_rate_t *r, bool hurry, int64_t soonest_us, int
 {
     return r->sent ? r->last_us + (hurry ? soonest_us : latest_us) : 0;
 }
+
+/* ------------------------------------------------------------------ Ring */
+
+void holo_ring_change(const r2_holo_Ring_Request_0_1 *q, holo_ring_change_t *out)
+{
+    memset(out, 0, sizeof(*out));
+    if (q->mode.count > 0) {
+        out->has_mode = true;
+        out->mode = q->mode.elements[0];
+    }
+    if (q->colour.count > 0) {
+        out->has_colour = true;
+        out->rgb[0] = q->colour.elements[0].r;
+        out->rgb[1] = q->colour.elements[0].g;
+        out->rgb[2] = q->colour.elements[0].b;
+    }
+    if (q->loop.count > 0) {
+        out->has_loop = true;
+        out->loop = (q->loop.bitpacked[0] & 1) != 0;     /* bool[<=1]: Nunavut packs it, bit 0 the first */
+    }
+    if (q->brightness != 0) {
+        out->has_brightness = true;
+        out->brightness = q->brightness;
+    }
+    if (q->period_ms != 0) {
+        out->has_period = true;
+        out->period_ms = q->period_ms;
+    }
+}
+
+/* ------------------------------------------------------------------ Scene and Screen */
+
+bool holo_c_string(const uint8_t *bytes, size_t n, char *out, size_t len)
+{
+    if (n >= len || memchr(bytes, '\0', n) != NULL) {
+        return false;
+    }
+    memcpy(out, bytes, n);
+    out[n] = '\0';
+    return true;
+}
+
+bool holo_scene_request(const r2_holo_Scene_Request_0_1 *q, holo_scene_request_t *out, char *why, size_t why_len)
+{
+    memset(out, 0, sizeof(*out));
+    if (q->action == r2_holo_Scene_Request_0_1_END) {
+        out->end = true;
+        return true;
+    }
+    if (q->action != r2_holo_Scene_Request_0_1_APPLY) {
+        snprintf(why, why_len, "`action` is 0 (apply) or 1 (end)");
+        return false;
+    }
+    out->slot = q->slot;
+    if (q->slot != 0) {
+        return true;
+    }
+    if (q->name.count == 0) {
+        snprintf(why, why_len, "give `slot` (1..255), or `name` with slot 0");
+        return false;
+    }
+    if (!holo_c_string(q->name.elements, q->name.count, out->name, sizeof(out->name))) {
+        snprintf(why, why_len, "give `name`: 1-%u letters, digits, spaces, _ . and -",     /* the routes' words */
+                 (unsigned)r2_holo_Scene_Request_0_1_name_ARRAY_CAPACITY_);
+        return false;
+    }
+    return true;
+}
+
+bool holo_screen_request(const r2_holo_Screen_Request_0_1 *q, holo_screen_request_t *out, char *why, size_t why_len)
+{
+    memset(out, 0, sizeof(*out));
+    out->backlight = -1;
+    if (q->show > r2_holo_Screen_Request_0_1_OFF) {
+        snprintf(why, why_len, "`show` is 0 (keep), 1 (a file), 2 (a colour), 3 (the crosshair) or 4 (nothing)");
+        return false;
+    }
+    out->show = q->show;
+    if (q->backlight.count > 0) {
+        if (q->backlight.elements[0] > 100) {
+            snprintf(why, why_len, "`backlight` is 0..100");
+            return false;
+        }
+        out->backlight = q->backlight.elements[0];
+    }
+    if (q->show == r2_holo_Screen_Request_0_1_FILE) {
+        if (!holo_c_string(q->path.path.elements, q->path.path.count, out->path, sizeof(out->path))) {
+            snprintf(why, why_len, "control characters and \\ are not allowed in a path");    /* fs_path()'s words */
+            return false;
+        }
+        out->loop = q->loop;
+        out->loops = q->loops;
+        out->whole_frame = q->whole_frame;
+    } else if (q->show == r2_holo_Screen_Request_0_1_COLOUR) {
+        out->rgb[0] = q->colour.r;
+        out->rgb[1] = q->colour.g;
+        out->rgb[2] = q->colour.b;
+    }
+    return true;
+}
+
+/* ------------------------------------------------------------------ Event */
+
+/* A number held to 0..max, rounded */
+static uint32_t held_to(double v, uint32_t max)
+{
+    return !(v > 0) ? 0 : v >= max ? max : (uint32_t)(v + 0.5);
+}
+
+static void bytes_of(const char *text, uint8_t *elements, size_t *count, size_t capacity)
+{
+    size_t n = text != NULL ? strlen(text) : 0;
+    n = n > capacity ? capacity : n;
+    if (n > 0) {
+        memcpy(elements, text, n);
+    }
+    *count = n;
+}
+
+#define BYTES_OF(text, field) bytes_of((text), (field).elements, &(field).count, sizeof((field).elements))
+
+bool holo_event(const happening_t *h, uint16_t seq, r2_holo_Event_0_1 *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->seq = seq;
+    r2_holo_events_Happening_0_1 *w = &out->what;
+    switch (h->kind) {
+    case HAPPENING_CLIP_STARTED:
+        r2_holo_events_Happening_0_1_select_clip_started_(w);
+        w->clip_started.plays = (uint16_t)held_to(h->plays, UINT16_MAX);
+        w->clip_started.frames = (uint16_t)held_to(h->frames, UINT16_MAX);
+        w->clip_started.fps = (float)(h->fps > 0 ? h->fps : 0);
+        BYTES_OF(h->path, w->clip_started.path.path);
+        break;
+    case HAPPENING_CLIP_ENDED:
+        r2_holo_events_Happening_0_1_select_clip_ended_(w);
+        w->clip_ended.finished = h->finished;
+        BYTES_OF(h->path, w->clip_ended.path.path);
+        break;
+    case HAPPENING_SCENE_STARTED:
+        r2_holo_events_Happening_0_1_select_scene_started_(w);
+        w->scene_started.then = (uint8_t)h->then;
+        w->scene_started.until_clip_ends = h->until_clip_ends;
+        w->scene_started.duration_ms = held_to(h->duration_s * 1000.0, UINT32_MAX);
+        w->scene_started.slot = (uint8_t)held_to(h->slot, UINT8_MAX);
+        BYTES_OF(h->name, w->scene_started.name);
+        break;
+    case HAPPENING_SCENE_ENDED:
+        r2_holo_events_Happening_0_1_select_scene_ended_(w);
+        w->scene_ended.then = (uint8_t)h->then;
+        w->scene_ended.by = (uint8_t)h->by;
+        w->scene_ended.slot = (uint8_t)held_to(h->slot, UINT8_MAX);
+        BYTES_OF(h->name, w->scene_ended.name);
+        break;
+    case HAPPENING_TOUCH:
+        r2_holo_events_Happening_0_1_select_screen_touch_(w);
+        w->screen_touch.action = h->up ? r2_holo_events_Touch_0_1_UP : r2_holo_events_Touch_0_1_DOWN;
+        w->screen_touch.x = (uint8_t)held_to(h->x, UINT8_MAX);
+        w->screen_touch.y = (uint8_t)held_to(h->y, UINT8_MAX);
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+
+/* ------------------------------------------------------------------ the screen and the scene in Status */
+
+void holo_screen_part(const holo_screen_in_t *in, r2_holo_state_Screen_0_1 *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->showing = (uint8_t)(in->showing < 0 || in->showing > (int)r2_holo_state_Screen_0_1_CLIP ? 0 : in->showing);
+    out->backlight = (uint8_t)held_to(in->backlight, 100);
+    if (out->showing == r2_holo_state_Screen_0_1_COLOUR) {
+        out->colour = (r2_holo_Colour_0_1){ in->rgb[0], in->rgb[1], in->rgb[2] };
+    }
+    if (out->showing == r2_holo_state_Screen_0_1_CLIP) {
+        out->frames = (uint16_t)held_to(in->frames, UINT16_MAX);
+        out->shown = in->shown;
+        out->passes = (uint16_t)held_to(in->loops, UINT16_MAX);
+        out->plays = (uint16_t)held_to(in->plays, UINT16_MAX);
+        out->fps = (float)(in->fps > 0 ? in->fps : 0);
+    }
+    if (out->showing == r2_holo_state_Screen_0_1_IMAGE || out->showing == r2_holo_state_Screen_0_1_CLIP) {
+        BYTES_OF(in->path, out->path.path);
+    }
+}
+
+/* As the holo's and the ring's parts are compared (holo_cyphal.c): a copy of `a` given b's fields that don't count,
+ * then the bytes, both made zeroed first */
+bool holo_screen_differs(const r2_holo_state_Screen_0_1 *a, const r2_holo_state_Screen_0_1 *b)
+{
+    r2_holo_state_Screen_0_1 t;
+    memcpy(&t, a, sizeof(t));
+    t.shown = b->shown;
+    t.passes = b->passes;
+    return memcmp(&t, b, sizeof(t)) != 0;
+}
+
+void holo_scene_part(bool running, const char *name, int slot, int then, bool until_clip_ends, double remaining_s,
+                     r2_holo_state_Scene_0_1 *out)
+{
+    memset(out, 0, sizeof(*out));
+    if (!running) {
+        return;
+    }
+    out->running = true;
+    out->then = (uint8_t)(then < 0 || then > (int)r2_holo_state_Scene_0_1_OFF ? 0 : then);
+    out->until_clip_ends = until_clip_ends;
+    /* Only -1 is "no duration": any other negative is a deadline just passed, none left */
+    out->remaining_ms = remaining_s <= -1.0 ? r2_holo_state_Scene_0_1_NEVER
+                        : remaining_s < 0 ? 0 : held_to(remaining_s * 1000.0, r2_holo_state_Scene_0_1_NEVER - 1);
+    out->slot = (uint8_t)held_to(slot, UINT8_MAX);
+    BYTES_OF(name, out->name);
+}
+
+bool holo_scene_differs(const r2_holo_state_Scene_0_1 *a, const r2_holo_state_Scene_0_1 *b)
+{
+    r2_holo_state_Scene_0_1 t;
+    memcpy(&t, a, sizeof(t));
+    if ((a->remaining_ms == r2_holo_state_Scene_0_1_NEVER) == (b->remaining_ms == r2_holo_state_Scene_0_1_NEVER)) {
+        t.remaining_ms = b->remaining_ms;
+    }
+    return memcmp(&t, b, sizeof(t)) != 0;
+}

@@ -1,9 +1,10 @@
 /*
  * The holo's Cyphal interface, its pure parts (holo_cyphal.c has the rest): a Motion request as the
- * holo engine's motion, a Light request as a change to the LED ring, the refusals' words in
- * r2.holo.Error, the engine's words as r2.holo.Reason, the positions as r2.holo.Axes,
- * and the rates Status and Axes go out at (manual/reference/cyphal.md). Plain C over the generated
- * DSDL headers, no ESP-IDF: tests/host builds it.
+ * holo engine's motion, a Light or Ring request as a change to the LED ring, a Scene or Screen request
+ * read and checked, the refusals' words in r2.holo.Error, the engine's words as r2.holo.Reason, the
+ * positions as r2.holo.Axes, the board's happenings as r2.holo.Event, the screen and the scene as
+ * Status's parts, and the rates Status and Axes go out at (manual/reference/cyphal.md). Plain C over
+ * the generated DSDL headers and happening.h, no ESP-IDF: tests/host builds it.
  */
 #pragma once
 
@@ -12,10 +13,17 @@
 #include <stdint.h>
 #include "r2/holo/Axes_0_1.h"
 #include "r2/holo/Error_0_1.h"
+#include "r2/holo/Event_0_1.h"
 #include "r2/holo/Light_0_1.h"
 #include "r2/holo/MotionSpec_0_1.h"
 #include "r2/holo/Reason_0_1.h"
+#include "r2/holo/Ring_0_1.h"
+#include "r2/holo/Scene_0_1.h"
+#include "r2/holo/Screen_0_1.h"
 #include "r2/holo/state/RingSetting_0_1.h"
+#include "r2/holo/state/Scene_0_1.h"
+#include "r2/holo/state/Screen_0_1.h"
+#include "happening.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +82,91 @@ typedef struct {
 } holo_light_change_t;
 
 bool holo_light_change(const r2_holo_Light_Request_0_1 *q, holo_light_change_t *out, char *why, size_t why_len);
+
+/* ---- Ring */
+
+/* A Ring request as a change to the ring (scene_leds_t, field for field: PATCH /leds's), each field there only if
+ * the request gives it: a mode, a colour, a loop (each an optional array), a brightness (0 none) and a period
+ * (0 the mode's default: none). The ranges are the change's to check, with the JSON API's words */
+typedef struct {
+    bool has_mode; int mode;        /* HOLO_RING_*, or past them for the check to refuse */
+    bool has_colour; uint8_t rgb[3];
+    bool has_loop; bool loop;
+    bool has_brightness; int brightness;
+    bool has_period; int period_ms;
+} holo_ring_change_t;
+
+void holo_ring_change(const r2_holo_Ring_Request_0_1 *q, holo_ring_change_t *out);
+
+/* ---- Scene */
+
+/* A Scene request read: END, or APPLY by slot (1..255), or by name with slot 0 (as a C string, for the scenes
+ * component to check against its own rules). False, with why, for an action that is none, or APPLY with slot 0
+ * and no name, or a name with a NUL in it */
+typedef struct {
+    bool end;
+    uint8_t slot;                   /* 0: by name */
+    char name[r2_holo_Scene_Request_0_1_name_ARRAY_CAPACITY_ + 1];
+} holo_scene_request_t;
+
+bool holo_scene_request(const r2_holo_Scene_Request_0_1 *q, holo_scene_request_t *out, char *why, size_t why_len);
+
+/* ---- Screen */
+
+/* A Screen request read: what to show (Screen's KEEP ... OFF), a FILE's path as a C string (uavcan.file.Path's
+ * up to 255 bytes: the board's limit, 159, and its other rules are fs_path()'s, with its words), `loop`, `loops`
+ * and `whole_frame` as given (their check is the scenes component's, with the JSON API's words), a COLOUR's
+ * colour, and the backlight (-1: as it is). False, with why, for a `show` that is none, a backlight over 100,
+ * or a path with a NUL in it, in fs_path()'s words for a control character */
+typedef struct {
+    uint8_t show;                   /* r2_holo_Screen_Request_0_1_KEEP ... OFF */
+    char path[uavcan_file_Path_2_0_path_ARRAY_CAPACITY_ + 1];
+    bool loop;
+    int loops;                      /* 0: none given */
+    bool whole_frame;
+    uint8_t rgb[3];
+    int backlight;                  /* 0..100, or -1 */
+} holo_screen_request_t;
+
+bool holo_screen_request(const r2_holo_Screen_Request_0_1 *q, holo_screen_request_t *out, char *why, size_t why_len);
+
+/* `n` bytes of a DSDL byte array as a C string in `out` (len bytes, room for the NUL): false if it holds a NUL, or
+ * doesn't fit */
+bool holo_c_string(const uint8_t *bytes, size_t n, char *out, size_t len);
+
+/* ---- Event */
+
+/* One of the board's happenings (happening.h, read from the JSON the kit's events keep), with its number, as an
+ * r2.holo.Event: its numbers held to the type's fields, rounded (a duration to whole milliseconds), a path cut to 255
+ * bytes and a name to 32 (neither ever is, on this board). False for a kind the type doesn't have */
+bool holo_event(const happening_t *h, uint16_t seq, r2_holo_Event_0_1 *out);
+
+/* ---- the screen and the scene in Status */
+
+/* What the screen shows, as the video component's screen_state_t has it (GET /screen's), for holo_screen_part() */
+typedef struct {
+    int showing;                    /* screen_showing_t: the same numbers as state.Screen's */
+    int backlight;
+    uint8_t rgb[3];                 /* a colour's */
+    uint32_t frames, shown, loops, plays;   /* a clip's: `loops` its times through so far */
+    double fps;
+    const char *path;               /* an image's or a clip's, from the volume's root; NULL otherwise */
+} holo_screen_in_t;
+
+/* As state.Screen, zeroed first (padding and all, for holo_screen_differs()'s memcmp): a colour only while one
+ * shows (black otherwise), a clip's progress only while one plays, a path only for an image or a clip */
+void holo_screen_part(const holo_screen_in_t *in, r2_holo_state_Screen_0_1 *out);
+/* Whether two made by holo_screen_part() differ but for a clip's progress (`shown`, `passes`): a change for Status */
+bool holo_screen_differs(const r2_holo_state_Screen_0_1 *a, const r2_holo_state_Screen_0_1 *b);
+
+/* The scene running to its end, as the scenes component's scene_active_t has it (GET /scenes's `active`), as
+ * state.Scene, zeroed first: `running` false for none, and every field then 0 or empty; `then` a scene_then_t (the
+ * same numbers); `remaining_s` -1 for no duration, NEVER then, and any other negative (a deadline just passed) 0 */
+void holo_scene_part(bool running, const char *name, int slot, int then, bool until_clip_ends, double remaining_s,
+                     r2_holo_state_Scene_0_1 *out);
+/* Whether two made by holo_scene_part() differ but for the time left (whether there is one counts): a change for
+ * Status */
+bool holo_scene_differs(const r2_holo_state_Scene_0_1 *a, const r2_holo_state_Scene_0_1 *b);
 
 /* ---- Error and Reason (Error's codes are the host link's: api_codes.h) */
 

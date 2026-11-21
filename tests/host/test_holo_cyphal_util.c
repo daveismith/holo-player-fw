@@ -1,15 +1,21 @@
 /*
  * Host-built tests for main/holo_cyphal_util.c: the holo's Cyphal requests as the engine's motion and the
- * ring's change, the refusals as r2.holo.Error (with components/board_api/api_codes.c) and Reason, the positions as Axes, and Status's and Axes' rates
+ * ring's change, Scene and Screen requests read and checked (a path's length and bytes), the board's happenings
+ * (components/scenes' happening_t) as r2.holo.Event with their sizes (cyphal_util.c's frame count), the screen and
+ * the scene as Status's parts, the refusals as r2.holo.Error (with components/board_api/api_codes.c) and Reason,
+ * the positions as Axes, and Status's and Axes' rates
  * (manual/reference/cyphal.md; the ranges are manual/reference/host-protocol.md's and the HTTP API's,
  * checked by the routes themselves). `make unit-test`.
  */
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "check.h"
 #include "api_codes.h"
+#include "cyphal_util.h"
 #include "holo_cyphal_util.h"
+#include "r2/holo/Status_0_1.h"
 
 static r2_holo_MotionSpec_0_1 spec(unsigned kind)
 {
@@ -394,6 +400,303 @@ static void test_rates(void)
     CHECK(holo_rate_due(&a, a.last_us + 1, false, HOLO_AXES_MOVING_US, HOLO_AXES_RESTING_US));
 }
 
+static void test_ring_request(void)
+{
+    r2_holo_Ring_Request_0_1 q;
+    holo_ring_change_t c;
+    /* Nothing in it: nothing to change */
+    memset(&q, 0, sizeof(q));
+    holo_ring_change(&q, &c);
+    CHECK(!c.has_mode && !c.has_colour && !c.has_loop && !c.has_brightness && !c.has_period);
+    /* Each field there only if given; 0 a mode of its own (off) */
+    q.mode.count = 1;
+    q.mode.elements[0] = 0;
+    q.colour.count = 1;
+    q.colour.elements[0] = (r2_holo_Colour_0_1){ 1, 2, 3 };
+    q.loop.count = 1;
+    q.loop.bitpacked[0] = 1;
+    q.brightness = 40;
+    q.period_ms = 900;
+    holo_ring_change(&q, &c);
+    CHECK(c.has_mode && c.mode == 0 && c.has_colour && c.rgb[0] == 1 && c.rgb[1] == 2 && c.rgb[2] == 3);
+    CHECK(c.has_loop && c.loop && c.has_brightness && c.brightness == 40 && c.has_period && c.period_ms == 900);
+    /* A loop given as false is given; out of range is passed on, for the change's check and its words */
+    q.loop.bitpacked[0] = 0;
+    q.mode.elements[0] = 7;
+    q.brightness = 255;
+    q.period_ms = 65535;
+    holo_ring_change(&q, &c);
+    CHECK(c.has_loop && !c.loop && c.mode == 7 && c.brightness == 255 && c.period_ms == 65535);
+}
+
+static void test_c_string(void)
+{
+    char out[8];
+    CHECK(holo_c_string((const uint8_t *)"abc", 3, out, sizeof(out)) && strcmp(out, "abc") == 0);
+    CHECK(holo_c_string((const uint8_t *)"", 0, out, sizeof(out)) && out[0] == '\0');
+    CHECK(holo_c_string((const uint8_t *)"1234567", 7, out, sizeof(out)) && strcmp(out, "1234567") == 0);
+    CHECK(!holo_c_string((const uint8_t *)"12345678", 8, out, sizeof(out)));      /* no room for the NUL */
+    CHECK(!holo_c_string((const uint8_t *)"ab\0c", 4, out, sizeof(out)));         /* a NUL inside */
+}
+
+static void test_scene_request(void)
+{
+    r2_holo_Scene_Request_0_1 q;
+    holo_scene_request_t r;
+    char why[96];
+    memset(&q, 0, sizeof(q));
+    /* END ignores the rest */
+    q.action = r2_holo_Scene_Request_0_1_END;
+    q.slot = 9;
+    CHECK(holo_scene_request(&q, &r, why, sizeof(why)) && r.end);
+    /* APPLY by slot: the name ignored */
+    q.action = r2_holo_Scene_Request_0_1_APPLY;
+    q.name.count = 3;
+    memcpy(q.name.elements, "a\0b", 3);
+    CHECK(holo_scene_request(&q, &r, why, sizeof(why)) && !r.end && r.slot == 9);
+    /* By name */
+    q.slot = 0;
+    q.name.count = 32;
+    memset(q.name.elements, 'x', 32);
+    CHECK(holo_scene_request(&q, &r, why, sizeof(why)) && r.slot == 0 && strlen(r.name) == 32);
+    /* No slot and no name; a name with a NUL; an action that is none */
+    q.name.count = 0;
+    CHECK(!holo_scene_request(&q, &r, why, sizeof(why)) && strcmp(why, "give `slot` (1..255), or `name` with slot 0") == 0);
+    q.name.count = 3;
+    memcpy(q.name.elements, "a\0b", 3);
+    CHECK(!holo_scene_request(&q, &r, why, sizeof(why)) &&
+          strcmp(why, "give `name`: 1-32 letters, digits, spaces, _ . and -") == 0);
+    q.action = 2;
+    CHECK(!holo_scene_request(&q, &r, why, sizeof(why)) && strcmp(why, "`action` is 0 (apply) or 1 (end)") == 0);
+}
+
+static void test_screen_request(void)
+{
+    static r2_holo_Screen_Request_0_1 q;
+    static holo_screen_request_t r;
+    char why[128];
+    memset(&q, 0, sizeof(q));
+    /* KEEP, nothing else: the backlight as it is */
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && r.show == r2_holo_Screen_Request_0_1_KEEP && r.backlight == -1);
+    /* The backlight, 0 a level of its own; over 100 refused */
+    q.backlight.count = 1;
+    q.backlight.elements[0] = 0;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && r.backlight == 0);
+    q.backlight.elements[0] = 100;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && r.backlight == 100);
+    q.backlight.elements[0] = 101;
+    CHECK(!holo_screen_request(&q, &r, why, sizeof(why)) && strcmp(why, "`backlight` is 0..100") == 0);
+    q.backlight.count = 0;
+    /* A show that is none */
+    q.show = 5;
+    CHECK(!holo_screen_request(&q, &r, why, sizeof(why)) && strncmp(why, "`show` is 0 (keep)", 18) == 0);
+    /* COLOUR: the colour; FILE fields ignored */
+    q.show = r2_holo_Screen_Request_0_1_COLOUR;
+    q.colour = (r2_holo_Colour_0_1){ 9, 8, 7 };
+    q.loop = true;
+    q.loops = 5000;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && r.rgb[0] == 9 && r.rgb[1] == 8 && r.rgb[2] == 7 && !r.loop &&
+          r.loops == 0);
+    /* FILE: loop and loops as given (the scenes component checks them, with the JSON API's words) */
+    q.show = r2_holo_Screen_Request_0_1_FILE;
+    memcpy(q.path.path.elements, "/clips/a.mov", 12);
+    q.path.path.count = 12;
+    q.whole_frame = true;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && strcmp(r.path, "/clips/a.mov") == 0 && r.loop &&
+          r.loops == 5000 && r.whole_frame);
+    /* uavcan.file.Path's whole 255 bytes reach fs_path(), which holds the board's 159 (and accepts a longer one that
+     * starts with the volume's own root); an empty one too, for its words */
+    memset(q.path.path.elements, 'p', 255);
+    q.path.path.elements[0] = '/';
+    q.path.path.count = 255;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && strlen(r.path) == 255);
+    q.path.path.count = 0;
+    CHECK(holo_screen_request(&q, &r, why, sizeof(why)) && r.path[0] == '\0');
+    /* A NUL inside: refused in fs_path()'s words for a control character */
+    memcpy(q.path.path.elements, "/a\0b.png", 8);
+    q.path.path.count = 8;
+    CHECK(!holo_screen_request(&q, &r, why, sizeof(why)) &&
+          strcmp(why, "control characters and \\ are not allowed in a path") == 0);
+}
+
+/* An Event's serialized size, in bytes */
+static size_t event_size(const r2_holo_Event_0_1 *e)
+{
+    static uint8_t buf[r2_holo_Event_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+    size_t size = sizeof(buf);
+    return r2_holo_Event_0_1_serialize_(e, buf, &size) < 0 ? 0 : size;
+}
+
+static void test_events(void)
+{
+    static r2_holo_Event_0_1 e;
+    /* clip_started: as runner.c makes it (happening.c reads it back from its JSON) */
+    happening_t h = { .kind = HAPPENING_CLIP_STARTED, .path = "/clips/intro.mov", .plays = 3, .frames = 450, .fps = 29.97 };
+    CHECK(holo_event(&h, 42, &e) && e.seq == 42 && r2_holo_events_Happening_0_1_is_clip_started_(&e.what));
+    CHECK(e.what.clip_started.plays == 3 && e.what.clip_started.frames == 450 &&
+          fabsf(e.what.clip_started.fps - 29.97f) < 0.01f && e.what.clip_started.path.path.count == 16 &&
+          memcmp(e.what.clip_started.path.path.elements, "/clips/intro.mov", 16) == 0);
+    /* Forever: 0 plays; frames held to 16 bits; an fps that isn't a number (NAN) as 0 */
+    h = (happening_t){ .kind = HAPPENING_CLIP_STARTED, .path = "/a.gif", .plays = 0, .frames = 100000, .fps = NAN };
+    CHECK(holo_event(&h, 1, &e) && e.what.clip_started.plays == 0 && e.what.clip_started.frames == 65535 &&
+          e.what.clip_started.fps == 0);
+    /* The type's own sizes: a 20-byte path's clip_started is 5 frames, its clip_ended 4 */
+    h = (happening_t){ .kind = HAPPENING_CLIP_STARTED, .path = "/clips/abcdefghi.mov", .plays = 1 };
+    CHECK(holo_event(&h, 7, &e) && cyphal_frames(event_size(&e)) == 5);
+    h.kind = HAPPENING_CLIP_ENDED;
+    CHECK(holo_event(&h, 7, &e) && cyphal_frames(event_size(&e)) == 4);
+    /* clip_ended */
+    h = (happening_t){ .kind = HAPPENING_CLIP_ENDED, .path = "/b.mov", .finished = true };
+    CHECK(holo_event(&h, 65535, &e) && e.seq == 65535 && r2_holo_events_Happening_0_1_is_clip_ended_(&e.what) &&
+          e.what.clip_ended.finished && e.what.clip_ended.path.path.count == 6);
+    /* A 159-byte path, the board's longest, whole */
+    static char longest[160];
+    memset(longest, 'z', 159);
+    longest[0] = '/';
+    h.path = longest;
+    CHECK(holo_event(&h, 65535, &e) && e.what.clip_ended.path.path.count == 159 &&
+          event_size(&e) == 2 + 1 + 1 + 1 + 159);   /* seq, union tag, finished, length */
+    /* scene_started, with and without a slot and a duration */
+    h = (happening_t){ .kind = HAPPENING_SCENE_STARTED, .name = "cantina", .slot = 7, .then = SCENE_THEN_RESTORE,
+                       .until_clip_ends = true, .duration_s = 12.5 };
+    CHECK(holo_event(&h, 3, &e) && r2_holo_events_Happening_0_1_is_scene_started_(&e.what));
+    CHECK(e.what.scene_started.then == r2_holo_events_SceneStarted_0_1_RESTORE && e.what.scene_started.until_clip_ends &&
+          e.what.scene_started.duration_ms == 12500 && e.what.scene_started.slot == 7 &&
+          e.what.scene_started.name.count == 7 && memcmp(e.what.scene_started.name.elements, "cantina", 7) == 0);
+    h = (happening_t){ .kind = HAPPENING_SCENE_STARTED, .name = "now", .then = SCENE_THEN_STAY };
+    CHECK(holo_event(&h, 4, &e) && e.what.scene_started.then == r2_holo_events_SceneStarted_0_1_STAY &&
+          e.what.scene_started.slot == 0 && e.what.scene_started.duration_ms == 0 && !e.what.scene_started.until_clip_ends);
+    h.then = SCENE_THEN_OFF;
+    h.duration_s = 0.1;
+    CHECK(holo_event(&h, 4, &e) && e.what.scene_started.then == r2_holo_events_SceneStarted_0_1_OFF &&
+          e.what.scene_started.duration_ms == 100);
+    h.duration_s = 86400;
+    CHECK(holo_event(&h, 4, &e) && e.what.scene_started.duration_ms == 86400000u);
+    /* A 10-byte name's scene_started is 4 frames, its scene_ended 3 */
+    h = (happening_t){ .kind = HAPPENING_SCENE_STARTED, .name = "abcdefghij", .then = SCENE_THEN_RESTORE };
+    CHECK(holo_event(&h, 4, &e) && cyphal_frames(event_size(&e)) == 4);
+    /* scene_ended: each `by`, numbered as the scenes component numbers it */
+    for (unsigned i = 0; i < 4; i++) {
+        h = (happening_t){ .kind = HAPPENING_SCENE_ENDED, .name = "abcdefghij", .slot = 255, .then = SCENE_THEN_OFF,
+                           .by = (scene_by_t)i };
+        CHECK(holo_event(&h, 5, &e) && r2_holo_events_Happening_0_1_is_scene_ended_(&e.what) && e.what.scene_ended.by == i &&
+              e.what.scene_ended.then == r2_holo_events_SceneStarted_0_1_OFF && e.what.scene_ended.slot == 255);
+        CHECK(cyphal_frames(event_size(&e)) == 3);
+    }
+    CHECK(r2_holo_events_SceneEnded_0_1_CLIP == SCENE_BY_CLIP && r2_holo_events_SceneEnded_0_1_TIME == SCENE_BY_TIME &&
+          r2_holo_events_SceneEnded_0_1_END == SCENE_BY_END && r2_holo_events_SceneEnded_0_1_REPLACED == SCENE_BY_REPLACED);
+    /* A name past 32 bytes is cut to 32 (never, on this board: the scenes component refuses it) */
+    h.name = "0123456789012345678901234567890123456789";
+    CHECK(holo_event(&h, 5, &e) && e.what.scene_ended.name.count == 32);
+    /* touch: down and up, x and y; one frame */
+    h = (happening_t){ .kind = HAPPENING_TOUCH, .x = 239, .y = 0 };
+    CHECK(holo_event(&h, 9, &e) && r2_holo_events_Happening_0_1_is_screen_touch_(&e.what) &&
+          e.what.screen_touch.action == r2_holo_events_Touch_0_1_DOWN && e.what.screen_touch.x == 239 &&
+          e.what.screen_touch.y == 0 && cyphal_frames(event_size(&e)) == 1);
+    h.up = true;
+    h.x = 300;
+    CHECK(holo_event(&h, 9, &e) && e.what.screen_touch.action == r2_holo_events_Touch_0_1_UP && e.what.screen_touch.x == 255);
+    /* Not one the type has */
+    h.kind = HAPPENING_NONE;
+    CHECK(!holo_event(&h, 9, &e));
+}
+
+static void test_screen_part(void)
+{
+    static r2_holo_state_Screen_0_1 a, b;
+    /* Nothing: all 0, the backlight as it is */
+    holo_screen_in_t in = { .showing = r2_holo_state_Screen_0_1_NOTHING, .backlight = 80, .rgb = { 1, 2, 3 },
+                            .frames = 9, .path = "/x.png" };
+    holo_screen_part(&in, &a);
+    CHECK(a.showing == 0 && a.backlight == 80 && a.colour.r == 0 && a.frames == 0 && a.path.path.count == 0);
+    /* A colour */
+    in.showing = r2_holo_state_Screen_0_1_COLOUR;
+    holo_screen_part(&in, &a);
+    CHECK(a.showing == 1 && a.colour.r == 1 && a.colour.g == 2 && a.colour.b == 3 && a.path.path.count == 0);
+    /* An image: its path, no clip's fields */
+    in = (holo_screen_in_t){ .showing = r2_holo_state_Screen_0_1_IMAGE, .backlight = 100, .frames = 5, .path = "/x.png" };
+    holo_screen_part(&in, &a);
+    CHECK(a.showing == 3 && a.frames == 0 && a.path.path.count == 6 && memcmp(a.path.path.elements, "/x.png", 6) == 0);
+    /* A clip: its progress */
+    in = (holo_screen_in_t){ .showing = r2_holo_state_Screen_0_1_CLIP, .backlight = 100, .frames = 300, .shown = 1234,
+                             .loops = 4, .plays = 0, .fps = 30, .path = "/c.mov" };
+    holo_screen_part(&in, &a);
+    CHECK(a.showing == 4 && a.frames == 300 && a.shown == 1234 && a.passes == 4 && a.plays == 0 && a.fps == 30.0f);
+    /* Its progress isn't a change; anything else is */
+    in.shown = 1300;
+    in.loops = 5;
+    holo_screen_part(&in, &b);
+    CHECK(!holo_screen_differs(&a, &b));
+    in.plays = 2;
+    holo_screen_part(&in, &b);
+    CHECK(holo_screen_differs(&a, &b));
+    in.plays = 0;
+    in.path = "/d.mov";
+    holo_screen_part(&in, &b);
+    CHECK(holo_screen_differs(&a, &b));
+    in.path = "/c.mov";
+    in.backlight = 50;
+    holo_screen_part(&in, &b);
+    CHECK(holo_screen_differs(&a, &b));
+    /* Held: a backlight past 100, more than 65535 frames or plays, a showing that is none */
+    in = (holo_screen_in_t){ .showing = 9, .backlight = 120 };
+    holo_screen_part(&in, &a);
+    CHECK(a.showing == 0 && a.backlight == 100);
+    in = (holo_screen_in_t){ .showing = r2_holo_state_Screen_0_1_CLIP, .frames = 70000, .plays = 70000 };
+    holo_screen_part(&in, &a);
+    CHECK(a.frames == 65535 && a.plays == 65535);
+    /* The largest Status: 375 bytes (54 frames), with a 255-byte path and a 32-byte name */
+    static r2_holo_Status_0_1 st;
+    memset(&st, 0, sizeof(st));
+    static char path[256];
+    memset(path, 'p', 255);
+    in = (holo_screen_in_t){ .showing = r2_holo_state_Screen_0_1_CLIP, .path = path };
+    holo_screen_part(&in, &st.screen);
+    holo_scene_part(true, "0123456789012345678901234567890123", 1, 1, false, 3, &st.scene);
+    st.holo.last.duration_ms.count = 1;     /* the last motion asked for, with its duration */
+    static uint8_t buf[r2_holo_Status_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+    size_t size = sizeof(buf);
+    CHECK(r2_holo_Status_0_1_serialize_(&st, buf, &size) >= 0 && size == 375 && cyphal_frames(size) == 54);
+    /* Nothing showing, no scene: 86 bytes, 13 frames; a 20-byte path and a 10-byte name, 116 and 17 */
+    memset(&st, 0, sizeof(st));
+    size = sizeof(buf);
+    CHECK(r2_holo_Status_0_1_serialize_(&st, buf, &size) >= 0 && size == 86 && cyphal_frames(size) == 13);
+    in = (holo_screen_in_t){ .showing = r2_holo_state_Screen_0_1_IMAGE, .path = "/clips/abcdefghi.mov" };
+    holo_screen_part(&in, &st.screen);
+    holo_scene_part(true, "abcdefghij", 1, 1, false, 3, &st.scene);
+    size = sizeof(buf);
+    CHECK(r2_holo_Status_0_1_serialize_(&st, buf, &size) >= 0 && size == 116 && cyphal_frames(size) == 17);
+}
+
+static void test_scene_part(void)
+{
+    r2_holo_state_Scene_0_1 a, b;
+    /* None running: all 0 */
+    holo_scene_part(false, "x", 5, 1, true, 10, &a);
+    CHECK(!a.running && a.then == 0 && a.slot == 0 && a.name.count == 0 && a.remaining_ms == 0 && !a.until_clip_ends);
+    /* Running: its fields; NEVER without a duration */
+    holo_scene_part(true, "cantina", 7, 2, true, -1, &a);
+    CHECK(a.running && a.then == r2_holo_state_Scene_0_1_OFF && a.slot == 7 && a.until_clip_ends &&
+          a.remaining_ms == r2_holo_state_Scene_0_1_NEVER && a.name.count == 7);
+    /* A deadline just passed, before the runner has ended the scene: none left, not NEVER, and no change */
+    holo_scene_part(true, "cantina", 7, 2, false, 0.5, &b);
+    holo_scene_part(true, "cantina", 7, 2, false, -0.01, &a);
+    CHECK(a.remaining_ms == 0 && !holo_scene_differs(&a, &b));
+    holo_scene_part(true, "cantina", 7, 2, false, -0.6, &a);
+    CHECK(a.remaining_ms == 0);
+    holo_scene_part(true, "cantina", 0, 1, false, 12.3456, &a);
+    CHECK(a.then == r2_holo_state_Scene_0_1_RESTORE && a.slot == 0 && a.remaining_ms == 12346);
+    /* The time left isn't a change; the rest are */
+    holo_scene_part(true, "cantina", 0, 1, false, 2.0, &b);
+    CHECK(!holo_scene_differs(&a, &b));
+    holo_scene_part(true, "cantina", 0, 1, false, -1, &b);
+    CHECK(holo_scene_differs(&a, &b));
+    holo_scene_part(true, "cantinb", 0, 1, false, 2.0, &b);
+    CHECK(holo_scene_differs(&a, &b));
+    holo_scene_part(false, NULL, 0, 0, false, -1, &b);
+    CHECK(holo_scene_differs(&a, &b));
+}
+
 int main(void)
 {
     test_motion_names();
@@ -406,6 +709,13 @@ int main(void)
     test_axes();
     test_ring();
     test_rates();
+    test_ring_request();
+    test_c_string();
+    test_scene_request();
+    test_screen_request();
+    test_events();
+    test_screen_part();
+    test_scene_part();
     printf("test_holo_cyphal_util: %d checks, %d failed\n", s_checks, s_failed);
     return s_failed != 0;
 }

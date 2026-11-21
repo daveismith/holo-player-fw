@@ -85,6 +85,10 @@ bool cyphal_name_valid(const char *name, char *why, size_t why_len);
  * or a reserved bit set). */
 int cyphal_frame_source(uint32_t can_id, bool ext, bool rtr, uint8_t len);
 
+/* The classic CAN frames a transfer of `size` bytes takes: one up to 7 bytes; beyond, the bytes and a 2-byte
+ * CRC, 7 a frame (each frame's eighth byte is the tail byte) */
+size_t cyphal_frames(size_t size);
+
 /* ------------------------------------------------------------------ plug-and-play */
 
 /* uavcan.pnp.NodeIDAllocationData.1.0 (subject 8166), the allocatee's side of its rules A to D: requests

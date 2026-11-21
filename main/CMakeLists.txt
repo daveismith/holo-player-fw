@@ -1,5 +1,6 @@
 idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c" "holo_servos.c"
-                            "wifi_fallback.c" "holo_cyphal.c" "holo_cyphal_util.c"
+                            "wifi_fallback.c" "holo_cyphal.c" "holo_cyphal_services.c" "holo_cyphal_events.c"
+                            "holo_cyphal_util.c"
                        PRIV_REQUIRES console esp_driver_uart esp_driver_usb_serial_jtag
                                      esp_usb_cdc_rom_console nvs_flash esp_netif esp_event
                                      esp_timer vfs espcoredump esp_driver_gpio

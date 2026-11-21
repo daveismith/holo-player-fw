@@ -20,6 +20,7 @@
 #include "scenes.h"
 #include "hostlink.h"
 #include "hl.h"
+#include "hl_record.h"
 #include "leds.h"
 
 #define BODY_MAX    56      /* addr, seq, type, 48 of payload, crc16 -- and room over */
@@ -217,63 +218,12 @@ static void status_block(uint8_t b[12])
     cJSON_Delete(active);
 }
 
-/* An event (its JSON) as an 8-byte record: false for one that has none */
+/* An event (its JSON) as an 8-byte record (hl_record.c): false for one that has none */
 static bool record_of(const cJSON *e, uint8_t r[8])
 {
-    static const char *const THEN[] = { "stay", "restore", "off" };
-    static const char *const BY[] = { "clip", "time", "end", "replaced" };
-    memset(r, 0, 8);
-    const cJSON *name = cJSON_GetObjectItem(e, "event");
-    const cJSON *seq = cJSON_GetObjectItem(e, "seq");
-    const uint16_t s = cJSON_IsNumber(seq) ? (uint16_t)seq->valueint : 0;
-    r[1] = (uint8_t)(s & 0xFF);
-    r[2] = (uint8_t)(s >> 8);
-    if (!cJSON_IsString(name)) {
-        return false;
-    }
-    if (strcmp(name->valuestring, "clip_ended") == 0) {
-        r[0] = 1;
-        r[3] = cJSON_IsTrue(cJSON_GetObjectItem(e, "finished"));
-    } else if (strcmp(name->valuestring, "scene_ended") == 0) {
-        r[0] = 2;
-        const cJSON *slot = cJSON_GetObjectItem(e, "slot");
-        r[3] = cJSON_IsNumber(slot) ? (uint8_t)slot->valueint : 0;
-        const int then = index_in(THEN, 3, cJSON_GetObjectItem(e, "then"));
-        const int by = index_in(BY, 4, cJSON_GetObjectItem(e, "by"));
-        r[4] = then < 0 ? 0 : (uint8_t)then;
-        r[5] = by < 0 ? 0 : (uint8_t)by;
-    } else if (strcmp(name->valuestring, "clip_started") == 0) {
-        r[0] = 4;
-        r[3] = cJSON_IsTrue(cJSON_GetObjectItem(e, "loop"));
-        const double plays = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "plays"));
-        r[4] = (uint8_t)(plays > 255 ? 255 : plays);
-        const double frames = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "frames"));
-        const uint16_t f = (uint16_t)(frames > 65535 ? 65535 : frames);
-        r[5] = (uint8_t)(f & 0xFF);
-        r[6] = (uint8_t)(f >> 8);
-        const double fps = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "fps"));
-        r[7] = (uint8_t)(fps > 255 ? 255 : fps + 0.5);
-    } else if (strcmp(name->valuestring, "scene_started") == 0) {
-        r[0] = 5;
-        const cJSON *slot = cJSON_GetObjectItem(e, "slot");
-        r[3] = cJSON_IsNumber(slot) ? (uint8_t)slot->valueint : 0;
-        const int then = index_in(THEN, 3, cJSON_GetObjectItem(e, "then"));
-        r[4] = then < 0 ? 0 : (uint8_t)then;
-        r[5] = cJSON_IsTrue(cJSON_GetObjectItem(e, "until_clip_ends"));
-        const cJSON *dur = cJSON_GetObjectItem(e, "duration_s");
-        const double d = cJSON_IsNumber(dur) ? dur->valuedouble + 0.999 : 0;
-        const uint16_t secs = (uint16_t)(d > 65535 ? 65535 : d);
-        r[6] = (uint8_t)(secs & 0xFF);
-        r[7] = (uint8_t)(secs >> 8);
-    } else if (strcmp(name->valuestring, "touch") == 0) {
-        r[0] = 3;
-        r[3] = strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(e, "action")) ?: "", "up") == 0;
-        r[4] = (uint8_t)cJSON_GetNumberValue(cJSON_GetObjectItem(e, "x"));
-        r[5] = (uint8_t)cJSON_GetNumberValue(cJSON_GetObjectItem(e, "y"));
-    } else {
-        return false;
-    }
-    return true;
+    happening_t h;
+    happening_of(e, &h);
+    return hl_record(&h, r);
 }
 
 /* Happenings (an array of event JSON) as records into `p`, at most `max`: how many */
@@ -348,15 +298,13 @@ uint8_t *hl_native_handle(const uint8_t *f, size_t len, const hl_settings_t *run
         out_n = 12;
         break;
     case T_SCENE: {
-        cJSON *scene = n >= 1 ? scene_load_slot(p[0]) : NULL;
-        if (scene == NULL) {
-            st = n >= 1 ? ST_NOT_FOUND : ST_BAD;
+        /* POST /api/v1/scenes/apply's code, by the slot: its status (api_scene_code(), as the route's reply maps) */
+        if (n < 1) {
+            st = ST_BAD;
             break;
         }
-        cJSON *body = cJSON_CreateObject();
-        cJSON_AddStringToObject(body, "name", cJSON_GetStringValue(cJSON_GetObjectItem(scene, "name")));
-        cJSON_Delete(scene);
-        st = call(API_POST, "/api/v1/scenes/apply", body);
+        char why[128];
+        st = (uint8_t)api_scene_code(scene_apply_by(NULL, p[0], why, sizeof(why)));
         break;
     }
     case T_END:

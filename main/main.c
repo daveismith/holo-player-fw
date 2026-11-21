@@ -427,6 +427,7 @@ void app_main(void)
         .restart = ota_core_restart_after,
         .factory_reset = cyphal_factory_reset,
         .identify = cyphal_identify,
+        .identify_slow = true,      /* a scene: the screen's crosshair, which waits for the screen */
         .handlers = HOLO_CYPHAL_HANDLERS,
         .handler_count = HOLO_CYPHAL_HANDLER_COUNT,
         .poll = holo_cyphal_poll,

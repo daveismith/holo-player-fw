@@ -76,6 +76,14 @@
  * of its own); the worker then runs the application's poll(), which also runs on its own timer, between
  * jobs, to build what the application publishes.
  *
+ * A request whose work can take long (its handler's `slow`, or identify when the application says so: on
+ * this board a file shown, which may decode an image, a scene applied, and identify, which applies a scene) goes
+ * to a second worker instead, a task of its own made only when something needs it (slow_task()), by a queue of
+ * its own, so that the worker's jobs and the application's poll (setpoints, what it publishes) never wait behind
+ * an image. It takes job slots like any request, CYPHAL_SLOW_JOBS of them at most (s_slow_held), so that the
+ * rest stay free for the worker's; with none to spare, the request is answered at once, busy, as with no slot
+ * free.
+ *
  * Messages the application publishes (cyphal_publish(), from any task) can't go by the slots: a
  * transfer-ID and the port are the node's task's to give, and publications would take the slots that
  * service calls need. Each published port has a mailbox (s_mail[]) of its handler's depth: 1 keeps the
@@ -83,7 +91,9 @@
  * message when full (counted as refused), for happenings, none of which may be lost unseen. A publisher
  * claims a buffer, fills it and commits it; the node's task takes the oldest committed one at its turn
  * (collect()), queues it straight from that buffer with the port, its priority (the port table's) and
- * the port's next transfer-ID, and frees it. Only the claims, commits and takes are under the mailbox's
+ * the port's next transfer-ID, and frees it; a message the transmit queue hasn't room for, whole, waits in its
+ * mailbox for a later turn (a queue's then fills, and refuses the next, which its publisher learns of), rather
+ * than being dropped by libcanard. Only the claims, commits and takes are under the mailbox's
  * spinlock, never a copy; a count of committed buffers (s_mail_ready) says whether any wait without a lock.
  * Publishing wakes the node's task with canbus_wake().
  *
@@ -278,6 +288,7 @@ struct node {
 /* A request in the worker's hands, decoded, and then its response */
 struct job {
     uint32_t run;                           /* the node's start it came in (node_t.run) */
+    bool slow;                              /* the second worker's (slow_task()), counted in s_slow_held */
     work_fn work;
     const cyphal_handler_t *app;            /* an application's request's handler; NULL for the node's own */
     struct CanardTransferMetadata meta;     /* the response's */
@@ -296,10 +307,11 @@ struct job {
  * done, for the node's task to send and free (DONE). Only a compare-and-swap takes a FREE slot */
 enum { JOB_FREE, JOB_FILLING, JOB_WORK, JOB_DONE };
 
-/* The worker's scratch: the response it builds, off its stack. One job at a time */
+/* The worker's scratch: the Access response it builds, off its stack (work_access(), which runs on the worker alone,
+ * one job at a time). The second worker has none: what it runs (a slow handler's work, identify's command response,
+ * work_command()) builds its response on its own stack, so the two never write the same memory */
 typedef union {
     uavcan_register_Access_Response_1_0 access;
-    uavcan_node_ExecuteCommand_Response_1_3 command;
 } worker_scratch_t;
 
 static SemaphoreHandle_t s_lock;        /* settings, start, stop and status against each other */
@@ -326,6 +338,12 @@ static QueueHandle_t s_work_q;          /* job_t *, to the worker, or NULL for a
 static uint32_t s_wake_queued;          /* a wake is in s_work_q, not yet taken: one at most. Through __atomic only */
 static volatile uint8_t s_health = CYPHAL_HEALTH_NOMINAL;   /* the heartbeat's (cyphal_set_health()) */
 static TaskHandle_t s_worker;           /* from the first start; never deleted */
+static bool s_has_slow;                 /* a handler or identify is slow (cyphal_handler_t, cyphal_app_t), so the
+                                         * second worker is made */
+static QueueHandle_t s_slow_q;          /* job_t *, to the second worker: CYPHAL_SLOW_JOBS long, from the first start */
+static TaskHandle_t s_slow;             /* the second worker, from the first start when s_has_slow; never deleted */
+static uint32_t s_slow_held;            /* job slots taken for it and not yet done: through __atomic only */
+static volatile uint32_t s_txq_peak;    /* the most frames in libcanard's transmit queue since the start */
 static worker_scratch_t *s_ws;          /* the worker's */
 static volatile bool s_running;         /* the task's to go on; a stop clears it */
 static volatile cyphal_state_t s_state = CYPHAL_OFF;
@@ -652,6 +670,7 @@ static void make_rows(void)
 {
     memcpy(s_rows, SERVICES, sizeof(SERVICES));
     s_row_count = SERVICE_COUNT;
+    s_has_slow = s_app.identify != NULL && s_app.identify_slow;
     size_t published = 0;
     for (size_t i = 0; i < s_app.handler_count; i++) {
         const cyphal_port_t *p = cyphal_port(s_app.handlers[i].port);
@@ -686,6 +705,7 @@ static void make_rows(void)
             continue;
         }
         taken[h->port] = true;
+        s_has_slow |= p->kind == CYPHAL_PORT_SRV && h->slow;
         s_rows[s_row_count++] = (service_t){
             .kind = p->kind,
             .app_port = (int8_t)h->port,
@@ -752,6 +772,7 @@ static void heap_free(void *ref, size_t size, void *p)
 }
 
 static void worker_task(void *arg);
+static void slow_task(void *arg);
 
 static void *psram_calloc(size_t size)
 {
@@ -785,6 +806,16 @@ static esp_err_t make_node(void)
     if (s_worker == NULL && xTaskCreatePinnedToCore(worker_task, "cyphal_work", CONFIG_CYPHAL_WORKER_STACK, NULL,
                                                     CONFIG_CYPHAL_WORKER_PRIORITY, &s_worker, tskNO_AFFINITY) != pdPASS) {
         s_worker = NULL;
+        return ESP_ERR_NO_MEM;
+    }
+    if (s_has_slow && s_slow_q == NULL) {
+        s_slow_q = xQueueCreate(CYPHAL_SLOW_JOBS, sizeof(job_t *));
+    }
+    if (s_has_slow && (s_slow_q == NULL ||
+                       (s_slow == NULL && xTaskCreatePinnedToCore(slow_task, "cyphal_slow", CONFIG_CYPHAL_SLOW_STACK, NULL,
+                                                                  CONFIG_CYPHAL_SLOW_PRIORITY, &s_slow,
+                                                                  tskNO_AFFINITY) != pdPASS))) {
+        s_slow = NULL;
         return ESP_ERR_NO_MEM;
     }
     s_heap = multi_heap_register(s_heap_mem, CONFIG_CYPHAL_HEAP_SIZE);
@@ -873,6 +904,9 @@ static bool push(node_t *n, const struct CanardTransferMetadata *meta, const voi
     if (frames < 0) {
         s_tr_dropped++;     /* the queue is full (TX_QUEUE_FRAMES) or the heap is */
         return false;
+    }
+    if (n->txq.size > s_txq_peak) {
+        s_txq_peak = (uint32_t)n->txq.size;
     }
     return true;
 }
@@ -1076,22 +1110,36 @@ static void answer_getinfo(node_t *n, const service_t *svc, const struct CanardR
 /* ---- the job slots: the hand-over to the worker */
 
 /* A free slot for the request in t, with its response's metadata and svc's worker, for the caller to put
- * the decoded request in (job->in) and hand_over(): NULL if none is free. Another task could take a slot
- * the same way (taking is a compare-and-swap) */
-static job_t *job_for(const node_t *n, const service_t *svc, const struct CanardRxTransfer *t)
+ * the decoded request in (job->in) and hand_over(): NULL if none is free, or, for the second worker (`slow`,
+ * once it exists), if it has CYPHAL_SLOW_JOBS already. Another task could take a slot the same way (taking is
+ * a compare-and-swap) */
+static job_t *job_for(const node_t *n, const service_t *svc, const struct CanardRxTransfer *t, bool slow)
 {
+    slow = slow && s_slow != NULL;
+    if (slow) {
+        uint32_t held = __atomic_load_n(&s_slow_held, __ATOMIC_RELAXED);
+        do {
+            if (held >= CYPHAL_SLOW_JOBS) {
+                return NULL;
+            }
+        } while (!__atomic_compare_exchange_n(&s_slow_held, &held, held + 1, true, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED));
+    }
     for (int i = 0; i < JOB_SLOTS; i++) {
         uint32_t expected = JOB_FREE;
         if (__atomic_compare_exchange_n(&s_job_state[i], &expected, JOB_FILLING, false, __ATOMIC_ACQUIRE,
                                         __ATOMIC_RELAXED)) {
             job_t *job = &s_jobs[i];
             job->run = n->run;
+            job->slow = slow;
             job->work = svc->work;
             job->app = svc->app;
             job->meta = response_to(t);
             job->size = 0;
             return job;
         }
+    }
+    if (slow) {
+        __atomic_sub_fetch(&s_slow_held, 1, __ATOMIC_RELEASE);
     }
     return NULL;
 }
@@ -1102,12 +1150,22 @@ static void job_set(const job_t *job, uint32_t state)
     __atomic_store_n(&s_job_state[job - s_jobs], state, __ATOMIC_RELEASE);
 }
 
-/* A filled slot to the worker: false, and the slot free again, if it couldn't be queued */
+/* A slot taken by job_for() and not handed over, free again */
+static void job_drop(job_t *job)
+{
+    if (job->slow) {
+        __atomic_sub_fetch(&s_slow_held, 1, __ATOMIC_RELEASE);
+    }
+    job_set(job, JOB_FREE);
+}
+
+/* A filled slot to its worker: false, and the slot free again, if it couldn't be queued */
 static bool hand_over(job_t *job)
 {
     job_set(job, JOB_WORK);
-    if (xQueueSend(s_work_q, &job, 0) != pdTRUE) {     /* JOB_SLOTS long: never, but never block */
-        job_set(job, JOB_FREE);
+    /* Each queue is as long as the jobs that may be in it (JOB_SLOTS, CYPHAL_SLOW_JOBS): never full, but never block */
+    if (xQueueSend(job->slow ? s_slow_q : s_work_q, &job, 0) != pdTRUE) {
+        job_drop(job);
         return false;
     }
     return true;
@@ -1129,21 +1187,32 @@ static void unready_locked(mailbox_t *m)
 /* The mailboxes' messages into the transmit queue, oldest first, each at its port's priority with the port's next
  * transfer-ID, straight from its buffer (push() copies it), which is then freed. Only online, on a port that isn't
  * off this run (cyphal_publish() takes nothing otherwise, but a message can be committed just before the node
- * stops: it is dropped). A mailbox with nothing waiting is passed over without its lock */
-static void collect_mail(node_t *n, int64_t now)
+ * stops: it is dropped). A mailbox with nothing waiting is passed over without its lock. True if a message was held
+ * back for want of room in the queue: it still counts in mail_waiting(), which node_task() must then not read as new
+ * mail (it would never sleep while the queue stays full, as it does bus-off) */
+static bool collect_mail(node_t *n, int64_t now)
 {
+    bool held = false;
     if (__atomic_load_n(&s_mail_ready, __ATOMIC_ACQUIRE) == 0) {
-        return;
+        return false;
     }
     for (size_t i = 0; i < s_mail_count; i++) {
         mailbox_t *m = &s_mail[i];
         while (__atomic_load_n(&m->ready, __ATOMIC_ACQUIRE) != 0) {
             int b = -1;
+            const size_t room = n->txq.capacity - n->txq.size;
             taskENTER_CRITICAL(&m->mux);
             for (int k = 0; k <= m->depth; k++) {
                 if (m->state[k] == BUF_READY && (b < 0 || before(m->order[k], m->order[b]))) {
                     b = k;
                 }
+            }
+            /* Not unless the queue has room for all of it: it waits for a later turn instead (one bigger than the
+             * whole queue never would, so it goes, for libcanard to refuse and count) */
+            const size_t frames = b < 0 ? 0 : cyphal_frames(m->size[b]);
+            if (b >= 0 && frames > room && frames <= n->txq.capacity) {
+                b = -1;
+                held = true;
             }
             if (b >= 0) {
                 m->state[b] = BUF_SENDING;
@@ -1171,6 +1240,7 @@ static void collect_mail(node_t *n, int64_t now)
             taskEXIT_CRITICAL(&m->mux);
         }
     }
+    return held;
 }
 
 /* Whether a mailbox holds a message collect_mail() hasn't taken yet: no lock taken */
@@ -1182,8 +1252,8 @@ static bool mail_waiting(void)
 /* The worker's finished jobs, their responses into the transmit queue (sent by flush(), after the
  * receive queue has been read like everything else), and their slots freed. A job from an earlier start,
  * or one done after the node stopped over its node-ID, is dropped; a response that didn't serialize is
- * counted as dropped. Then the mailboxes */
-static void collect(node_t *n)
+ * counted as dropped. Then the mailboxes: true if one held a message back (collect_mail()) */
+static bool collect(node_t *n)
 {
     for (int i = 0; i < JOB_SLOTS; i++) {
         if (__atomic_load_n(&s_job_state[i], __ATOMIC_ACQUIRE) != JOB_DONE) {
@@ -1199,7 +1269,7 @@ static void collect(node_t *n)
         }
         job_set(job, JOB_FREE);
     }
-    collect_mail(n, esp_timer_get_time());
+    return collect_mail(n, esp_timer_get_time());
 }
 
 /* Whether the worker has finished a job collect() hasn't taken yet */
@@ -1240,7 +1310,7 @@ static void on_access(node_t *n, const service_t *svc, const struct CanardRxTran
     }
     const int index = cyphal_reg_find(q->name.name.elements, q->name.name.count);
     if (index >= 0 && !uavcan_register_Value_1_0_is_empty_(&q->value)) {
-        job_t *job = job_for(n, svc, t);
+        job_t *job = job_for(n, svc, t, false);
         if (job != NULL) {
             job->in.write.index = (size_t)index;
             job->in.write.value = q->value;
@@ -1309,7 +1379,9 @@ static void on_command(node_t *n, const service_t *svc, const struct CanardRxTra
     } else if (((c == uavcan_node_ExecuteCommand_Request_1_3_COMMAND_RESTART ||
                  c == uavcan_node_ExecuteCommand_Request_1_3_COMMAND_FACTORY_RESET) && s_app.restart != NULL) ||
                (c == uavcan_node_ExecuteCommand_Request_1_3_COMMAND_IDENTIFY && s_app.identify != NULL)) {
-        job_t *job = job_for(n, svc, t);
+        /* Identify on the second worker when the application says it can take long (cyphal_app_t) */
+        job_t *job = job_for(n, svc, t, c == uavcan_node_ExecuteCommand_Request_1_3_COMMAND_IDENTIFY &&
+                                        s_app.identify_slow);
         if (job != NULL) {
             job->in.command = *q;
             if (hand_over(job)) {
@@ -1331,11 +1403,11 @@ static void on_command(node_t *n, const service_t *svc, const struct CanardRxTra
 static void on_app_request(node_t *n, const service_t *svc, const struct CanardRxTransfer *t, int64_t now)
 {
     const cyphal_handler_t *h = svc->app;
-    job_t *job = job_for(n, svc, t);
+    job_t *job = job_for(n, svc, t, h->slow);
     if (job != NULL) {
         memset(job->in.app, 0, h->in_size);
         if (!h->decode(t->payload.data, t->payload.size, job->in.app)) {
-            job_set(job, JOB_FREE);
+            job_drop(job);
             return;
         }
         s_services.app_requests++;
@@ -1497,13 +1569,47 @@ static bool work_command(job_t *job)
     default:    /* on_command() hands over nothing else */
         break;
     }
-    job->size = command_response(&s_ws->command, status, job->data, JOB_BYTES);
+    /* On its worker's stack, not s_ws: identify runs on the second worker (identify_slow) while the worker may be
+     * building an Access response there. About 50 bytes */
+    uavcan_node_ExecuteCommand_Response_1_3 r;
+    job->size = command_response(&r, status, job->data, JOB_BYTES);
     return restart;
 }
 
-/* The jobs, one at a time, in the order handed over; the node's task woken for each response. A restart
- * is asked for after the wake, and waits RESTART_AFTER_MS, the response's deadline: by then it has gone,
- * or been dropped. Between jobs, the application's poll, when it is due or a wake asks for it */
+/* A job's work, then the node's task woken for its response. A restart is asked for after the wake, and waits
+ * RESTART_AFTER_MS, the response's deadline: by then it has gone, or been dropped */
+static void run_job(job_t *job, const char *who, int stack)
+{
+    const bool restart = job->work(job);
+    if (job->slow) {
+        __atomic_sub_fetch(&s_slow_held, 1, __ATOMIC_RELEASE);
+    }
+    job_set(job, JOB_DONE);     /* the node's task's from here: not touched again */
+    canbus_wake(__atomic_load_n(&s_bus, __ATOMIC_RELAXED));     /* refused if the node has stopped: nobody waits */
+    if (restart) {
+        /* The deepest the worker goes (a factory reset's NVS writes), which `cyphal` never sees: the
+         * board restarts before anyone could look */
+        ESP_LOGI(TAG, "%s: its stack %u of %d bytes never used, before the restart", who,
+                 (unsigned)uxTaskGetStackHighWaterMark(NULL), stack);
+        s_app.restart(RESTART_AFTER_MS);
+    }
+}
+
+/* The second worker's jobs (cyphal_handler_t.slow, cyphal_app_t.identify_slow), one at a time, in the order handed
+ * over */
+static void slow_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        job_t *job = NULL;
+        if (xQueueReceive(s_slow_q, &job, portMAX_DELAY) == pdTRUE && job != NULL) {
+            run_job(job, "second worker", CONFIG_CYPHAL_SLOW_STACK);
+        }
+    }
+}
+
+/* The jobs, one at a time, in the order handed over; the node's task woken for each response (run_job()).
+ * Between jobs, the application's poll, when it is due or a wake asks for it */
 static void worker_task(void *arg)
 {
     (void)arg;
@@ -1524,18 +1630,8 @@ static void worker_task(void *arg)
             const uint32_t ms = s_app.poll(s_state == CYPHAL_ONLINE);
             next_poll_us = esp_timer_get_time() + (int64_t)ms * 1000;
         }
-        if (job == NULL) {
-            continue;
-        }
-        const bool restart = job->work(job);
-        job_set(job, JOB_DONE);     /* the node's task's from here: not touched again */
-        canbus_wake(__atomic_load_n(&s_bus, __ATOMIC_RELAXED));     /* refused if the node has stopped: nobody waits */
-        if (restart) {
-            /* The deepest the worker goes (a factory reset's NVS writes), which `cyphal` never sees: the
-             * board restarts before anyone could look */
-            ESP_LOGI(TAG, "worker: its stack %u of %d bytes never used, before the restart",
-                     (unsigned)uxTaskGetStackHighWaterMark(NULL), CONFIG_CYPHAL_WORKER_STACK);
-            s_app.restart(RESTART_AFTER_MS);
+        if (job != NULL) {
+            run_job(job, "worker", CONFIG_CYPHAL_WORKER_STACK);
         }
     }
 }
@@ -1767,7 +1863,7 @@ static void node_task(void *arg)
          * queue: all of them only queue, and only flush() sends */
         const bool drained = drain(n);
         timers(n, esp_timer_get_time());
-        collect(n);
+        const bool held = collect(n);
         bool retry = false;
         const bool sent = drained && (canardTxPeek(&n->txq) == NULL || flush(n, &retry));
         /* Frames still to read, or to send; else the next timer, as of after flush(): a frame it read
@@ -1775,9 +1871,14 @@ static void node_task(void *arg)
          * if the worker has finished a job since collect(): its wake may have been read and skipped by
          * flush()'s drain(), and the response would wait for the next timer, up to a second. Round the
          * loop instead, where it is collected and sent after the receive queue is read, as always. The same
-         * for a message put in a mailbox: its wake may have been read the same way */
-        const TickType_t wait = jobs_done() || mail_waiting() ? 0 : !sent ? (retry ? 1 : 0)
-                                                                         : ticks_to_next(n, esp_timer_get_time());
+         * for a message put in a mailbox: its wake may have been read the same way.
+         * A message collect() held back for room is no new mail: with the queue still full it waits as the queue
+         * does, a tick when flush() asks for one (bus-off: canbus refuses at once, and a wait of 0 here would spin
+         * this task, the highest on its core, until frames expire); once flush() has emptied the queue, round the
+         * loop at once to queue it. A message that came in meanwhile waits a tick at most: the queue isn't empty */
+        const bool mail = held ? sent : mail_waiting();
+        const TickType_t wait = jobs_done() || mail ? 0 : !sent ? (retry ? 1 : 0)
+                                                               : ticks_to_next(n, esp_timer_get_time());
         /* Asleep until the next timer or frame, or a canbus_wake(): the worker's, or a stop's. Looked at
          * once more just before: a stop's wake read and skipped by a receive above (drain()'s) came after
          * s_running was cleared, so this sees it; one not read yet ends the sleep below at once */
@@ -1803,7 +1904,7 @@ static esp_err_t start_locked(int tx, int rx)
     s_tx = tx;
     s_rx = rx;
     s_run = s_saved;
-    s_tr_sent = s_tr_received = s_tr_dropped = s_frames_queued = s_heap_failed = 0;
+    s_tr_sent = s_tr_received = s_tr_dropped = s_frames_queued = s_heap_failed = s_txq_peak = 0;
     s_services = (cyphal_services_t){ 0 };
     for (size_t i = 0; i < s_mail_count; i++) {
         /* What waits from the last run is dropped; a buffer a publisher is filling is its to commit */
@@ -2004,6 +2105,13 @@ void cyphal_status(cyphal_status_t *out)
     if (s_worker != NULL) {
         out->worker_stack_unused = uxTaskGetStackHighWaterMark(s_worker);
     }
+    out->slow_worker = s_has_slow;
+    out->slow_held = __atomic_load_n(&s_slow_held, __ATOMIC_ACQUIRE);
+    if (s_slow != NULL) {
+        out->slow_stack_unused = uxTaskGetStackHighWaterMark(s_slow);
+    }
+    out->txq_peak = s_txq_peak;
+    out->txq_capacity = TX_QUEUE_FRAMES;
     out->health = s_health;
     for (size_t i = 0; i < s_mail_count; i++) {
         const mailbox_t *m = &s_mail[i];

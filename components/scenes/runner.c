@@ -33,8 +33,6 @@ static const char *TAG = "scene";
 
 #define STACK 10240     /* restoring an image decodes it */
 
-const char *const SCENE_THEN_NAMES[] = { "stay", "restore", "off" };
-
 scene_err_t scene_apply_parts(const cJSON *scene, char *why, size_t why_len);   /* scenes.c */
 
 /* What the board was doing before a scene: enough to put it back. */
@@ -141,8 +139,8 @@ static void finish(scene_then_t then, const snapshot_t *snap, const char *name)
     }
 }
 
-/* A watched scene is over: `by` is clip, time, end or replaced (when its `then` was not done). */
-static void publish_end(const char *name, int slot, scene_then_t then, const char *by)
+/* A watched scene is over: by its clip, its time, an end or another scene (when its `then` was not done). */
+static void publish_end(const char *name, int slot, scene_then_t then, scene_by_t by)
 {
     cJSON *f = cJSON_CreateObject();
     cJSON_AddStringToObject(f, "name", name);
@@ -150,7 +148,7 @@ static void publish_end(const char *name, int slot, scene_then_t then, const cha
         cJSON_AddNumberToObject(f, "slot", slot);
     }
     cJSON_AddStringToObject(f, "then", SCENE_THEN_NAMES[then]);
-    cJSON_AddStringToObject(f, "by", by);
+    cJSON_AddStringToObject(f, "by", SCENE_BY_NAMES[by]);
     events_happened("scene_ended", f);
     events_changed("scene");
 }
@@ -174,24 +172,26 @@ static void runner_task(void *arg)
         int slot = 0;
         scene_then_t then = SCENE_THEN_STAY;
         bool end = false;
-        const char *by = NULL;
+        bool over = false;
+        scene_by_t by = SCENE_BY_CLIP;
         xSemaphoreTake(s_lock, portMAX_DELAY);
         if (s_run.on) {
             if (got && s_run.clip[0] != '\0' && strcmp(ev.path, s_run.clip) == 0) {
+                over = true;
                 if (ev.finished) {
                     end = true;
-                    by = "clip";
+                    by = SCENE_BY_CLIP;
                 } else {
                     s_run.on = false;       /* something else took the screen: it is over, as it is */
-                    by = "replaced";
+                    by = SCENE_BY_REPLACED;
                     ESP_LOGI(TAG, "'%s' replaced", s_run.name);
                 }
             }
-            if (by == NULL && s_run.until_us != 0 && esp_timer_get_time() >= s_run.until_us) {
-                end = true;
-                by = "time";
+            if (!over && s_run.until_us != 0 && esp_timer_get_time() >= s_run.until_us) {
+                over = end = true;
+                by = SCENE_BY_TIME;
             }
-            if (by != NULL) {
+            if (over) {
                 s_run.on = false;
                 then = s_run.then;
                 snap = s_run.snap;
@@ -201,7 +201,7 @@ static void runner_task(void *arg)
         }
         xSemaphoreGive(s_lock);
         /* The end first, then what it does: the restored clip's clip_started after scene_ended */
-        if (by != NULL) {
+        if (over) {
             publish_end(name, slot, then, by);
         }
         if (end) {
@@ -339,7 +339,7 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     s_run.on = false;               /* any scene before this one is over */
     xSemaphoreGive(s_lock);
     if (before[0] != '\0') {
-        publish_end(before, before_slot, before_then, "replaced");
+        publish_end(before, before_slot, before_then, SCENE_BY_REPLACED);
     }
     if (then == SCENE_THEN_RESTORE && !inherit) {
         take_snapshot(&snap);
@@ -381,7 +381,9 @@ bool scene_active(scene_active_t *out)
         out->then = s_run.then;
         out->clip = s_run.clip[0] != '\0';
         out->remaining_s = s_run.until_us != 0 ? (double)(s_run.until_us - esp_timer_get_time()) / 1e6 : -1;
-        if (out->remaining_s < -0.5 && s_run.until_us != 0) {
+        if (out->remaining_s < 0 && s_run.until_us != 0) {
+            /* Past its deadline, before the runner has ended it: none left, not "no duration" (-1), which GET
+             * /scenes would report as null, the host link's status block as 0xFFFF and Status as NEVER */
             out->remaining_s = 0;
         }
     }
@@ -406,7 +408,7 @@ scene_err_t scene_end(char *why, size_t why_len)
     }
     xSemaphoreGive(s_lock);
     if (on) {
-        publish_end(name, slot, then, "end");
+        publish_end(name, slot, then, SCENE_BY_END);
         finish(then, &snap, name);
     } else {
         snprintf(why, why_len, "no scene is running to its end");

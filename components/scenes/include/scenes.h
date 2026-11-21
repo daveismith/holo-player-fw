@@ -20,7 +20,9 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "cJSON.h"
+#include "happening.h"
 #include "holo.h"
 #include "esp_err.h"
 
@@ -54,6 +56,26 @@ typedef enum {
 scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *why, size_t why_len);
 scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_len);
 scene_err_t scene_do_holo(const cJSON *motion, bool dry, char *why, size_t why_len);
+
+/*
+ * What the screen is to show, as POST /screen/show and a scene's `screen` take it once read from JSON
+ * (scene_do_screen()), or as the Cyphal node's r2.holo.Screen builds it: a file (a clip, an image or a GIF) by
+ * its path from the volume's root, `loop` (forever) or `loops` (1..1000; 0 for the default: a clip once, a GIF
+ * as the file says), never both, and `whole_frame`; a colour; the alignment crosshair; or nothing (clear: the
+ * panel asleep). Checked (the loops, then the path, by fs_path(): SCENE_BAD_PATH), and unless dry, shown, with
+ * the JSON API's words: SCENE_MISSING for no such file, SCENE_UNPLAYABLE for one the screen can't show, and the
+ * screen unchanged by any refusal. A file isn't looked for when dry.
+ */
+typedef enum { SCENE_SCREEN_FILE, SCENE_SCREEN_COLOUR, SCENE_SCREEN_CALIBRATION, SCENE_SCREEN_CLEAR } scene_screen_kind_t;
+typedef struct {
+    scene_screen_kind_t show;
+    const char *path;           /* FILE */
+    bool loop;                  /* FILE */
+    int loops;                  /* FILE: 0 for none given */
+    bool whole_frame;           /* FILE */
+    uint8_t rgb[3];             /* COLOUR */
+} scene_screen_t;
+scene_err_t scene_screen_change(const scene_screen_t *s, bool dry, char *why, size_t why_len);
 
 /*
  * A change to the LEDs, as PATCH /leds and a scene's `leds` take it, each field optional (has_*):
@@ -94,8 +116,7 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len);
  * other than stay is watched until it ends; any other scene applied first cancels that. */
 scene_err_t scene_apply(const cJSON *scene, char *why, size_t why_len);
 
-typedef enum { SCENE_THEN_STAY, SCENE_THEN_RESTORE, SCENE_THEN_OFF } scene_then_t;
-extern const char *const SCENE_THEN_NAMES[];
+/* scene_then_t and SCENE_THEN_NAMES: happening.h */
 int scene_then_of(const cJSON *then);      /* a scene_then_t, or -1 for none of them */
 
 /* The scene being watched to its end, if one is. */
@@ -104,7 +125,7 @@ typedef struct {
     int slot;                   /* 0 for none */
     scene_then_t then;
     bool clip;                  /* ends when its clip is done */
-    double remaining_s;         /* until its time is up; -1 when it has no duration */
+    double remaining_s;         /* until its time is up, 0 once it is (until the runner ends it); -1 when it has no duration */
 } scene_active_t;
 bool scene_active(scene_active_t *out);
 
@@ -118,6 +139,11 @@ esp_err_t scenes_start(void);
 cJSON *scene_load(const char *name);
 cJSON *scene_load_slot(int slot);   /* the scene with that slot */
 cJSON *scene_load_all(void);        /* an array, in the order they were first saved */
+
+/* A saved scene applied (scene_apply()), by its slot, or by `name` (not checked: one that breaks the rules is
+ * simply not found) when slot is 0. SCENE_MISSING for none, with why "no scene with slot N" (a NULL name with slot 0
+ * is slot 0's, which no scene has) or "no scene 'name'"; scene_apply()'s refusals otherwise */
+scene_err_t scene_apply_by(const char *name, int slot, char *why, size_t why_len);
 
 /* Save (checked first); SCENE_FULL when SCENE_MAX are saved and this is a new one, SCENE_TAKEN
  * when another scene has its slot. */
