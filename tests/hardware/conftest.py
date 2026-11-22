@@ -51,7 +51,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-DSDL = REPO / "external" / "public_regulated_data_types"
+DSDL = REPO / "external" / "esp-console-kit" / "third_party" / "public_regulated_data_types"
 R2_DSDL = REPO / "external" / "r2_cyphal_dsdl"
 DSDL_OUT = REPO / "build" / "pycyphal-dsdl"
 

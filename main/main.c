@@ -224,7 +224,7 @@ static esp_err_t backup_fetch(const char *url, size_t max_bytes, char **body, si
 }
 
 /*
- * The Cyphal node's part of this board (components/cyphal; manual/reference/cyphal.md): the holo's
+ * The Cyphal node's part of this board (the kit's cyphal; manual/reference/cyphal.md): the holo's
  * ports, whose IDs are registers with these defaults (r2_cyphal_dsdl's ports/holo.csv, through the
  * generated r2/holo/ports.h), what the node does with those built so far (holo_cyphal.c), and what
  * uavcan.node.ExecuteCommand's restart, factory reset and identify do, through the code the HTTP API's

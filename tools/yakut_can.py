@@ -272,8 +272,8 @@ def main() -> int:
         "UAVCAN__CAN__MTU": "8",
         "UAVCAN__CAN__BITRATE": f"{args.bitrate} {args.bitrate}",
         "UAVCAN__NODE__ID": str(args.node_id),
-        "CYPHAL_PATH": os.pathsep.join(str(REPO / "external" / d) for d in ("public_regulated_data_types",
-                                                                            "r2_cyphal_dsdl")),
+        "CYPHAL_PATH": os.pathsep.join(str(REPO / "external" / d) for d in (
+            "esp-console-kit/third_party/public_regulated_data_types", "r2_cyphal_dsdl")),
         "PYCYPHAL_PATH": str(REPO / "build" / "yakut-dsdl"),
     })
     try:

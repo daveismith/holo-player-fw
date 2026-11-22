@@ -126,14 +126,15 @@ else, and the fix for a board in a state you would rather not keep.
     In a clone that already exists, and again after pulling a change that adds one:
 
     ```sh
-    git submodule update --init
+    git submodule update --init --recursive
     ```
 
     Without them the build fails: at `main/CMakeLists.txt`, which requires the console
-    components by name, or at `components/animatedgif` or `components/libcanard`, whose
-    sources are the other two. A fourth submodule, Cyphal's public data types
-    (`external/public_regulated_data_types`), isn't needed to build: only to regenerate the
-    Cyphal node's C headers (`tools/gen_dsdl.py`) and to run its hardware tests
+    components by name, or at `components/animatedgif`, whose
+    sources are another. The kit carries the Cyphal node's libcanard and Cyphal's public data types as
+    submodules of its own (`git submodule update --init --recursive`); the data types aren't needed
+    to build: only to regenerate the
+    holo's Cyphal C headers (`tools/gen_dsdl.py`) and to run its hardware tests
     (`tests/hardware/`).
 
     **2. Build.**

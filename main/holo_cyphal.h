@@ -1,5 +1,5 @@
 /*
- * The holo's own ports on the Cyphal node (components/cyphal; manual/reference/cyphal.md): what the node
+ * The holo's own ports on the Cyphal node (the kit's cyphal; manual/reference/cyphal.md): what the node
  * does with r2.holo.Motion, Light, Scene, Screen, Ring, ListScenes, MediaInfo, the setpoint subscription, Status,
  * Event and Axes, as handlers for cyphal_app_t, with uavcan.file.List and GetInfo on their fixed IDs, the holo's
  * registers, and its poll. The pure parts are holo_cyphal_util.h.

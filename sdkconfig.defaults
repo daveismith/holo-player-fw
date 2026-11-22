@@ -92,15 +92,15 @@ CONFIG_LITTLEFS_WRITE_SIZE=256
 CONFIG_LITTLEFS_MALLOC_STRATEGY_SPIRAM_PREFER=y
 CONFIG_LITTLEFS_MMAP_PARTITION=y
 
-# The CAN controller's interrupt (components/canbus) runs while a flash write has the cache off,
+# The CAN controller's interrupt (the kit's canbus) runs while a flash write has the cache off,
 # as the UART's does: a frame that arrives during an OTA write or a history save reaches the
 # receive queue instead of overrunning the controller's 64-byte FIFO. How deep that queue must be
-# for a flash write is measured in components/canbus/Kconfig (CANBUS_RX_QUEUE_LEN). It costs about
+# for a flash write is measured in the kit's canbus/Kconfig (CANBUS_RX_QUEUE_LEN). It costs about
 # 3 KB of IRAM (the TWAI HAL, the driver, its frame queue and our callbacks), taken whether or not
 # CAN is used; kept because the Cyphal node must keep receiving during flash writes.
 CONFIG_TWAI_ISR_CACHE_SAFE=y
 
-# The Cyphal node (components/cyphal): who this board is on the bus. The unique ID's prefix decides
+# The Cyphal node (the kit's cyphal): who this board is on the bus. The unique ID's prefix decides
 # the node-ID an allocator gives every board, so it is pinned here rather than left to the
 # component's default (manual/use/cyphal.md, "The unique ID"); the name is `cyphal name`'s default.
 # The component's defaults are generic, since it is meant to move to other firmware.
@@ -115,7 +115,7 @@ CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
 # 1.009 s through a clip with the LED ring, 1.023 s through an update over Wi-Fi.
 CONFIG_CYPHAL_TASK_PRIORITY=6
 CONFIG_CYPHAL_TASK_CORE=0
-# The node's two workers' stacks, internal RAM held from the node's first start (components/cyphal/Kconfig has
+# The node's two workers' stacks, internal RAM held from the node's first start (the kit's cyphal/Kconfig has
 # the measurements, 2026-11-21): the worker 2,088 bytes used at most of 4,608, the second worker (which decodes
 # the stills a Screen request shows) 5,708 of 7,680. The second worker's can't be in PSRAM: it reads flash.
 CONFIG_CYPHAL_WORKER_STACK=4608
