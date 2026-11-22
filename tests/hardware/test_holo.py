@@ -15,7 +15,7 @@ import math
 import pytest
 import r2.holo.Axes_0_1 as Axes
 
-from .conftest import access, natural16, open_checked, plain, until_state
+from .conftest import access, heartbeats, natural16, plain, until_state
 from .holo_ports import (BAD_REQUEST, KINDS, MOTIONS, NEVER, NONE, OK, RING, Listen, holo_console, light, message,
                          motion, motion_json, ring_brightness, same_spec, setpoints, spec, spec_text)
 
@@ -326,13 +326,16 @@ async def test_setpoint_stops_a_move(node, board, dut_node_id, listen):
 async def test_first_setpoint_after_boot(net, board, dut_node_id):
     """The first setpoint after the board starts goes through the engine as a move in whole percent, which places
     the axes, and then again the direct way: so it ends exactly where the same setpoint sent again ends (the same
-    pulse, read back the same), not up to half a percent off. The board restarted for it: the adapter closed
-    first, and opened again in the node's listen"""
-    await net.close()
-    board.restart()
-    await until_state(board, "online", dut_node_id, timeout=15)
+    pulse, read back the same), not up to half a percent off. The board restarted for it, with the adapter open and
+    the harness muted until the board acknowledges again, as the ExecuteCommand tests do (a close and reopen of the
+    adapter here failed with ENODEV on 2026-11-22 and never recovered in that process). The open node sends only its
+    heartbeat and port list meanwhile, nothing that moves the axes: the Axes setpoint subscription is the board's
+    to hear, and this node publishes none before the first setpoint below"""
+    async with net.muted():
+        board.restart()
+        await until_state(board, "online", dut_node_id, timeout=15)
     assert "not moved since boot" in board.command("holo")
-    await open_checked(net, board, dut_node_id)
+    assert await heartbeats(net.node, dut_node_id, 4.0), "no heartbeat after the board's restart"
     listen = Listen(net.node, dut_node_id)
     pub = setpoints(net.node)
     want = (2550, -1250)                # each half a percent from a whole one

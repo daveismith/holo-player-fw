@@ -81,10 +81,10 @@ the dome panel firmware (`r2_domeplayer`). **A fix to any of it is made in the s
 committed there, then the pin is bumped here** (and in the other firmware). Never patch a kit file
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
-`external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-21 the
-pin is `59f2670`, the kit's main: its `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and
+`external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-22 the
+pin is `42f480b`, the kit's branch `cyphal`, **which is on no remote: push the kit before this branch**. It is `59f2670` (the kit's main) plus the CAN and Cyphal move. `59f2670` is the kit's main: its `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and
 `59f2670` (a happening counted and kept in one hold; a history reply never passes over one pushed out),
-merged from the branch `events-reply-no-reparse`.)
+merged from the branch `events-reply-no-reparse`. The move brought in `canbus`, `libcanard` and `cyphal` from here, with their host tests and `can_check.py`.)
 
 A pin bump is not neutral: read the kit's log for the range first. The ones on 2026-10-22 moved
 the servo objects into PSRAM, added three console commands, a component and a change to Wi-Fi at
@@ -331,12 +331,14 @@ rejoin (`wifi_known_list`'s `last`), not none saved.
 
 ## CAN and Cyphal
 
-`link mode can` hands the host link's pins A and B to `components/cyphal`, a Cyphal/CAN node on
-`components/canbus` (the TWAI controller) and libcanard; `can` is the raw-frame bench command on the
+`link mode can` hands the host link's pins A and B to the kit's `cyphal` component, a Cyphal/CAN node on
+the kit's `canbus` (the TWAI controller) and `libcanard` (all three moved to `external/esp-console-kit`
+on 2026-11-22, so that the dome panel shares them: a fix to any is made there, per "esp-console-kit"); `can` is the raw-frame bench command on the
 same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
 
-- **Tests.** `make unit-test`: the node's pure parts (`cyphal_util.c`, and the register table in
-  `cyphal_registers.c`) and the holo's (`main/holo_cyphal_util.c`: requests, Status's parts, Event, the
+- **Tests.** `make unit-test`: the node's pure parts (the kit's `cyphal_util.c`, and the register table in
+  `cyphal_registers.c`, built from the kit's `tests/host/` against this board's live port table
+  `main/dsdl/r2/holo/ports.h`, not the kit's frozen copy of it: 314 and 521 checks) and the holo's (`main/holo_cyphal_util.c`: requests, Status's parts, Event, the
   file services' paths and errors, MediaInfo, ListScenes, the calibration registers' values), built with
   the computer's `cc`, no IDF, and `yakut_can.py`'s refusals; the board's
   happenings decoder (`components/scenes/happening.c`) and the host link's event records (`hl_record.c`) with
@@ -399,10 +401,14 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   header, not memory, before writing against it. `cyphal.c`'s `next_due()` walks v4.0.0's private
   deadline tree (`deadline_root`, `deadline_base`) as its own expiry does, so that "dropped" counts
   whole transfers: on a bump, re-read those fields and `txFlushExpiredTransfers()` first.
-- **The DSDL C headers are generated and committed** (`components/cyphal/dsdl/`, from
-  `external/public_regulated_data_types` at `a229bb7` and `external/r2_cyphal_dsdl` at `30acd0f`,
-  by `tools/gen_dsdl.py` with Nunavut, one `nnvg` run a root with the other as lookup): the build
-  and the release image need no Python. Don't edit them by hand. `r2/holo/ports.h` is the port
+- **The DSDL C headers are generated and committed.** The standard `uavcan` ones (and Nunavut's
+  serialization header) are the kit's (`external/esp-console-kit/cyphal/dsdl/`, from its
+  `third_party/public_regulated_data_types` at `a229bb7`, by the kit's `tools/gen_dsdl.py`); the
+  holo's own `r2` ones are `main/dsdl/` (from `external/r2_cyphal_dsdl` at `30acd0f`, by this
+  repository's `tools/gen_dsdl.py` with Nunavut, looking up the kit's `uavcan` root, and refusing a
+  `public_regulated_data_types` that is not at the revision the kit's headers came from; `main`'s
+  `dsdl/` is on its include path and its `r2` headers include the kit's `uavcan` ones through the
+  `cyphal` component main requires): the build and the release image need no Python. Don't edit them by hand. `r2/holo/ports.h` is the port
   table (`ports/holo.csv`) as an X-macro, which `main.c` turns into the node's port list, so the
   defaults are written once. Nunavut puts `uavcan.register` in `uavcan/_register/` (C keyword).
   Nunavut's `_initialize_()` isn't used: GCC 15 raises false array-bounds errors in it under
@@ -411,8 +417,9 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   `r2_cyphal_dsdl` before pushing a pin that names an unpushed commit of it**: the release workflow
   and every clone fetch the pin from GitHub. As of 2026-11-21 the pin is `30acd0f` (a comment in
   `MotionSpec`), which is only in the local checkout; its `origin/main` is `aac2fe0`.
-- **Submodules**: `external/libcanard` (the build needs it), `external/public_regulated_data_types`
-  and `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests). Clone `--recursive`.
+- **Submodules**: `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests), and the kit's own
+  `third_party/libcanard` (the build needs it) and `third_party/public_regulated_data_types`
+  (`gen_dsdl.py` and the tests). Clone `--recursive`.
 - **Only the node's task calls libcanard** (its heap has no lock). Anything that may wait (a
   register's NVS write, restart, factory reset, identify; later the holo's routes) goes to the
   worker through a job slot (`cyphal.c`'s header): a full pool answers busy at once, and the
@@ -426,6 +433,10 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **A restart over Cyphal happens with the adapter open.** The harness then sends nothing until
   the board is back (`Net.muted()` in `tests/hardware/conftest.py`); a factory reset brings the
   node back with plug-and-play, never quiet, which the tests handle with pycyphal's allocator.
+- **A reopen of the adapter inside one process can fail with ENODEV, and never recovers in that process** (2026-11-22,
+  the adapter's current firmware: twice in ~25 reopens, `usb.core.USBError: [Errno 19]`; a new process opens normally).
+  So the tests that restart the board (`test_name.py`, `test_first_setpoint_after_boot`) keep the adapter open and the
+  harness muted (`Net.muted()`) across the restart, as the ExecuteCommand tests do, then check a heartbeat is back.
 - **Yakut wedged the CANable** (2026-11-20, on its old firmware; not tried on the new). `tools/yakut_can.py` opens and closes it in the
   board's listens, runs each `cyphal restart` to its prompt (linenoise swallows input until its
   `ESC[6n` is answered: a `cyphal restart` written without reading the reply was lost, and the
@@ -527,7 +538,7 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   through `hostlink_set_on_pins()`'s callback, as `can` fills its own through `on_pins`, named for
   the holder, empty if the start failed.
 - **The holo's ports are the application's** (`main/holo_cyphal.c`, its pure parts
-  `holo_cyphal_util.c`, host-tested): `components/cyphal` knows no board. `cyphal_app_t.handlers`
+  `holo_cyphal_util.c`, host-tested): the kit's `cyphal` knows no board. `cyphal_app_t.handlers`
   gives a port its decode (on the node's task, into a job slot), work (on the worker) and busy
   answer, or a subscription's `on_message` (on the node's task: a copy into a mailbox and
   `cyphal_wake_worker()`), or a published port's mailbox size and depth; `poll` runs on the worker

@@ -10,6 +10,19 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Changed
+
+- **The CAN controller wrapper, libcanard and the Cyphal node are the kit's** (`canbus`, `libcanard`
+  and `cyphal` in `external/esp-console-kit`, shared with the dome panel's firmware), and this
+  repository's copies of them are gone, with the `external/libcanard` and
+  `external/public_regulated_data_types` submodules (now the kit's `third_party/`). Nothing the board
+  does changed: the Kconfig values and the node's code are the same (the kit's `can` gained an optional
+  print hook, a NULL check on its pin callback and Kconfig symbols for its task, defaulting to this
+  board's values), and the image is 112 bytes larger. The holo's own Cyphal types (`r2/holo/`, with the
+  port table) moved to `main/dsdl/`; `tools/gen_dsdl.py` generates only those, and checks the kit's DSDL
+  revision; `tools/can_check.py` loads the kit's; `make unit-test` builds the kit's node tests against
+  the holo's port table. Clone with `--recursive`.
+
 ### Added
 
 - **`can`**: plain CAN frames on the host link's pins A and B, for checking a CAN transceiver and
