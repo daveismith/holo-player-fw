@@ -1364,6 +1364,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#added" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1375,7 +1386,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
+  <a href="#changed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1425,7 +1436,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed_1" class="md-nav__link">
+  <a href="#changed_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1536,7 +1547,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed_2" class="md-nav__link">
+  <a href="#changed_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1688,6 +1699,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#added" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1699,7 +1721,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
+  <a href="#changed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1749,7 +1771,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed_1" class="md-nav__link">
+  <a href="#changed_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1860,7 +1882,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#changed_2" class="md-nav__link">
+  <a href="#changed_3" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Changed
@@ -1968,6 +1990,19 @@
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The CAN controller wrapper, libcanard and the Cyphal node are the kit's</strong> (<code>canbus</code>, <code>libcanard</code>
+  and <code>cyphal</code> in <code>external/esp-console-kit</code>, shared with the dome panel's firmware), and this
+  repository's copies of them are gone, with the <code>external/libcanard</code> and
+  <code>external/public_regulated_data_types</code> submodules (now the kit's <code>third_party/</code>). Nothing the board
+  does changed: the Kconfig values and the node's code are the same (the kit's <code>can</code> gained an optional
+  print hook, a NULL check on its pin callback and Kconfig symbols for its task, defaulting to this
+  board's values), and the image is 112 bytes larger. The holo's own Cyphal types (<code>r2/holo/</code>, with the
+  port table) moved to <code>main/dsdl/</code>; <code>tools/gen_dsdl.py</code> generates only those, and checks the kit's DSDL
+  revision; <code>tools/can_check.py</code> loads the kit's; <code>make unit-test</code> builds the kit's node tests against
+  the holo's port table. Clone with <code>--recursive</code>.</li>
+</ul>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>can</code></strong>: plain CAN frames on the host link's pins A and B, for checking a CAN transceiver and
@@ -2097,7 +2132,7 @@ so the release tag is the version baked into the image and reported by <code>ver
   which a candleLight stopped passing frames on the bench, and what would leave the board never quiet
   as the adapter closes).</li>
 </ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>The host link on CAN</strong> (<code>link mode can</code>): <code>link</code> shows the pins and who has them ("for the
   Cyphal node"), and leaves out the protocol, baud rate, address, groups, events and counters,
@@ -2208,7 +2243,7 @@ and an ESP-IDF 6.1 I2C driver bug that could corrupt memory after a timed-out re
   the network but stays off it until asked (<code>wifi on</code>, a join, or BOOT), and the access point
   only comes on by itself at start when there is no network to rejoin.</li>
 </ul>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>When a motion is cut short because an axis refused it, <code>holo</code>'s status now says which motion,
   how long ago and, when one axis refused it, which -- <code>; &lt;motion&gt; stopped &lt;n&gt; s ago: &lt;reason&gt;
@@ -2321,7 +2356,7 @@ updates can also come over Wi-Fi.</p>
 <li><code>make api-smoke HOST=...</code> calls a board's API, follows its event stream, and checks every reply
   against the OpenAPI description; <code>make api-validate</code> checks the description and its examples.</li>
 </ul>
-<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>video play</code> refuses a file it can't play at once, saying why, and leaves the screen alone.
   Before, it stopped what was showing and printed the reason from the player's task.</li>
