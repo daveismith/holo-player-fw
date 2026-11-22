@@ -306,8 +306,12 @@ minutes, 11.1 KB in an hour), 30.01 fps, 0 late frames. Rapid replacement lows: 
 GIF 15.2 KB, clip by GIF 15.2 KB, GIF by clip 11.7 KB; the board recovered by itself every time.
 **OPEN: once, in the whole-suite run, the internal heap's lowest read 1,120 B at
 `test_get_info_during_a_clip`** (earlier runs read 19.8-41.4 KB at the same point). Two reruns of that slice
-from a fresh restart stopped at 15,192 B (set by a scene showing a 240-wide GIF) and did not reproduce it. The
-cause is unknown. A heap that low is enough for allocations with no PSRAM fallback to fail.
+from a fresh restart stopped at 15,192 B (set by a scene showing a 120-wide GIF, `/testsrc120.gif`, in `test_scene_apply_and_end`) and did not
+reproduce it. The board's last restart before the 1,120 B reading was `board.restart()` in
+`test_holo.py::test_first_setpoint_after_boot`, so the dip came in the rest of `test_holo.py`,
+`test_holo_lists.py`, `test_holo_registers.py`, `test_holo_scenes.py` or the clip test. The large OTA image upload
+(`test_get_info_during_an_update`) runs after `test_get_info_during_a_clip` (only tests marked `slow` are moved to
+the end), so no large HTTP upload falls in that window. The cause is unknown. A heap that low is enough for allocations with no PSRAM fallback to fail.
 The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
 (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
 ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for

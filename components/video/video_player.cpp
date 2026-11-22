@@ -54,7 +54,8 @@ using jpg::now_us;
 constexpr size_t PATH_LEN = 160;
 /* Bytes: the most it was seen to use (2026-11-21, `tasks`' high-water mark over clips streamed and
  * whole-frame, GIFs up to full-frame noise, clips played out and stopped, the end hook's
- * happening included) was 2,624, so about 2 KB to spare. The mark covers every play since the
+ * happening included) was 2,592 for ordinary clips and GIFs; rapid replacement of clips and
+ * stills reached 2,848 used (1,760 never used of 4,608). The mark covers every play since the
  * start: `tasks` shows it. */
 constexpr uint32_t TASK_STACK = 4608;
 constexpr UBaseType_t TASK_PRIO = 5;
