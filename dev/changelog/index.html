@@ -1212,6 +1212,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/config/" class="md-nav__link">
         
   
@@ -1358,6 +1385,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1398,7 +1436,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1671,6 +1709,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1711,7 +1760,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1966,7 +2015,87 @@ so the release tag is the version baked into the image and reported by <code>ver
 <li><strong>Tests</strong>: <code>make unit-test</code> builds the node's unique ID, pseudo-ID, name rules, parsing and
   plug-and-play's request, reply, timing and in-use check with the computer's compiler;
   <code>make can-test</code> runs the hardware tests in <code>tests/hardware/</code> (pytest and pycyphal, through a
-  gs_usb adapter, with pycyphal's allocator for plug-and-play; <code>make can-setup</code> makes their venv).</li>
+  gs_usb adapter, with pycyphal's allocator for plug-and-play; <code>make can-setup</code> makes their venv).
+  The unit tests also cover the holo's Cyphal conversions (requests, Status's parts, Event, the file
+  services' paths and errors, MediaInfo, the calibration registers' values), and the hardware tests the
+  holo's ports (motions, light, setpoints, scenes, screen, ring, events, the lists against the HTTP API,
+  the calibration registers, a clip under load), with a soak, <code>test_soak.py</code>, run with <code>--soak-minutes</code>.</li>
+<li><strong>The Cyphal node is managed the standard way.</strong> Its settings are registers
+  (<code>uavcan.register.Access</code> and <code>List</code>): <code>uavcan.node.id</code>, <code>r2.node.name</code> and
+  <code>uavcan.can.bitrate</code>, the same saved settings as <code>cyphal id</code>, <code>name</code> and <code>bitrate</code>, and a pair
+  for each of the holo's eleven ports, <code>uavcan.pub.status.id</code> and so on (the port number, saved,
+  65535 for off) and <code>uavcan.pub.status.type</code> (its type, read-only), with the defaults of
+  <code>r2_cyphal_dsdl</code>'s port table. A write is checked, saved and applies from the node's next start;
+  one the board can't take leaves the register as it was, a port number another port has (the
+  node's own included) among them. <code>uavcan.node.ExecuteCommand</code> restarts
+  the board, resets it to the factory settings, all or nothing (the node's registers, touch reporting
+  and the board's settings, keeping the scenes, files, servo calibration and drive policy, network and
+  host link), identifies it (the ring blinks white and the screen shows the crosshair for 5 s, then
+  both go back) or stores (nothing to do); other commands are refused. <code>uavcan.node.port.List</code> goes out every 10 s, with the ports the node
+  really has. Documented in the manual's <em>The board on Cyphal</em> and <em>Cyphal interface</em>.</li>
+<li><strong>The holo on Cyphal</strong> (<code>r2.holo.*</code>): <code>Motion</code> (service 100) starts any motion with every
+  parameter, through the code the HTTP API's <code>POST /holo/motion</code> runs, so it is refused in the same words;
+  its <code>off</code> lets the servos go limp and turns the ring off. <code>Light</code> (service 101) is the holo's light
+  on the LED ring: off, on, pulse, flicker, blink at a level and a period, an optional colour, a time
+  limit after which the ring goes back to what it was doing, and <code>leia</code> (a timed flicker at full and
+  the holo to the centre, which answers whether the centre ran). <code>Axes</code> subscribed (subject 2303) is
+  a stream of setpoints, each a direct move with no easing that stops the motion running; <code>Axes</code>
+  published (2302) is where the board has put the axes, ten times a second while they move and once a
+  second at rest. <code>Status</code> (2300) is the holo's motion and readiness, the last motion asked for, both
+  axes, the ring with its timed mode, the screen (what shows, a clip's progress, the backlight) and the
+  scene running to its end, within 250 ms of a change and once a second. The heartbeat's health is advisory while the holo can't move. <code>cyphal</code>
+  counts the holo's requests and setpoints, and each port's messages queued for the bus with those a
+  newer one replaced before they were.</li>
+<li><strong>The board's own features on Cyphal</strong>: <code>Scene</code> (service 102) applies a saved scene by its slot or
+  its name, or ends the one running, through the code <code>POST /scenes/apply</code> and <code>/scenes/end</code> run;
+  <code>Screen</code> (103) shows a clip, an image, a colour, the crosshair or nothing and sets the backlight,
+  through <code>POST /screen/show</code>'s, <code>DELETE /screen</code>'s and <code>PATCH /screen</code>'s; <code>Ring</code> (104) sets the LED
+  ring as <code>PATCH /leds</code> does. Each is refused as the HTTP API refuses it, in the same words. <code>Event</code>
+  (subject 2301) carries every clip and scene starting and ending, and touches while touch reporting
+  is on, with the board's own sequence number, from the record the HTTP API's events come from: two
+  at once both go, in order, and none is lost while that record still has it. Scene and Screen
+  requests, and identify, are carried out one at a time by a second worker task (7.5 KB stack), so that
+  a still being decoded never holds up the setpoints or Status. <code>cyphal</code> shows that worker, Event's
+  queue, and the most frames the transmit queue has held. Documented in the manual's <em>The board on
+  Cyphal</em> and <em>Cyphal interface</em>.</li>
+<li><strong>The lists and the calibration on Cyphal</strong>: <code>ListScenes</code> (service 105) gives the saved scenes one
+  a call with their slots, as <code>GET /scenes</code> lists them; the standard <code>uavcan.file.List</code> (406) and
+  <code>uavcan.file.GetInfo</code> (405) give the board's files, as <code>fs ls</code> sees them (a directory's entries by
+  index in name order, directories marked with a <code>/</code>; each one's size and time, read-only; with the
+  board busy, List isn't answered, since its empty name would end a listing, and the client asks
+  again); <code>MediaInfo</code> (106) describes a clip or an image from its header, through the lookup
+  <code>GET /media/info</code> runs, and says whether the screen can show it and why not. The file services and
+  MediaInfo run on the node's second worker, so that an upload holding the storage volume never holds
+  up the setpoints. The holo's registers: <code>r2.holo.horizontal.endpoints_us</code> and
+  <code>r2.holo.vertical.endpoints_us</code> (closed and open, <code>0 0</code> to clear), <code>….release</code> and <code>….settle_ms</code> (the
+  drive policy), over the servos' own saved values, the ones <code>holo endpoints</code>, the web app's
+  calibration and <code>PUT /servos/policy</code> change, written and read at once (by the node's worker); and
+  <code>r2.touch.reporting</code>, the board's touch setting. Documented in the manual's <em>The board on Cyphal</em>
+  and <em>Cyphal interface</em>.</li>
+<li><strong>The LED ring pulses and blinks</strong>, and has the holo light's level and timed modes: <code>leds pulse</code>
+  and <code>leds blink</code> with <code>-p &lt;ms&gt;</code>; <code>-l &lt;pct&gt;</code> (a share of the brightness) on every mode but <code>off</code>, and
+  <code>-t &lt;s&gt;</code> (then back to what it was doing) on <code>colour</code>, <code>off</code>, <code>flicker</code>, <code>pulse</code> and <code>blink</code>. A
+  timed mode and a blink no longer wake the board 50 to 100 times a second, and the ring's task is made
+  once and kept. The web app's status card shows a level other than 100 and counts a timed mode's time
+  left down. <code>PATCH /api/v1/leds</code> and a
+  scene's <code>leds</code> take <code>pulse</code>, <code>blink</code>, <code>period_ms</code>, <code>level</code> and <code>time_s</code>; <code>GET /api/v1/leds</code> reports
+  <code>period_ms</code>, <code>level</code>, a timed mode (<code>timed</code>: its time left and what follows) and <code>leia</code>. The host
+  link's <code>LEDS</code> frame takes modes 5 (pulse) and 6 (blink) with an optional period after its flags,
+  and the status block reports them. The web app's Show and Scenes pages offer pulse and blink, and the
+  scene editor a pulse's or a blink's period, the level and a time. A
+  scene that restores the ring puts back a timed mode for the rest of its time.</li>
+<li><strong><code>cyphal register [&lt;name&gt; [&lt;value&gt;…]]</code></strong>: the same registers on the console, listed, read or
+  written with the same checks. <code>cyphal</code> shows the services' counters and the worker that does
+  their waiting (a register's write to flash, a restart, identify), so that the node's own task
+  never waits.</li>
+<li><strong><code>r2_cyphal_dsdl</code></strong> (<code>external/r2_cyphal_dsdl</code>, the holo's own Cyphal types and port table) as
+  a submodule; <code>tools/gen_dsdl.py</code> generates the C headers from it and the standard types
+  together, and the port defaults from its port table.</li>
+<li><strong><code>tools/yakut_can.py</code></strong> (<code>make yakut</code>): Yakut on the board through a gs_usb adapter on macOS,
+  opening and closing the adapter only while the board is quiet; registers only (it refuses
+  <code>execute-command</code>, by every name Yakut's click version gives it, and calls to ExecuteCommand, during
+  which a candleLight stopped passing frames on the bench, and what would leave the board never quiet
+  as the adapter closes).</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1988,6 +2117,39 @@ so the release tag is the version baked into the image and reported by <code>ver
 <li>The CAN controller's sample point is 85 % of the bit, not the 87.5 % asked for: IDF 6.1's timing
   on the ESP32-S3 gives 20 time quanta at every bitrate, and 87.5 % is out of the controller's
   reach at 1 Mbit/s. The manual says so.</li>
+<li><code>cyphal reset</code> puts the port numbers back to their defaults too.</li>
+<li>Looking at a clip's or an image's header (<code>GET /media/info</code>, Cyphal's MediaInfo, and the check before
+  one is shown) takes its memory from PSRAM first: the GIF decoder's 24 KB, a clip's frame tables, a
+  JPEG's bytes and libpng's state, up to 29 KB of internal RAM before, 4 to 9 KB now, which a playing
+  clip's frames need. Playback itself is unchanged.</li>
+<li><strong>Touch reporting is one of the board's settings</strong>: <code>GET /api/v1/settings</code> has <code>touch.reporting</code>,
+  <code>PATCH</code> sets it (and turns touch on or off now), <code>DELETE</code> puts it back to its default, the console's
+  <code>settings</code> shows it and <code>settings touch on|off</code> sets it, the web app's Settings page has a switch for
+  it, and the Cyphal register <code>r2.touch.reporting</code> is the same setting. The board starts with touch
+  reporting on if it says so, <code>CONFIG_BOARD_TOUCH_AUTOSTART</code> being only its default; <code>touch on</code> and
+  <code>touch off</code> still change it until the next start without saving. It is in a configuration backup
+  (NVS <code>holo_cfg</code>, <code>touch</code>).</li>
+<li>The Cyphal node's libcanard heap is 32 KB of PSRAM (was 16 KB), its transmit queue 160 frames
+  (was 64) and its task's stack 3 KB (was 2.5 KB); a worker task with a 4.5 KB stack joins it at its
+  first start.</li>
+<li>A message the Cyphal node publishes waits in its mailbox until the transmit queue has room for the
+  whole of it, rather than being dropped.</li>
+<li>The hardware tests' console answers linenoise's terminal queries even when one arrives split
+  between two reads of the port; one that went unanswered left the console with no prompt (seen
+  three times in the tests).</li>
+<li><code>leds</code> shows a pulse's or a blink's period, a level other than 100, and a timed mode's time left
+  and what follows. <code>leds rainbow</code> keeps the ring's colour for the next mode that has one, rather than
+  forgetting it.</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A timed scene past its time, in the moment before it ends, read as one with no duration: <code>GET
+  /scenes</code>'s <code>remaining_s</code> null, the host link's status block 0xFFFF, now 0.</li>
+<li><code>GET /screen</code> could catch a clip that had just started half-recorded (no path, 0 frames). The
+  player's record is now copied under a lock of its own, never held for longer than the copy.</li>
+<li>Touch could be started or stopped from two places at once (the console and the Cyphal register, or
+  the settings over HTTP), making two drivers or deleting one under its task: start and stop now take
+  turns.</li>
 </ul>
 <h2 id="110-2026-10-22"><a href="https://github.com/daveismith/holo-player-fw/releases/tag/v1.1.0">1.1.0</a> - 2026-10-22<a class="headerlink" href="#110-2026-10-22" title="Permanent link">&para;</a></h2>
 <p>The board's settings can now be backed up to a small text file and restored, a backup never
@@ -2016,7 +2178,7 @@ and an ESP-IDF 6.1 I2C driver bug that could corrupt memory after a timed-out re
   (&lt;axis&gt;)</code> -- where it said only <code>; stopped: &lt;reason&gt;</code>. The manual's holo page now has a sample status and what each
   line means.</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>An I2C read that timed out could make the next probe of the bus -- the IMU's at start,
   <code>i2cdetect</code>, a servo board's attach -- write a few bytes through a stale pointer in ESP-IDF

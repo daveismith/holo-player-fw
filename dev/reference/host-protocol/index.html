@@ -14,7 +14,7 @@
         <link rel="prev" href="../http-api-explorer/">
       
       
-        <link rel="next" href="../config/">
+        <link rel="next" href="../cyphal/">
       
       
         
@@ -1499,6 +1499,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../config/" class="md-nav__link">
         
   
@@ -2129,7 +2156,7 @@ milliseconds):</p>
 </tr>
 <tr>
 <td><code>touch</code></td>
-<td>The screen was touched, or let go. Only while touch reporting is on (<code>touch on</code>)</td>
+<td>The screen was touched, or let go. Only while touch reporting is on (the board's <code>touch</code> setting in <code>/api/v1/settings</code>, or <code>touch on</code> until the next start)</td>
 <td><code>action</code>: <code>down</code> or <code>up</code>; <code>x</code>, <code>y</code>: 0–239</td>
 </tr>
 </tbody>
@@ -2391,7 +2418,7 @@ only on UART, where it's the only board on the wire.</p>
 <tr>
 <td>0x30</td>
 <td><code>LEDS</code></td>
-<td><code>mode</code> u8, <code>r</code>, <code>g</code>, <code>b</code> u8, <code>brightness</code> u8, <code>flags</code> u8</td>
+<td><code>mode</code> u8, <code>r</code>, <code>g</code>, <code>b</code> u8, <code>brightness</code> u8, <code>flags</code> u8, and optionally <code>period_ms</code> u16</td>
 <td>—</td>
 </tr>
 <tr>
@@ -2424,15 +2451,21 @@ only on UART, where it's the only board on the wire.</p>
 <li><strong><code>SCENE</code></strong> applies the scene with that <a href="#scene-slots">slot</a>, as <code>POST /scenes/apply</code> does.
   <strong><code>END</code></strong> ends the scene running to its end, doing its <code>then</code>, as <code>POST /scenes/end</code> does.</li>
 <li><strong><code>LEDS</code></strong>:</li>
-<li><code>mode</code>: 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, or 0xFF to leave it as it is;</li>
+<li><code>mode</code>: 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink, or 0xFF to leave it as
+    it is;</li>
 <li><code>brightness</code>: 1–100, or 0 to leave it;</li>
 <li><code>flags</code>: bit 0 is <code>loop</code>, and bit 1 means <code>r</code>, <code>g</code>, <code>b</code> is a new colour (without it, they are
-    ignored).</li>
-<li><strong><code>HOLO</code></strong>:</li>
-<li><code>motion</code>: 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off;</li>
-<li><code>x</code>, <code>y</code>: -100 to 100 for <code>move</code>, -128 to 127 for <code>nudge</code>;</li>
-<li><code>duration_ms</code>, <code>range</code> and <code>count</code>: 0 for the default.</li>
+    ignored);</li>
+<li><code>period_ms</code>, after <code>flags</code>: a pulse's or a blink's period, 200–60000. Two bytes more, which a
+    host may leave out; 0 or none for the mode's default (2000 for a pulse, 1000 for a blink).</li>
 </ul>
+<p>Pulse, blink and the period came after the first five modes, as an extension: a host that
+  doesn't know them sends six bytes as before. The level and the timed modes of <code>PATCH /leds</code> are
+  JSON lines' only.
+- <strong><code>HOLO</code></strong>:
+  - <code>motion</code>: 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off;
+  - <code>x</code>, <code>y</code>: -100 to 100 for <code>move</code>, -128 to 127 for <code>nudge</code>;
+  - <code>duration_ms</code>, <code>range</code> and <code>count</code>: 0 for the default.</p>
 <p>The motion's other settings take their defaults. <code>POST /holo/motion</code> over JSON lines has them
   all.
 - <strong><code>EVENTS_SET</code></strong>:
@@ -2476,7 +2509,7 @@ only on UART, where it's the only board on the wire.</p>
 <tr>
 <td>5</td>
 <td><code>leds</code></td>
-<td>0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker</td>
+<td>0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink</td>
 </tr>
 <tr>
 <td>6</td>
@@ -2718,13 +2751,13 @@ event, a longer status block, an extra field.</p>
         
         
           
-          <a href="../config/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="../cyphal/" class="md-footer__link md-footer__link--next" aria-label="Next: Cyphal interface">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Cyphal interface
               </div>
             </div>
             <div class="md-footer__button md-icon">

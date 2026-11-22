@@ -1316,6 +1316,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1516,9 +1543,12 @@
 frames. It suits a build that already has a CAN bus through the body and dome, with other Cyphal
 nodes on it. <a href="../../use/cyphal/">The board on Cyphal</a> covers what the node does once it's wired:
 how it gets its node-ID, what it reports, and its settings.</p>
-<p>What the node does so far is the baseline: it gets a node-ID, sends a heartbeat, and answers
-<code>uavcan.node.GetInfo</code>. Playing scenes and reporting events over Cyphal come later; until then a
-host runs the board over <a href="../host-uart/">UART</a>, <a href="../host-rs485/">RS485</a> or Wi-Fi.</p>
+<p>Over Cyphal a controller can do most of what a host does over <a href="../host-uart/">UART</a> or
+<a href="../host-rs485/">RS485</a>: move the holo and set its light, apply scenes, show clips and stills, set
+the LED ring, hear the board's events, list the scenes and the files, and calibrate the holo, as
+well as manage the node with Cyphal's standard registers and commands
+(<a href="../../use/cyphal/#the-holo-on-cyphal">the holo on Cyphal</a>). Uploading files, Wi-Fi and the
+configuration backup stay on Wi-Fi and the USB console.</p>
 <h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
 <ul>
 <li>

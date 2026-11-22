@@ -1404,6 +1404,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../config/" class="md-nav__link">
         
   
@@ -1719,7 +1746,7 @@ a raw RGB565 value written as <code>0x…</code>.</p>
 </tr>
 <tr>
 <td><code>touch [on\|off\|status]</code></td>
-<td>CST816S touch reporting, off at boot. Prints down/move/up with x,y</td>
+<td>CST816S touch reporting, for now: on or off until the next start, not saved (<code>settings touch</code> is what the board starts with: off unless set). Prints down/move/up with x,y</td>
 </tr>
 <tr>
 <td><code>imu [-r &lt;hz&gt;] [-n &lt;count&gt;] \| imu id</code></td>
@@ -1820,6 +1847,18 @@ on it. Full detail in <a href="../../use/images/">Images</a>.</p>
 <td>The colour flickering like a failing hologram, until something else. White if no colour given</td>
 </tr>
 <tr>
+<td><code>leds pulse [&lt;c&gt;] [-p &lt;ms&gt;]</code></td>
+<td>The colour fading up and down once a period (200–60000 ms; 2000), until something else. White if no colour given</td>
+</tr>
+<tr>
+<td><code>leds blink [&lt;c&gt;] [-p &lt;ms&gt;]</code></td>
+<td>The colour on for half a period and off for the other half (1000 ms unless given), until something else</td>
+</tr>
+<tr>
+<td><code>… -l &lt;pct&gt;</code>, <code>… -t &lt;s&gt;</code></td>
+<td>The level, a share of the brightness (0–100), after any mode but <code>off</code> (a wipe's or a rainbow's after its <code>loop</code>); and a time (0.1–3600 s) after which the ring goes back to what it was doing, after <code>colour</code>, <code>off</code>, <code>flicker</code>, <code>pulse</code> or <code>blink</code></td>
+</tr>
+<tr>
 <td><code>leds bright &lt;1-100&gt;</code></td>
 <td>Brightness, applied live</td>
 </tr>
@@ -1910,7 +1949,7 @@ Full detail in <a href="../../use/holo/">The holoprojector</a>.</p>
 </tr>
 <tr>
 <td><code>settings</code></td>
-<td>What the board starts with: the backlight, the LEDs' brightness and count, and the scene</td>
+<td>What the board starts with: the backlight, the LEDs' brightness and count, touch reporting, and the scene</td>
 </tr>
 <tr>
 <td><code>settings backlight &lt;1-100&gt;</code></td>
@@ -1925,8 +1964,12 @@ Full detail in <a href="../../use/holo/">The holoprojector</a>.</p>
 <td>LEDs on the strip, from the next start</td>
 </tr>
 <tr>
+<td><code>settings touch on\|off</code></td>
+<td>Touch reporting at start, and now (the Cyphal register <code>r2.touch.reporting</code> is the same setting)</td>
+</tr>
+<tr>
 <td><code>settings reset</code></td>
-<td>Back to the firmware's defaults; scenes are kept</td>
+<td>Back to the firmware's defaults, applied now; scenes are kept</td>
 </tr>
 </tbody>
 </table>
@@ -2121,7 +2164,19 @@ flash counters; all are enabled in <code>sdkconfig.defaults</code>.</p>
 </tr>
 <tr>
 <td><code>cyphal reset</code></td>
-<td>Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s</td>
+<td>Back to the firmware's defaults: plug-and-play, the default name, 1 Mbit/s, and every port's default ID</td>
+</tr>
+<tr>
+<td><code>cyphal register</code></td>
+<td>The node's <a href="../cyphal/#registers">Cyphal registers</a>: each one's value, type and flags, and the value in use when a write waits for the node's next start</td>
+</tr>
+<tr>
+<td><code>cyphal register &lt;name&gt;</code></td>
+<td>One register</td>
+</tr>
+<tr>
+<td><code>cyphal register &lt;name&gt; &lt;value&gt;…</code></td>
+<td>Write one, as <code>uavcan.register.Access</code> does, with the same checks, saved: a number for a port or the node-ID (65535 for off or plug-and-play), one or two for the bitrate, a word for the name, from the node's next start; the holo's own (<code>r2.holo.*</code> endpoints, release and settle time, <code>r2.touch.reporting</code>: numbers, or 0 and 1 for bits) at once</td>
 </tr>
 <tr>
 <td><code>can</code></td>

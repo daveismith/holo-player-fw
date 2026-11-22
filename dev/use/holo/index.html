@@ -1316,6 +1316,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1638,7 +1665,10 @@ left alone.</p>
 <p class="admonition-title">There is no light on this board</p>
 <p>This firmware registers the holo with no light attached, so <code>holo led</code> and the light half of
 <code>holo leia</code> do nothing here. <code>holo leia</code> still centres and moves the axes. The NeoPixel ring
-is driven separately by <a href="../leds/"><code>leds</code></a>, and is not wired to the holo engine.</p>
+is driven separately by <a href="../leds/"><code>leds</code></a>, and is not wired to the holo engine. Over Cyphal
+the ring is the holo's light: <code>r2.holo.Light</code> sets it with the same modes, a leia included
+(<a href="../cyphal/#the-light-is-the-led-ring">the holo on Cyphal</a>), and <code>leds</code> has them too
+(<a href="../leds/#the-holos-light">the holo's light</a>).</p>
 </div>
 
 

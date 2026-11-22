@@ -870,10 +870,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#flicker" class="md-nav__link">
+  <a href="#flicker-pulse-and-blink" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Flicker
+        Flicker, pulse and blink
       </span>
     </span>
   </a>
@@ -882,6 +882,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-holos-light" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holo's light
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -1322,6 +1333,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1479,10 +1517,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#flicker" class="md-nav__link">
+  <a href="#flicker-pulse-and-blink" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Flicker
+        Flicker, pulse and blink
       </span>
     </span>
   </a>
@@ -1491,6 +1529,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-holos-light" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holo's light
+      </span>
+    </span>
+  </a>
   
 </li>
       
@@ -1529,9 +1578,10 @@ ring connected in the first place, see <a href="../../connect/leds/">Wiring the 
 <h2 id="what-it-is-showing">What it is showing<a class="headerlink" href="#what-it-is-showing" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>leds
 </code></pre></div>
-<p>reports the current mode and colour, whether a pattern is looping, the brightness, and the
-hardware it is driving — how many LEDs, on which GPIO, at which data rate and in which colour
-order. That last part is the quickest way to confirm the strip is configured the way your
+<p>reports the current mode and colour, whether a pattern is looping, a pulse's or a blink's period,
+a level other than 100 (see <a href="#the-holos-light">the holo's light</a>), the brightness, a timed mode's
+time left and what follows it, and the hardware it is driving — how many LEDs, on which GPIO, at
+which data rate and in which colour order. That last part is the quickest way to confirm the strip is configured the way your
 hardware actually is.</p>
 <h2 id="a-solid-colour">A solid colour<a class="headerlink" href="#a-solid-colour" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>leds colour red
@@ -1572,15 +1622,57 @@ leds rainbow loop
 </code></pre></div>
 <p><code>rainbow</code> takes no colour — it is the whole wheel — so <code>leds rainbow green</code> is an error rather
 than a tint.</p>
-<h3 id="flicker">Flicker<a class="headerlink" href="#flicker" title="Permanent link">&para;</a></h3>
+<h3 id="flicker-pulse-and-blink">Flicker, pulse and blink<a class="headerlink" href="#flicker-pulse-and-blink" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>leds flicker
 leds flicker #4da6ff
+leds pulse
+leds pulse blue -p 3000
+leds blink red -p 400
 </code></pre></div>
 <p><code>flicker</code> makes the colour flicker like a failing hologram: mostly bright and restless, each LED a
-little apart from the others, with the odd dropout to near dark and a short stutter. White if no
-colour is given. Unlike the other patterns it has no end: it runs until something else takes the
-strip, such as <code>leds off</code>, another pattern, or a scene. Paired with a clip in a scene, it makes the
-ring look like part of the hologram.</p>
+little apart from the others, with the odd dropout to near dark and a short stutter. <code>pulse</code> fades
+the colour up from dark and down again once a period (2 s unless <code>-p</code> gives another, 200–60000 ms),
+evenly to the eye. <code>blink</code> lights the colour for the first half of each period and turns it off for
+the second (1 s unless <code>-p</code> gives another). White if no colour is given. Unlike the wipe and the
+rainbow these have no end: each runs until something else takes the strip, such as <code>leds off</code>,
+another pattern, or a scene. Paired with a clip in a scene, a flicker makes the ring look like part
+of the hologram.</p>
+<h2 id="the-holos-light">The holo's light<a class="headerlink" href="#the-holos-light" title="Permanent link">&para;</a></h2>
+<p>The ring is also the holo's light: a controller on <a href="../cyphal/#the-light-is-the-led-ring">Cyphal</a>
+sets it with the light modes a dome panel's own holos have. The same can be done here. Every mode
+but <code>off</code> takes a level, and <code>colour</code>, <code>off</code>, <code>flicker</code>, <code>pulse</code> and <code>blink</code> a time:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-l &lt;pct&gt;</code></td>
+<td>The level, 0–100: a share of the brightness this mode lights at. 100 unless given. 0 lights nothing. A wipe's or a rainbow's comes after its <code>loop</code></td>
+</tr>
+<tr>
+<td><code>-t &lt;s&gt;</code></td>
+<td>For this long, 0.1–3600 s, and then back to what the ring was doing before: its mode, colour and level</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code>leds pulse orange -l 40
+leds wipe blue loop -l 30
+leds colour red -t 5
+leds off -t 2
+</code></pre></div>
+<p>A timed mode during another timed mode goes back, when its time is up, to what the first would
+have gone back to, so a chain of them unwinds in one step. Any other <code>leds</code> command but <code>bright</code>,
+or a scene, during a timed mode replaces it for good. A wipe or a rainbow playing once goes back to off, where it
+would have ended by then. <code>leds</code> shows a timed mode with how long it has left and what follows:</p>
+<div class="highlight"><pre><span></span><code>solid #ff0000; brightness 30%; for 4.2 s more, then pulse #ffa500, every 2000 ms, at 40%; 16 LEDs on GPIO16, 800 kHz, GRB
+</code></pre></div>
+<p>The level is a share of the brightness rather than a brightness of its own, so that the light at
+full is the ring at the brightness it is set to (<code>leds bright</code>), never more: the limit below holds
+whatever a controller asks for.</p>
 <h2 id="brightness">Brightness<a class="headerlink" href="#brightness" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>leds bright 30
 </code></pre></div>

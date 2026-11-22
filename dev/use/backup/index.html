@@ -1294,6 +1294,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1498,7 +1525,13 @@ node-ID are in a backup, so a replacement board restored from it answers to the 
 address. Setting up a <em>second</em> board from one's backup (<code>--other-board</code>, below) copies them too:
 give it its own name, address and node-ID afterwards (two nodes with one node-ID
 <a href="../cyphal/#a-node-id-that-is-already-taken">stop</a>; with plug-and-play each board is given its
-own).</p>
+own). The Cyphal port numbers come with the rest of the node's settings: a second holo restored
+from the same backup needs its own setpoint subject as well (<code>uavcan.sub.setpoint.id</code>), or the two
+<a href="../cyphal/#moving-the-holo">move together</a>. The holo's other Cyphal registers are the servos'
+calibration and drive policy, already in the backup as the servos' own settings, and touch
+reporting (<code>r2.touch.reporting</code>), one of the board's settings (NVS <code>holo_cfg</code>, <code>touch</code>), which comes
+with the rest: the calibration belongs to the linkage in front of each servo, so a second holo built
+differently is calibrated again.</p>
 <h2 id="making-one">Making one<a class="headerlink" href="#making-one" title="Permanent link">&para;</a></h2>
 <p><code>nvs_export</code> prints the file, or writes it to the volume's <code>backup/</code> directory:</p>
 <div class="highlight"><pre><span></span><code>nvs_export

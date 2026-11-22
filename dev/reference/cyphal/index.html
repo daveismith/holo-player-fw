@@ -1,0 +1,3966 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Firmware for the Waveshare ESP32-S3-Touch-LCD-1.28 holoprojector player">
+      
+      
+      
+      
+        <link rel="prev" href="../host-protocol/">
+      
+      
+        <link rel="next" href="../config/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+      
+        <title>Cyphal interface - Holo Player</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/installer.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/board.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/api.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cyphal-interface" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Holo Player" class="md-header__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Holo Player
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Cyphal interface
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../install/flashing/" class="md-tabs__link">
+          
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../use/video/" class="md-tabs__link">
+          
+  
+  Use
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../console/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Holo Player" class="md-nav__button md-logo" aria-label="Holo Player" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    Holo Player
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/daveismith/holo-player-fw" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    daveismith/holo-player-fw
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Get started
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/flashing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Install
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mounting the screen
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the LED ring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/servos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wiring the servos
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: UART
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-rs485/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: RS485
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: I2C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connect/host-can/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link: CAN
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Use
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video clips
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Images
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/leds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LED patterns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/holo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The holoprojector
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Files on the board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/backup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Backing up the settings
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board in the browser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board over Wi-Fi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/ota/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Updating the firmware
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/host-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The host link
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use/cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The board on Cyphal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Troubleshooting
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Console commands
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-api-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  HTTP API explorer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host link protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-nodes-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The node's ports
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The node&#x27;s ports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-port-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The port list
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#health" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Health
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Conventions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Status
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-holo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holo
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The ring
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-scene" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The scene
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Axes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#services" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Services
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Services">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#motion" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Motion
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#light" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Light
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scene" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scene
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ring
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listscenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ListScenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mediainfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaInfo
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The files
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Error
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reason
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Registers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Commands
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizes-and-bus-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizes and bus load
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-on-cyphal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not on Cyphal
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video-internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Video internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-nodes-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The node's ports
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The node&#x27;s ports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-port-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The port list
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#health" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Health
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Conventions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Messages
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Status
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-holo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The holo
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The ring
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-scene" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The scene
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Event
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Axes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#services" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Services
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Services">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#motion" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Motion
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#light" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Light
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scene" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scene
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Screen
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ring
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listscenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ListScenes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mediainfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MediaInfo
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The files
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Error
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reason
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Registers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Commands
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sizes-and-bus-load" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sizes and bus load
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-on-cyphal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not on Cyphal
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+  
+
+
+<h1 id="cyphal-interface">Cyphal interface<a class="headerlink" href="#cyphal-interface" title="Permanent link">&para;</a></h1>
+<p>This is the specification of what the board does on a <a href="https://opencyphal.org">Cyphal</a>/CAN bus:
+every port, every type and its fields, every register and every command. How to use it is on
+<a href="../../use/cyphal/#the-holo-on-cyphal">the board on Cyphal</a>.</p>
+<p>Node management uses Cyphal's standard types, from
+<a href="https://github.com/OpenCyphal/public_regulated_data_types">public_regulated_data_types</a>. The holo's
+own types are <code>r2.holo.*</code>, in a repository of their own,
+<a href="https://github.com/daveismith/r2_cyphal_dsdl">r2_cyphal_dsdl</a>, which a controller (the dome
+panel, an app on Linux) generates its code from too. They are at version <strong>0.1</strong>, unstable:
+they become 1.0 when the dome panel is first written against them, and from then on a type that
+has shipped is never changed, only given a new version.</p>
+<h2 id="the-nodes-ports">The node's ports<a class="headerlink" href="#the-nodes-ports" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Type</th>
+<th>Port</th>
+<th>Sent or served</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Heartbeat</td>
+<td><code>uavcan.node.Heartbeat.1.0</code></td>
+<td>subject 7509</td>
+<td>Once a second. Its health is advisory while the holo can't move (<a href="#health">below</a>)</td>
+</tr>
+<tr>
+<td>Node information</td>
+<td><code>uavcan.node.GetInfo.1.0</code></td>
+<td>service 430</td>
+<td>Its name, version and unique ID</td>
+</tr>
+<tr>
+<td>Plug-and-play</td>
+<td><code>uavcan.pnp.NodeIDAllocationData.1.0</code></td>
+<td>subject 8166</td>
+<td>Only while it asks for a node-ID</td>
+</tr>
+<tr>
+<td>The ports it uses</td>
+<td><code>uavcan.node.port.List.1.0</code></td>
+<td>subject 7510</td>
+<td>Every 10 seconds, the first as the node goes online. <a href="#the-port-list">Below</a></td>
+</tr>
+<tr>
+<td>Registers</td>
+<td><code>uavcan.register.Access.1.0</code>, <code>uavcan.register.List.1.0</code></td>
+<td>services 384, 385</td>
+<td><a href="#registers">Below</a></td>
+</tr>
+<tr>
+<td>Restart, factory reset, identify</td>
+<td><code>uavcan.node.ExecuteCommand.1.3</code></td>
+<td>service 435</td>
+<td><a href="#commands">Below</a></td>
+</tr>
+<tr>
+<td>The clips and images</td>
+<td><code>uavcan.file.List.0.2</code>, <code>uavcan.file.GetInfo.0.2</code></td>
+<td>services 406, 405</td>
+<td>The files on the storage volume: names, sizes, times. Read only. <a href="#the-files">Below</a></td>
+</tr>
+<tr>
+<td>What the holo is doing</td>
+<td><code>r2.holo.Status.0.1</code></td>
+<td>subject 2300</td>
+<td>Within 250 ms of a change, and once a second</td>
+</tr>
+<tr>
+<td>What happened</td>
+<td><code>r2.holo.Event.0.1</code></td>
+<td>subject 2301</td>
+<td>As it happens</td>
+</tr>
+<tr>
+<td>Where the axes are</td>
+<td><code>r2.holo.Axes.0.1</code></td>
+<td>subject 2302</td>
+<td>Ten times a second while the holo moves, once a second at rest</td>
+</tr>
+<tr>
+<td>Where the axes go</td>
+<td><code>r2.holo.Axes.0.1</code></td>
+<td>subject 2303, subscribed</td>
+<td>A stream of setpoints</td>
+</tr>
+<tr>
+<td>Motions</td>
+<td><code>r2.holo.Motion.0.1</code></td>
+<td>service 100</td>
+<td></td>
+</tr>
+<tr>
+<td>The light</td>
+<td><code>r2.holo.Light.0.1</code></td>
+<td>service 101</td>
+<td></td>
+</tr>
+<tr>
+<td>Scenes</td>
+<td><code>r2.holo.Scene.0.1</code></td>
+<td>service 102</td>
+<td></td>
+</tr>
+<tr>
+<td>The screen</td>
+<td><code>r2.holo.Screen.0.1</code></td>
+<td>service 103</td>
+<td></td>
+</tr>
+<tr>
+<td>The LED ring</td>
+<td><code>r2.holo.Ring.0.1</code></td>
+<td>service 104</td>
+<td></td>
+</tr>
+<tr>
+<td>The scene list</td>
+<td><code>r2.holo.ListScenes.0.1</code></td>
+<td>service 105</td>
+<td></td>
+</tr>
+<tr>
+<td>A file's details</td>
+<td><code>r2.holo.MediaInfo.0.1</code></td>
+<td>service 106</td>
+<td>Optional in the types (a board may leave it out); this one serves it</td>
+</tr>
+</tbody>
+</table>
+<p>The standard ports' IDs are fixed by the standard. The <code>r2.holo</code> ports' are defaults, in
+Cyphal's unregulated ranges, which <a href="#registers">registers</a> change. <code>r2_cyphal_dsdl</code>'s
+<code>ports/holo.csv</code> holds the same defaults for a program to read.</p>
+<table>
+<thead>
+<tr>
+<th>Port name</th>
+<th>Kind</th>
+<th>Default ID</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>Published</td>
+<td>subject 2300</td>
+<td>low</td>
+</tr>
+<tr>
+<td><code>event</code></td>
+<td>Published</td>
+<td>subject 2301</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>axes</code></td>
+<td>Published</td>
+<td>subject 2302</td>
+<td>high</td>
+</tr>
+<tr>
+<td><code>setpoint</code></td>
+<td>Subscribed</td>
+<td>subject 2303</td>
+<td>fast</td>
+</tr>
+<tr>
+<td><code>motion</code></td>
+<td>Served</td>
+<td>service 100</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>light</code></td>
+<td>Served</td>
+<td>service 101</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>scene</code></td>
+<td>Served</td>
+<td>service 102</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>screen</code></td>
+<td>Served</td>
+<td>service 103</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>ring</code></td>
+<td>Served</td>
+<td>service 104</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>list_scenes</code></td>
+<td>Served</td>
+<td>service 105</td>
+<td>nominal</td>
+</tr>
+<tr>
+<td><code>media_info</code></td>
+<td>Served</td>
+<td>service 106</td>
+<td>nominal</td>
+</tr>
+</tbody>
+</table>
+<p>The priority is the one the board sends at; a client calls a service at the same. Services are
+addressed to the board's node-ID, so two holos on one bus serve them on the same IDs without
+trouble. A subject is shared by the whole bus: two holos can publish <code>status</code> on 2300 (a
+receiver tells them apart by node-ID), but two holos subscribed to <code>setpoint</code> on 2303 move
+together, so each gets a subject of its own.</p>
+<h3 id="the-port-list">The port list<a class="headerlink" href="#the-port-list" title="Permanent link">&para;</a></h3>
+<p><code>uavcan.node.port.List</code> names the ports the node really has while it runs, at the optional
+priority, as the type asks. A port's number changes only when the node starts (the registers apply
+from then), so the list does too: it goes out as the node goes online, and every 10 seconds after.
+With the registers at their defaults it holds:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Publishers</td>
+<td>7509 (the heartbeat), 7510 (the port list), 2300 (<code>status</code>), 2301 (<code>event</code>), 2302 (<code>axes</code>)</td>
+</tr>
+<tr>
+<td>Subscribers</td>
+<td>2303 (<code>setpoint</code>)</td>
+</tr>
+<tr>
+<td>Clients</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Servers</td>
+<td>100 (<code>motion</code>), 101 (<code>light</code>), 102 (<code>scene</code>), 103 (<code>screen</code>), 104 (<code>ring</code>), 105 (<code>list_scenes</code>), 106 (<code>media_info</code>), 384 and 385 (registers), 405 and 406 (the file services), 430 (<code>GetInfo</code>), 435 (<code>ExecuteCommand</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Each <code>r2.holo</code> port is in it on the number its register held as the node started; a port turned off
+(65535) is never in it. The servers are a bit mask of every service-ID, so the list is 160 bytes, 24
+frames, whatever it holds.</p>
+<h3 id="health">Health<a class="headerlink" href="#health" title="Permanent link">&para;</a></h3>
+<p>The heartbeat's health is <strong>advisory</strong> while the holo can't move, for the reasons
+<a href="#the-holo">Status</a> gives in <code>ready</code> and <code>why</code>, and <strong>nominal</strong> otherwise. The node's mode is always
+operational. On this board the holo can't move only when one of its servos didn't attach at the
+start (not fitted), or the holo engine didn't start (Status then reads <code>not fitted</code> for no axis in
+particular): an axis without saved endpoints moves over its default travel, so it doesn't make the
+health advisory (Status's <code>calibrated</code> still says whether its endpoints are saved). A board with no
+holo wired to it at all can't tell: its servos are outputs that read nothing back, so it reports
+the holo ready, and nominal.</p>
+<h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Units are in the names</strong>: <code>_ms</code> is milliseconds, <code>_us</code> microseconds. A percent is 0–100
+  unless the field says otherwise.</li>
+<li><strong>Zero means the default.</strong> A request field left at 0 takes its default wherever it has one, so
+  a request that is all zeros asks for every default. Where 0 is a value in its own right (a
+  move's duration, the light's level, the backlight, the ring's <code>off</code>), the field is optional
+  instead: an array of at most one (<code>[&lt;=1]</code>), empty for the default.</li>
+<li><strong>Times in <code>Status</code> are spans from the moment it was sent</strong>, <code>*_age_ms</code> back and
+  <code>*_remaining_ms</code> forward, never stamps, so the receiver's clock needn't be the board's.
+  <strong><code>NEVER</code></strong> (0xFFFFFFFF) is "no such time".</li>
+<li><strong>Paths</strong> are from the root of the storage volume (<code>/clips/intro.mov</code>), as
+  <code>uavcan.file.Path.2.0</code>: up to 255 bytes in the type, at most 159 on this board.</li>
+<li><strong>Names</strong> of scenes are 1–32 of <code>A-Z a-z 0-9</code>, space, <code>_</code>, <code>.</code> and <code>-</code>.</li>
+<li><strong>Sizes.</strong> Classic CAN carries 7 bytes of a transfer a frame. A transfer of up to 7 bytes is one
+  frame; a longer one adds a 2-byte CRC. <a href="#sizes-and-bus-load">Sizes and bus load</a> has each
+  type's.</li>
+</ul>
+<h2 id="messages">Messages<a class="headerlink" href="#messages" title="Permanent link">&para;</a></h2>
+<h3 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Status.0.1</code>, published on <code>status</code>: everything the holo is doing, in one message,
+so that each is a consistent snapshot. It goes out within 250 ms of a change, never more than
+four times a second, and once a second whatever changes. A change is a change to any field but
+a time or a clip's progress (<code>*_age_ms</code>, <code>*_remaining_ms</code>, <code>shown</code>, <code>passes</code>), which the
+once-a-second message keeps current. The board builds it from the same state <code>GET /api/v1/holo</code>,
+<code>GET /api/v1/leds</code>, <code>GET /api/v1/screen</code> and <code>GET /api/v1/scenes</code> (its <code>active</code>) report. Once
+another Status may go (250 ms after the last), it looks at the holo, the screen and the scene for a
+change every 50 ms; the ring tells it of its own changes, as it tells the HTTP API's event stream.
+While the screen is being changed (a still decoding, a clip starting, the panel going to sleep),
+the board doesn't wait for it: <code>screen</code> stays as it was in the Status that goes meanwhile, and the
+change follows within 50 ms of its end. With nothing showing and no scene it is 86 bytes, 13
+frames; with a 20-byte path and a 10-byte scene name, 116 bytes, 17 frames.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>holo</code></td>
+<td><code>state.Holo</code></td>
+<td>The holo's motion, <a href="#the-holo">below</a></td>
+</tr>
+<tr>
+<td><code>ring</code></td>
+<td><code>state.Ring</code></td>
+<td>The LED ring, which is also the holo's light, <a href="#the-ring">below</a></td>
+</tr>
+<tr>
+<td><code>screen</code></td>
+<td><code>state.Screen</code></td>
+<td>The screen, <a href="#the-screen">below</a></td>
+</tr>
+<tr>
+<td><code>scene</code></td>
+<td><code>state.Scene</code></td>
+<td>The scene running to its end, <a href="#the-scene">below</a></td>
+</tr>
+<tr>
+<td><code>event_seq</code></td>
+<td>uint16</td>
+<td>The latest <a href="#event">Event</a>'s <code>seq</code>; 0 before the first. A receiver that sees it move past the last event it got has missed one</td>
+</tr>
+<tr>
+<td><code>reporting_touch</code></td>
+<td>bool</td>
+<td>Touch events are on (the register <code>r2.touch.reporting</code>, or <code>touch on</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="the-holo">The holo<a class="headerlink" href="#the-holo" title="Permanent link">&para;</a></h4>
+<p><code>r2.holo.state.Holo.0.1</code>: what <code>GET /api/v1/holo</code> and the console's <code>holo</code> report, and what the
+dome panel shows for a holo of its own.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ready</code></td>
+<td>bool</td>
+<td>The holo could move now</td>
+</tr>
+<tr>
+<td><code>why</code></td>
+<td><a href="#reason">Reason</a></td>
+<td>Why it can't, and the axis at fault. NONE when ready</td>
+</tr>
+<tr>
+<td><code>motion</code></td>
+<td>uint8</td>
+<td>What runs now: 0 hold, 1 move (a center, move or nudge on its way), 2 twitch, 3 wag, 4 nod, 5 scan, 6 circle. The numbers of the host link's status block</td>
+</tr>
+<tr>
+<td><code>motion_age_ms</code></td>
+<td>uint32</td>
+<td>Since the running motion began; NEVER while holding</td>
+</tr>
+<tr>
+<td><code>motion_remaining_ms</code></td>
+<td>uint32</td>
+<td>Until a timed twitch or scan ends; NEVER with no limit, or while holding. A timed scan doesn't end by its time limit today (<a href="#motion">Motion</a>'s <code>time_limit_ms</code>): this counts down to 0 and stays there while the scan goes on</td>
+</tr>
+<tr>
+<td><code>stopped</code></td>
+<td><a href="#reason">Reason</a></td>
+<td>Why the last motion ended early: an axis refused it partway, with the axis. NONE when it ended by itself, by <code>stop</code>, or by another motion</td>
+</tr>
+<tr>
+<td><code>stopped_motion</code></td>
+<td>uint8</td>
+<td>Which motion that was, numbered as <code>motion</code>; 0 when <code>stopped</code> is NONE</td>
+</tr>
+<tr>
+<td><code>stopped_age_ms</code></td>
+<td>uint32</td>
+<td>How long ago it stopped; NEVER when <code>stopped</code> is NONE</td>
+</tr>
+<tr>
+<td><code>horizontal</code>, <code>vertical</code></td>
+<td><code>state.Axis</code></td>
+<td>Each axis: <code>fitted</code> (its servo is there), <code>calibrated</code> (its endpoints are saved), <code>inverted</code> (closed is above open), <code>placed</code> (something has moved it since the board started, so <a href="#axes">Axes</a> knows where it is). The engine places both axes together, so <code>placed</code> is the same for both</td>
+</tr>
+<tr>
+<td><code>last</code></td>
+<td><a href="#motion">MotionSpec</a></td>
+<td>The last motion asked for, by anybody (Cyphal, the console, the host link, the HTTP API, a scene), as it was asked. A <code>stop</code> before any</td>
+</tr>
+</tbody>
+</table>
+<p>The axes' positions are in <a href="#axes">Axes</a>, not here.</p>
+<h4 id="the-ring">The ring<a class="headerlink" href="#the-ring" title="Permanent link">&para;</a></h4>
+<p><code>r2.holo.state.Ring.0.1</code>: what <code>GET /api/v1/leds</code> reports (its <code>timed</code> and <code>leia</code> too), with the
+holo light's timed modes.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>now</code></td>
+<td><code>state.RingSetting</code></td>
+<td>What it is doing now</td>
+</tr>
+<tr>
+<td><code>remaining_ms</code></td>
+<td>uint32</td>
+<td>A timed mode (a <a href="#light">Light</a> with a time limit, or a leia): until it goes back to <code>after</code>. NEVER when not timed</td>
+</tr>
+<tr>
+<td><code>after</code></td>
+<td><code>state.RingSetting</code></td>
+<td>What a timed mode goes back to. Meaningful only while <code>remaining_ms</code> isn't NEVER</td>
+</tr>
+<tr>
+<td><code>leia</code></td>
+<td>bool</td>
+<td>The timed flicker is a leia's, whoever asked for it</td>
+</tr>
+</tbody>
+</table>
+<p><code>r2.holo.state.RingSetting.0.1</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>uint8</td>
+<td>0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink. The first five are the host link's <code>LEDS</code> numbers</td>
+</tr>
+<tr>
+<td><code>colour</code></td>
+<td><code>Colour</code></td>
+<td><code>r</code>, <code>g</code>, <code>b</code>, 0–255. For every mode but off and rainbow</td>
+</tr>
+<tr>
+<td><code>brightness</code></td>
+<td>uint8</td>
+<td>Percent, 0–100: how bright the ring is in this setting, its brightness (<code>leds bright</code>, <code>GET /api/v1/leds</code>'s <code>brightness</code>) times the setting's <a href="#light">level</a> (its <code>level</code>), rounded</td>
+</tr>
+<tr>
+<td><code>period_ms</code></td>
+<td>uint16</td>
+<td>Pulse, blink: 200–60000. 0 for the other modes</td>
+</tr>
+<tr>
+<td><code>loop</code></td>
+<td>bool</td>
+<td>Wipe, rainbow: again and again, rather than once</td>
+</tr>
+</tbody>
+</table>
+<h4 id="the-screen">The screen<a class="headerlink" href="#the-screen" title="Permanent link">&para;</a></h4>
+<p><code>r2.holo.state.Screen.0.1</code>: what <code>GET /api/v1/screen</code> reports.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>showing</code></td>
+<td>uint8</td>
+<td>0 nothing, 1 colour, 2 the calibration crosshair, 3 image, 4 clip (or animated GIF). The host link's status block numbers</td>
+</tr>
+<tr>
+<td><code>backlight</code></td>
+<td>uint8</td>
+<td>Percent, 0–100</td>
+</tr>
+<tr>
+<td><code>colour</code></td>
+<td><code>Colour</code></td>
+<td>When showing a colour: which. Black otherwise</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td>uint16</td>
+<td>A clip: frames in one pass, from its header</td>
+</tr>
+<tr>
+<td><code>shown</code></td>
+<td>uint32</td>
+<td>A clip: frames shown since it started, every pass</td>
+</tr>
+<tr>
+<td><code>passes</code></td>
+<td>uint16</td>
+<td>A clip: times through so far (the JSON API's <code>loops</code>)</td>
+</tr>
+<tr>
+<td><code>plays</code></td>
+<td>uint16</td>
+<td>A clip: times through in all, 1–1000; 0 for forever</td>
+</tr>
+<tr>
+<td><code>fps</code></td>
+<td>float16</td>
+<td>A clip: frames a second, from its header</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td><code>uavcan.file.Path.2.0</code></td>
+<td>An image or a clip: the file. Empty otherwise</td>
+</tr>
+</tbody>
+</table>
+<p>The clip's fields are 0 unless a clip shows.</p>
+<h4 id="the-scene">The scene<a class="headerlink" href="#the-scene" title="Permanent link">&para;</a></h4>
+<p><code>r2.holo.state.Scene.0.1</code>: the scene running to its end, the JSON API's <code>active</code> (<code>GET
+/api/v1/scenes</code>). Only a scene whose <code>then</code> is <code>restore</code> or <code>off</code> runs to an end; a <code>stay</code> scene
+is applied and done, and leaves nothing running.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>running</code></td>
+<td>bool</td>
+<td>A scene is running to its end. Without one the fields below are 0 or empty</td>
+</tr>
+<tr>
+<td><code>then</code></td>
+<td>uint8</td>
+<td>What follows its end: 1 restore, 2 off</td>
+</tr>
+<tr>
+<td><code>until_clip_ends</code></td>
+<td>bool</td>
+<td>It ends when its clip has played</td>
+</tr>
+<tr>
+<td><code>remaining_ms</code></td>
+<td>uint32</td>
+<td>Until its <code>duration_s</code> is up; NEVER when it has none</td>
+</tr>
+<tr>
+<td><code>slot</code></td>
+<td>uint8</td>
+<td>Its <a href="../host-protocol/#scene-slots">slot</a>, 1–255; 0 when it has none</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>uint8[&lt;=32]</td>
+<td>Its name</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event">Event<a class="headerlink" href="#event" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Event.0.1</code>, published on <code>event</code>: one of the board's happenings, the same ones its
+<a href="../http-api/#events">JSON events</a> and the host link's event records carry. Each is published
+once, as it happens, and there is no catching up: a receiver that misses one sees the gap in
+<code>seq</code> (or in Status's <code>event_seq</code>) and reads <a href="#status">Status</a> for what is going on now.</p>
+<p>The board publishes them from its own record of happenings, the one the HTTP API's
+<code>GET /api/v1/events?after=</code> reads, which keeps the last 32: each is sent in turn, oldest first,
+with the number the record gave it, whatever started it (Cyphal, the console, the HTTP API, the
+host link or a scene). Happenings that come together (a scene applied over another can make four
+at once) wait in a queue of 8 for the bus, never replacing one another; if that queue is full, the
+one it refused is offered again a moment later, then at longer intervals while it stays full, and the
+rest are read from the record once it has gone. So none is lost while the record still has it,
+and one it no longer has shows as a jump in <code>seq</code>, as a missed one does. What happened before the
+node went online isn't sent: the first <code>seq</code> after it may be any number. Status's <code>event_seq</code> is
+the latest Event's, once it has gone into that queue.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>seq</code></td>
+<td>uint16</td>
+<td>The board's number for this happening: 1–65535, then 1 again. One count for every happening on the board, shared with the web app and the host link</td>
+</tr>
+<tr>
+<td><code>what</code></td>
+<td>union</td>
+<td>One of the five below</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th><code>what</code></th>
+<th>Fields</th>
+<th>The JSON event</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clip_started</code></td>
+<td><code>plays</code> uint16 (times through in all, 1–1000; 0 forever), <code>frames</code> uint16 (in one pass), <code>fps</code> float16, <code>path</code></td>
+<td><code>clip_started</code></td>
+</tr>
+<tr>
+<td><code>clip_ended</code></td>
+<td><code>finished</code> bool (played to its end; false when something replaced or stopped it), <code>path</code></td>
+<td><code>clip_ended</code></td>
+</tr>
+<tr>
+<td><code>scene_started</code></td>
+<td><code>then</code> uint8 (0 stay, 1 restore, 2 off), <code>until_clip_ends</code> bool, <code>duration_ms</code> uint32 (0 for none), <code>slot</code> uint8 (0 for none), <code>name</code></td>
+<td><code>scene_started</code></td>
+</tr>
+<tr>
+<td><code>scene_ended</code></td>
+<td><code>then</code> uint8, <code>by</code> uint8 (0 its clip played, 1 its time was up, 2 it was ended, 3 replaced), <code>slot</code> uint8, <code>name</code></td>
+<td><code>scene_ended</code></td>
+</tr>
+<tr>
+<td><code>screen_touch</code></td>
+<td><code>action</code> uint8 (0 down, 1 up), <code>x</code>, <code>y</code> uint8 (0–239, from the top left). Only while touch reporting is on</td>
+<td><code>touch</code></td>
+</tr>
+</tbody>
+</table>
+<p>The paths and names are carried whole, as the JSON events carry them, so a receiver needn't ask
+which clip ended. The order is the JSON events' order: a scene's clip starts just before its
+<code>scene_started</code>, and its <code>scene_ended</code> comes before what its <code>then</code> does.</p>
+<h3 id="axes">Axes<a class="headerlink" href="#axes" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Axes.0.1</code>: both axes, in hundredths of a percent of the calibrated travel each side of
+the centre. One frame.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x</code></td>
+<td>int16</td>
+<td>Horizontal: -10000 (closed, full left) to 10000 (open, full right); 0 the middle</td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td>int16</td>
+<td>Vertical: -10000 (full down) to 10000 (full up)</td>
+</tr>
+</tbody>
+</table>
+<p><code>NONE</code>, -32768, is "no value" in either.</p>
+<ul>
+<li><strong>Published on <code>axes</code></strong>: where the board last put each axis. A servo reports nothing back, so
+  this is the position commanded, not one measured. <code>NONE</code> for an axis nothing has moved since
+  the board started.</li>
+<li><strong>Subscribed on <code>setpoint</code></strong>: a direct move. Each setpoint goes to the axes at once, with no
+  easing, and stops the motion running first; the latest wins. <code>NONE</code> leaves that axis where it
+  is. A value beyond ±10000 is held to it. While the holo can't move, a setpoint moves nothing
+  and nothing answers it: <a href="#status">Status</a> says why.</li>
+</ul>
+<p>The board does what the dome panel does for a ROS joint command: the motion running, if any, is
+  stopped (Status then shows <code>stop</code> as the last motion asked for), and each axis given goes
+  straight to its place through the servo layer, the call the holo engine's own moves end in. A
+  setpoint received while the board is still carrying out the one before replaces it. The first
+  setpoint after the board starts, before anything has placed the axes, goes through the engine as
+  a <code>move</code> with no duration instead, so that the engine knows from then on where they are: an axis
+  given as <code>NONE</code> in that one goes to the centre, where the engine takes an axis nothing has placed
+  to be. A <code>move</code> is in whole percent, so once the engine has made it (within 20 ms) the same
+  setpoint goes again the direct way, to its exact place; Status shows that <code>move</code> as the last
+  motion asked for.</p>
+<p>The resolution is finer than the holo's own, so nothing is lost either way: the engine places an
+axis in steps of 0.2 % of the travel each side (20 hundredths of a percent), and the pulse goes out
+in whole microseconds, which over this board's default travel is coarser still (0.27 % on pan,
+0.31 % on tilt). A position published is the pulse sent, read back against the endpoints, so it can
+be up to half a percent short of the setpoint that put the axis there.</p>
+<h2 id="services">Services<a class="headerlink" href="#services" title="Permanent link">&para;</a></h2>
+<p>Every service answers with an <a href="#error">Error</a> as <code>result</code>: <code>code</code> 0 when it was done. A service
+does what the same request over the HTTP API or the host link does, through the same code, with
+the same refusals. A request that opens a file or waits (showing a file, applying a scene) is
+answered when it is done, a few hundred milliseconds at most; while the board is still working
+through the requests already sent to it, another is answered <code>busy</code>.</p>
+<p>Scene, Screen and MediaInfo requests, the <a href="#the-files">file services</a> (and <a href="#commands">identify</a>)
+are carried out one at a time, in the order they came, by a task of their own, so that a still being
+decoded, a file's header being read or the storage volume being busy with an upload never holds up
+the setpoints, Status or the other services. Two at most wait there; a third is answered <code>busy</code> (or,
+for <code>uavcan.file.List</code>, which can't say so, not at all). Motion, Light, Ring and ListScenes requests
+go on meanwhile, so one sent while a Scene or Screen request is still being carried out may be done
+before it: a controller that needs them in order waits for each response.</p>
+<h3 id="motion">Motion<a class="headerlink" href="#motion" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Motion.0.1</code>, on <code>motion</code>: start a motion of the holo, replacing the one running, as
+<code>POST /api/v1/holo/motion</code> and the console's <code>holo</code> do. The request is one field, <code>motion</code>, an
+<code>r2.holo.MotionSpec.0.1</code>; three frames.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td>uint4</td>
+<td>0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off. <code>off</code> stops, lets both axes go limp, and turns the light off: the release. On this board the light is the LED ring, which <code>off</code> turns off (the HTTP API's and the host link's <code>off</code> leave the ring alone)</td>
+</tr>
+<tr>
+<td><code>range</code></td>
+<td>uint7</td>
+<td>Percent of the travel each side of the centre, 1–100. 0: the motion's default, twitch 60, scan 70, wag 50, nod 40, circle 50</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>uint5</td>
+<td>Wag, nod: cycles; circle: turns. 1–20. 0: wag 3, nod 2, circle 1</td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td>int16</td>
+<td>Move: −100 to 100, percent of the way from the centre to an endpoint, + right. Nudge: −200 to 200, relative. Needed by move and nudge</td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td>int16</td>
+<td>As <code>x</code>; + is up</td>
+</tr>
+<tr>
+<td><code>period_ms</code></td>
+<td>uint16</td>
+<td>A cycle of wag, nod, a turn of circle, a sweep of scan there and back: 200–60000. 0: wag 700, nod 800, circle 2400, scan 6000</td>
+</tr>
+<tr>
+<td><code>interval_min_ms</code>, <code>interval_max_ms</code></td>
+<td>uint20</td>
+<td>Twitch: the pause between glances, chosen between the two: each 100–600000, min no more than max. Both 0: 1000 to 5000. Both or neither</td>
+</tr>
+<tr>
+<td><code>time_limit_ms</code></td>
+<td>uint22</td>
+<td>Twitch, scan: stop, and hold, after this long: 100–3600000. 0: no limit. A timed scan doesn't stop yet, over Cyphal, the console or the HTTP API alike: a fault in the shared holo engine, which looks at the time only between a motion's segments, and a scan has no gap between them</td>
+</tr>
+<tr>
+<td><code>duration_ms</code></td>
+<td>uint16[&lt;=1]</td>
+<td>Center, move, nudge: how long to take, 0–10000; 0 is at once. Empty: by the distance, 250 ms and 500 ms more for each half of the travel</td>
+</tr>
+</tbody>
+</table>
+<p>A field the motion doesn't use is ignored, whatever it holds. The odd widths are the ranges', to
+keep the request to three frames.</p>
+<p>The board checks and starts the motion with the code <code>POST /api/v1/holo/motion</code> runs once it has
+read its JSON, as the host link's requests do: the fields the motion uses, the times in seconds as
+the route's <code>interval_s</code> and <code>time_s</code> are, and nothing else. So a motion is checked and refused as
+one over HTTP is, in the same words, which name the JSON API's fields:</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td>A field out of range: <code>`range` is 1..100</code>, <code>`x` and `y` for move are -100..100</code>, <code>`interval_s` is [min, max], each 0.1..600, min first</code> (one of the twitch's interval fields alone, or min over max), <code>`time_s` is 0.1..3600</code>. A <code>kind</code> that is none: <code>`motion` is center, move, nudge, twitch, wag, nod, scan, circle,</code> (the JSON API's words, cut, as every message is, to 64 bytes)</td>
+</tr>
+<tr>
+<td>not ready</td>
+<td>The holo can't move: <code>result.reason</code> says why (not fitted, uncalibrated) and which axis, and <code>result.message</code> says it in words: <code>holo: refused, uncalibrated (tilt)</code></td>
+</tr>
+<tr>
+<td>busy</td>
+<td>The board is still working through four earlier requests: send it again</td>
+</tr>
+</tbody>
+</table>
+<p>Nothing moves when a motion is refused. <code>stop</code> and <code>off</code> are never refused for the holo's state.
+This board moves an axis without saved endpoints over its default travel
+(<a href="../../use/holo/#calibrating-the-travel">the holo</a>), so it never refuses one as uncalibrated: only an
+axis whose servo didn't attach is refused, as not fitted.</p>
+<h3 id="light">Light<a class="headerlink" href="#light" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Light.0.1</code>, on <code>light</code>: the holo's light, with the modes a dome panel's own holos have.
+On this board the light is the LED ring: <code>on</code> is the ring's solid, the others are the ring's modes
+of the same names, and Status's <code>ring</code> shows the result.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>uint8</td>
+<td>0 off, 1 on, 2 pulse, 3 flicker, 4 blink, 5 leia</td>
+</tr>
+<tr>
+<td><code>period_ms</code></td>
+<td>uint16</td>
+<td>Pulse, blink: 200–60000. 0: pulse 2000, blink 1000</td>
+</tr>
+<tr>
+<td><code>time_limit_ms</code></td>
+<td>uint22</td>
+<td>100–3600000: a timed mode, after which the ring goes back to what it was doing (mode, colour and level; Light never changes the ring's brightness). 0: for good; for leia, 30 s</td>
+</tr>
+<tr>
+<td><code>level</code></td>
+<td>uint8[&lt;=1]</td>
+<td>Percent, 0–100: the share of the ring's brightness this mode lights at (0 lights nothing). Empty: 100. Ignored for off and leia</td>
+</tr>
+<tr>
+<td><code>colour</code></td>
+<td><code>Colour</code>[&lt;=1]</td>
+<td>The ring's colour for this mode. Empty: the colour it has now (white if it has never had one)</td>
+</tr>
+</tbody>
+</table>
+<p>The level is a share of the ring's brightness (<code>leds bright</code>, the board's settings), not a
+brightness of its own: so the light at full is the ring at the brightness the user set, which
+keeps a ring powered from the board within its limit (<a href="../../use/leds/#brightness">the LED page</a>)
+whatever a controller asks for. Status's <code>ring</code> shows the product, the brightness the ring lights at.</p>
+<p>The board runs the code <code>PATCH /api/v1/leds</code> runs, with the same checks and words: a mode with its
+colour if given, the level (100 if not given), a pulse's or a blink's period, and <code>time_s</code> for a time
+limit (the <a href="../../use/leds/#the-holos-light">LED page</a> has the same from the console).</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td><code>`level` is 0..100</code>, <code>`period_ms` is 200..60000</code>, <code>`time_s` is 0.1..3600</code> (a time limit under 100 ms or over an hour), or a mode that is none: <code>`mode` is off, on, pulse, flicker, blink or leia</code></td>
+</tr>
+<tr>
+<td>busy</td>
+<td>The board is still working through four earlier requests</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Leia</strong> is the message from Leia: the light flickers at full for the time limit and then goes
+back to what it was doing, and the holo turns to the centre if it can. The light half always
+runs. The response's <code>centred</code> (bool) says whether the centre did too; when it didn't,
+<code>result.code</code> is still 0 and <code>result.reason</code> and <code>result.message</code> give the centre's refusal. The
+flicker is at level 100 in the colour given, or the ring's own; the centre is the motion route's
+<code>center</code>, at its default pace, so Status shows <code>center</code> as the last motion asked for. A time limit out
+of range refuses the whole request, before either half runs.</p>
+<p>Another light or ring command during a timed mode replaces it, and the wait ends.</p>
+<h3 id="scene">Scene<a class="headerlink" href="#scene" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Scene.0.1</code>, on <code>scene</code>: apply a saved scene, or end the one running to its end, as
+<code>POST /api/v1/scenes/apply</code> and <code>/scenes/end</code> and the host link's <code>SCENE</code> and <code>END</code> do.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>action</code></td>
+<td>uint8</td>
+<td>0 apply, 1 end</td>
+</tr>
+<tr>
+<td><code>slot</code></td>
+<td>uint8</td>
+<td>Apply: the scene's slot, 1–255; 0 to apply it by <code>name</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>uint8[&lt;=32]</td>
+<td>Apply with slot 0: the scene's name</td>
+</tr>
+</tbody>
+</table>
+<p>The board loads the scene saved with that slot or name and applies it with the code
+<code>POST /api/v1/scenes/apply</code> runs; end is <code>POST /api/v1/scenes/end</code>'s. The refusals carry the HTTP API's
+words:</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td><code>action</code> is none (<code>`action` is 0 (apply) or 1 (end)</code>); apply with slot 0 and no name (<code>give `slot` (1..255), or `name` with slot 0</code>); a name that can't be a scene's (<code>give `name`: 1-32 letters, digits, spaces, _ . and -</code>)</td>
+</tr>
+<tr>
+<td>not found</td>
+<td>No scene with that slot (<code>no scene with slot 7</code>) or name (<code>no scene 'cantina'</code>); for end, no scene running to its end (<code>no scene is running to its end</code>)</td>
+</tr>
+<tr>
+<td>not playable</td>
+<td>Its screen part can't be shown, its file missing included (<code>screen: no such file: /clips/a.mov</code>)</td>
+</tr>
+<tr>
+<td>not ready</td>
+<td>Its holo motion can't run</td>
+</tr>
+</tbody>
+</table>
+<p>A part that fails stops the parts after it: the screen, then the LEDs, then the holo. A scene
+applied starts and ends as one applied any other way: <a href="#event">Event</a> carries its <code>scene_started</code>,
+and its <code>scene_ended</code> with why it ended; <a href="#status">Status</a>'s <code>scene</code> shows it while it runs to its
+end.</p>
+<h3 id="screen">Screen<a class="headerlink" href="#screen" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Screen.0.1</code>, on <code>screen</code>: what the screen shows, and its backlight, as
+<code>POST /api/v1/screen/show</code>, <code>DELETE /api/v1/screen</code> and <code>PATCH /api/v1/screen</code> do.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>show</code></td>
+<td>uint8</td>
+<td>0 leave what shows, 1 a file, 2 a colour, 3 the calibration crosshair, 4 nothing (a clip stops; the panel sleeps with its backlight off)</td>
+</tr>
+<tr>
+<td><code>loop</code></td>
+<td>bool</td>
+<td>A file that is a clip or an animation: play it forever. Not with <code>loops</code></td>
+</tr>
+<tr>
+<td><code>loops</code></td>
+<td>uint16</td>
+<td>A clip or an animation: play it this many times, 1–1000. 0: a clip once, an animated GIF as the file says</td>
+</tr>
+<tr>
+<td><code>whole_frame</code></td>
+<td>bool</td>
+<td>A file: decode each frame whole, rather than streamed in blocks</td>
+</tr>
+<tr>
+<td><code>colour</code></td>
+<td><code>Colour</code></td>
+<td>A colour: which</td>
+</tr>
+<tr>
+<td><code>backlight</code></td>
+<td>uint8[&lt;=1]</td>
+<td>Percent, 0–100, until the board next starts. Empty: as it is. With <code>show</code> 0, this is all the request does</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td><code>uavcan.file.Path.2.0</code></td>
+<td>A file: a QuickTime Motion-JPEG clip (<code>.mov</code>), a PNG, a baseline JPEG or a GIF</td>
+</tr>
+</tbody>
+</table>
+<p>The board runs the code <code>POST /api/v1/screen/show</code> runs for a file, a colour or the crosshair,
+<code>DELETE /api/v1/screen</code>'s for nothing, and then, if <code>backlight</code> is given, <code>PATCH /api/v1/screen</code>'s.
+The file is checked before the response, so a refusal means the screen didn't change, and the
+backlight is set only once what shows has been done. <code>show</code> 0 with no backlight changes nothing,
+and is answered ok. A path is taken as the HTTP API takes it: from the root of the volume, at most
+159 bytes (of the 255 the type has room for), or with the volume's own root in front
+(<code>/data/clips/intro.mov</code>).</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td>A path the board refuses (<code>'..' is not allowed in a path: /../a.png</code>, <code>a path may be at most 159 bytes</code>, <code>a path starts with /, …</code>, a control character or a NUL in it), <code>loop</code> with <code>loops</code> (<code>give `loop` (forever) or `loops` (a number of times), not both</code>), <code>loops</code> over 1000, <code>backlight</code> over 100 (<code>`backlight` is 0..100</code>), a <code>show</code> that is none</td>
+</tr>
+<tr>
+<td>not found</td>
+<td>No such file (<code>no such file: /clips/a.mov</code>)</td>
+</tr>
+<tr>
+<td>not playable</td>
+<td>A file it can't show: the codec, the size, not a clip or an image. The message says which, as the HTTP API's does (<code>/big.png: 400x300 is larger than the 240x240 screen</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ring">Ring<a class="headerlink" href="#ring" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Ring.0.1</code>, on <code>ring</code>: the LED ring, as <code>PATCH /api/v1/leds</code> and the host link's <code>LEDS</code>
+do. Send only what changes: a new mode starts it from its beginning, a new colour or loop alone
+restarts the mode running with it, and the brightness applies at once, until the board next
+starts. A request with nothing in it changes nothing.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>uint8[&lt;=1]</td>
+<td>0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink. Empty: the mode running</td>
+</tr>
+<tr>
+<td><code>colour</code></td>
+<td><code>Colour</code>[&lt;=1]</td>
+<td>For every mode but off and rainbow. Empty: the colour it has (white if it has never had one)</td>
+</tr>
+<tr>
+<td><code>loop</code></td>
+<td>bool[&lt;=1]</td>
+<td>Wipe, rainbow: again and again, or once. Empty: once with a new mode; without one, as it is</td>
+</tr>
+<tr>
+<td><code>brightness</code></td>
+<td>uint8</td>
+<td>Percent, 1–100. 0: as it is</td>
+</tr>
+<tr>
+<td><code>period_ms</code></td>
+<td>uint16</td>
+<td>Pulse, blink: 200–60000. 0: pulse 2000, blink 1000</td>
+</tr>
+</tbody>
+</table>
+<p>The board runs the code <code>PATCH /api/v1/leds</code> runs, with what the request gives and nothing else, as
+the host link's <code>LEDS</code> does. <code>brightness</code> is the ring's own brightness (<code>leds bright</code>, <code>GET
+/api/v1/leds</code>'s <code>brightness</code>), the one <a href="#light">Light</a>'s level is a share of: Ring never sets a level.
+A new mode starts at level 100, so it undoes a Light's level; a colour, a loop or a period alone
+keeps the level the ring has, as <code>PATCH /api/v1/leds</code> does. Status's ring shows the product.</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td><code>`mode` is off, solid, wipe, rainbow, flicker, pulse or blink</code> (a mode over 6), <code>`brightness` is 1..100</code>, <code>`period_ms` is 200..60000</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="listscenes">ListScenes<a class="headerlink" href="#listscenes" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.ListScenes.0.1</code>, on <code>list_scenes</code>: the saved scenes, one a call. Ask for <code>index</code> 0, 1,
+2… until the name comes back empty, as <code>uavcan.register.List</code> lists registers. The order is the
+order they were first saved in (<code>GET /api/v1/scenes</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>index</code></td>
+<td>uint8</td>
+<td>The request: 0-based</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>uint8</td>
+<td>Scenes saved, 0–16. A save or a delete between calls shifts the list, and this shows it</td>
+</tr>
+<tr>
+<td><code>slot</code></td>
+<td>uint8</td>
+<td>The scene's slot; 0 when it has none</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>uint8[&lt;=32]</td>
+<td>Its name; empty once <code>index</code> reaches <code>count</code></td>
+</tr>
+</tbody>
+</table>
+<p>The board counts its saved scenes by their stored lengths alone, in <code>GET /api/v1/scenes</code>' order, and
+reads and parses only the one asked for, so a call costs about the same whatever its index. <code>result</code>
+is ok, or <code>busy</code> with the board's queue full, or with the scenes not readable at that moment (<code>busy:
+the scenes can't be read now</code>); <code>count</code> is then 0. A saved scene that doesn't parse, which only a
+restored backup could bring (the board checks a scene before saving it), is counted, and answered
+<code>busy</code> at its index; <code>GET /api/v1/scenes</code> leaves it out instead.</p>
+<h3 id="mediainfo">MediaInfo<a class="headerlink" href="#mediainfo" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.MediaInfo.0.1</code>, on <code>media_info</code>: a clip's or an image's details from its header,
+without showing it, as <code>GET /api/v1/media/info</code> gives them. <strong>Optional</strong>: for a controller that
+needs more than the names and sizes <code>uavcan.file.List</code> and <code>uavcan.file.GetInfo</code> give.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td><code>uavcan.file.Path.2.0</code></td>
+<td>The request</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>uint8</td>
+<td>0 not a clip or an image, 1 clip, 2 image, 3 animation</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>uint8</td>
+<td>0 none, 1 <code>mov</code>, 2 PNG, 3 JPEG, 4 GIF</td>
+</tr>
+<tr>
+<td><code>width</code>, <code>height</code></td>
+<td>uint16</td>
+<td>Pixels</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td>uint16</td>
+<td>A clip or an animation: in one pass; 1 for an image</td>
+</tr>
+<tr>
+<td><code>fps</code></td>
+<td>float16</td>
+<td>A clip or an animation; 0 for an image</td>
+</tr>
+<tr>
+<td><code>duration_ms</code></td>
+<td>uint32</td>
+<td>A clip or an animation: one pass; 0 for an image</td>
+</tr>
+</tbody>
+</table>
+<p><code>result.code</code> is 0 when the board can show it. A file it can't show is not playable, with why in
+the message, and still described when it is a kind the board knows. (The HTTP API answers that
+case with 200 and <code>playable: false</code>.) No such file is not found.</p>
+<p>The board reads the file's header with the code <code>GET /api/v1/media/info</code> runs, with its checks and
+words:</p>
+<table>
+<thead>
+<tr>
+<th><code>result.code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bad request</td>
+<td>No path (<code>give `path`, from the root of the volume: /clips/intro.mov</code>), or one the board refuses, in the HTTP API's words (<code>'..' is not allowed in a path: /../a.png</code>)</td>
+</tr>
+<tr>
+<td>not found</td>
+<td><code>no such file or directory: /clips/a.mov</code></td>
+</tr>
+<tr>
+<td>not playable</td>
+<td><code>&lt;path&gt;: &lt;why&gt;</code>, the words of the HTTP API's <code>why</code> (<code>/big400.png: 400x300 is larger than the 240x240 screen</code>), cut to 64 bytes; a file that is no clip or image at all (<code>/notes.txt: not a clip or an image (.mov, .png, .jpg, .gif)</code>), and a directory, with <code>kind</code> 0 and every field 0</td>
+</tr>
+<tr>
+<td>busy</td>
+<td>The second worker already holds two requests</td>
+</tr>
+</tbody>
+</table>
+<p>An image is 1 frame, 0 fps and 0 ms, a GIF of one frame among them. Reading a header can take a
+while (a JPEG is read whole, and a GIF's every frame is looked at), so MediaInfo is carried out with
+Scene and Screen requests, by the second worker, never holding up the setpoints: on the bench a
+median of 16 ms over the 45 clips and images in the board's tree, 125 ms for an 837 KB GIF of 30
+frames. What a header is read into is PSRAM first, so a MediaInfo takes little of the internal
+RAM a playing clip needs (4 to 9 KB, where it took up to 29 KB before 2026-11-21: the GIF decoder,
+the clip's tables, the JPEG's bytes and libpng's state; a JPEG's decoder stays in internal RAM).</p>
+<h3 id="the-files">The files<a class="headerlink" href="#the-files" title="Permanent link">&para;</a></h3>
+<p><code>uavcan.file.List.0.2</code> (service 406) and <code>uavcan.file.GetInfo.0.2</code> (405), the standard services,
+over the board's storage volume: what <code>fs ls</code> and the HTTP API's <code>/api/v1/media</code> see. Nothing on
+Cyphal writes, moves or deletes a file: there is no <code>uavcan.file.Read</code>, <code>Write</code> or <code>Modify</code>.</p>
+<p><strong>Paths</strong> are from the volume's root, <code>/</code>, as in the rest of this interface and in the HTTP API, with
+its rules (at most 159 bytes, no <code>..</code>, no empty part; the volume's own root in front is taken too).
+An empty path is the root as well, and a <code>/</code> at the end of a directory's path, as <code>uavcan.file.Path</code>'s
+convention has it, is optional.</p>
+<p><strong>List</strong> gives a directory's entries one a call: <code>entry_index</code> 0, 1, 2… until <code>entry_base_name</code>
+comes back empty. They are in byte order of their names, directories among them, each with a <code>/</code>
+after its name, so a client tells them apart without a <code>GetInfo</code>: the order the storage volume
+(littlefs) keeps a directory in, and so the order <code>fs ls</code> prints and <code>GET /api/v1/media</code> walks. A
+directory that doesn't exist, a path that is a file or that the board refuses, and an index past the
+last all give the empty name: the type has no other answer. A call reads the directory's names up to
+its index, about 0.1 ms an entry on the board: on the bench, the root's 44 entries (43 files and a
+directory) took 3.8 ms a call at index 0 and 8.4 ms at index 43, from a computer, against 3.5 ms for
+a <code>uavcan.node.GetInfo</code>. An entry added or removed between two calls shifts the ones after it, as the
+type warns.</p>
+<p><strong>GetInfo</strong> gives an entry's details:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>On this board</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>error</code></td>
+<td><code>OK</code>; <code>NOT_FOUND</code> (2) for no such file or directory; <code>INVALID_VALUE</code> (22) for a path the board refuses; <code>IO_ERROR</code> (5) for anything else, and when the board's queue of requests is full (try again)</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>Bytes; 0 for a directory</td>
+</tr>
+<tr>
+<td><code>unix_timestamp_of_last_modification</code></td>
+<td>When the file was last written, if the board's clock had been set by then (from the network); 0 otherwise</td>
+</tr>
+<tr>
+<td><code>is_file_not_directory</code></td>
+<td>As it says</td>
+</tr>
+<tr>
+<td><code>is_link</code></td>
+<td>Always false</td>
+</tr>
+<tr>
+<td><code>is_readable</code></td>
+<td>True</td>
+</tr>
+<tr>
+<td><code>is_writeable</code></td>
+<td>False: nothing on Cyphal writes a file</td>
+</tr>
+</tbody>
+</table>
+<p>Both are carried out by the second worker, with Scene, Screen and MediaInfo requests, since either
+waits for the storage volume, which an upload over Wi-Fi holds through each write (on the bench, during
+a 1 MB upload, a List of the root's last entry took 82 ms in the median and up to half a second); so
+one may wait behind a MediaInfo or a still being shown. A <code>GetInfo</code> takes about 1.5 ms on the board at
+rest. With the board's queue full, <code>GetInfo</code> answers <code>IO_ERROR</code>, and List isn't answered at all: its
+empty name would read as the end of the list, and it carries no count, so the client times out and
+asks again.</p>
+<h2 id="error">Error<a class="headerlink" href="#error" title="Permanent link">&para;</a></h2>
+<p><code>r2.holo.Error.0.1</code>, the <code>result</code> of every service. <code>code</code> is the host link's
+<a href="../host-protocol/#replies">status</a>, with the same numbers. A busy answer's message is
+<code>busy: the board is still working through earlier requests</code> (four of them, or for Scene, Screen and
+MediaInfo, two of those):</p>
+<table>
+<thead>
+<tr>
+<th><code>code</code></th>
+<th>Name</th>
+<th>The JSON errors it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>ok</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1</td>
+<td>bad request</td>
+<td><code>bad_request</code>, <code>bad_path</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>not found</td>
+<td><code>not_found</code>, <code>unknown_scene</code>, <code>not_running</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>not playable</td>
+<td><code>not_playable</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>not ready</td>
+<td><code>not_ready</code>: the holo can't move</td>
+</tr>
+<tr>
+<td>5</td>
+<td>busy</td>
+<td><code>busy</code>, and the board's queue of Cyphal requests full: try again</td>
+</tr>
+<tr>
+<td>6</td>
+<td>failed</td>
+<td>Anything else</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>uint8</td>
+<td>Above</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td><a href="#reason">Reason</a></td>
+<td>With not ready: why, and the axis. With ok: only for a leia whose centre was refused. NONE otherwise</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>uint8[&lt;=64]</td>
+<td>The JSON error's message, word for word, cut to 64 bytes. Empty with ok, except as <code>reason</code> says</td>
+</tr>
+</tbody>
+</table>
+<p>A response that is ok is 3 bytes, one frame (4 for Light).</p>
+<h3 id="reason">Reason<a class="headerlink" href="#reason" title="Permanent link">&para;</a></h3>
+<p><code>r2.holo.Reason.0.1</code>, one byte: the holo engine's reasons, with the words the console and the JSON
+API use.</p>
+<table>
+<thead>
+<tr>
+<th><code>why</code></th>
+<th>Means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>None</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>not fitted</code>: the axis's servo isn't there</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>not armed</code> (no arm switch on this board)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>uncalibrated</code>: the axis has no saved endpoints and the holo needs them</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>unknown axis</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>no light</code> (never on this board, whose ring is its light)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Another reason: the message says</td>
+</tr>
+</tbody>
+</table>
+<p><code>axis</code>: 0 none in particular, 1 horizontal (<code>pan</code>), 2 vertical (<code>tilt</code>), 3 the light's channel
+(a panel's holo only).</p>
+<h2 id="registers">Registers<a class="headerlink" href="#registers" title="Permanent link">&para;</a></h2>
+<p>Read and written with <code>uavcan.register.Access</code> and listed with <code>uavcan.register.List</code>, by any
+Cyphal tool. The console's <code>cyphal register</code> reads and writes the same table, with the same
+checks. Every mutable register is saved on the board, in NVS, as soon as it is written, and is part
+of a <a href="../../use/backup/">backup</a>; none holds a credential. <code>List</code> gives them in the order of the
+tables below: the node's three, then each port's <code>.id</code> and <code>.type</code>, then the holo's seven.</p>
+<p>A write the board can't take leaves the register as it was, and the response, which always carries
+the register's value after the write, shows it: a value out of range or not a name, one of another
+type, a port number another port has (<a href="#port-numbers-in-use">below</a>), or a <code>.type</code> register. A
+number of another type is taken when it converts exactly (a <code>natural8</code>, an <code>integer64</code> or a
+<code>real32</code> 52 all write 52 to <code>uavcan.node.id</code>), and the name takes <code>unstructured</code> bytes as well as a
+string. A register that doesn't exist reads empty, and a write to
+one does nothing. The board's log says what was written and by which node, or why it wasn't. While
+the board is still writing earlier requests (four at once), another write is answered with the
+register as it is, unwritten: send it again.</p>
+<p><strong>The node:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Register</th>
+<th>Type</th>
+<th>Values</th>
+<th>Default</th>
+<th>Flags</th>
+<th>Takes effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uavcan.node.id</code></td>
+<td>natural16[1]</td>
+<td>0–127, or 65535 for plug-and-play. Anything else is refused</td>
+<td>65535</td>
+<td>mutable, persistent</td>
+<td>When the node next starts</td>
+</tr>
+<tr>
+<td><code>r2.node.name</code></td>
+<td>string</td>
+<td>The name <code>GetInfo</code> reports: 1–50 characters, <a href="../../use/cyphal/#the-name">as <code>cyphal name</code> takes it</a></td>
+<td><code>r2.dome.holo.front</code></td>
+<td>mutable, persistent</td>
+<td>When the node next starts</td>
+</tr>
+<tr>
+<td><code>uavcan.can.bitrate</code></td>
+<td>natural32[2]</td>
+<td>The first value is the bitrate: 125000, 250000, 500000 or 1000000. The second (CAN FD's data phase) is ignored, and reads back as the first</td>
+<td>[1000000, 1000000]</td>
+<td>mutable, persistent</td>
+<td>When the node next starts</td>
+</tr>
+</tbody>
+</table>
+<p>These are the settings <code>cyphal id</code>, <code>cyphal name</code> and <code>cyphal bitrate</code> change: either way
+changes both. The name isn't <code>uavcan.node.description</code>: that standard register is a free-text
+note that doesn't change what <code>GetInfo</code> reports, and this one does.</p>
+<p><strong>The ports</strong>, one pair a port name (<code>status</code>, <code>event</code>, <code>axes</code>, <code>setpoint</code>, <code>motion</code>, <code>light</code>,
+<code>scene</code>, <code>screen</code>, <code>ring</code>, <code>list_scenes</code>, <code>media_info</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Register</th>
+<th>Type</th>
+<th>Values</th>
+<th>Default</th>
+<th>Flags</th>
+<th>Takes effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uavcan.pub.&lt;name&gt;.id</code>, <code>uavcan.sub.&lt;name&gt;.id</code>, <code>uavcan.srv.&lt;name&gt;.id</code></td>
+<td>natural16[1]</td>
+<td>A subject-ID 0–8191 or a service-ID 0–511; 65535 turns the port off</td>
+<td>The <a href="#the-nodes-ports">default</a></td>
+<td>mutable, persistent</td>
+<td>When the node next starts</td>
+</tr>
+<tr>
+<td><code>uavcan.pub.&lt;name&gt;.type</code>, and so on</td>
+<td>string</td>
+<td>The type, <code>r2.holo.Status.0.1</code></td>
+<td>—</td>
+<td>immutable, persistent</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>So <code>uavcan.pub.status.id</code> is 2300 until written, and <code>uavcan.srv.motion.type</code> reads
+<code>r2.holo.Motion.0.1</code>. The <code>.type</code> registers let a tool such as Yakut call a service by its port
+name. The standard suggests 65535 as every port's default; the board starts with working
+defaults instead, so it can be used without configuring anything. The special registers for a
+register's minimum, maximum and default (<code>&lt;name&gt;&lt;</code>, <code>&lt;name&gt;&gt;</code>, <code>&lt;name&gt;=</code>) aren't provided.</p>
+<p><a id="port-numbers-in-use"></a><strong>A number belongs to one port.</strong> Subject-IDs are one set,
+published and subscribed alike (a subscription on a subject the board publishes would take other
+nodes' messages of that type for its own), and service-IDs another. Within each, a number is one
+of the node's own fixed ports' (subjects 7509, 7510 and 8166, services 384, 385, 405, 406, 430 and 435) or
+one <code>r2.holo</code> port's, never two: a write of a number another port has is refused with the port that
+has it ("subject 2301 is uavcan.pub.event.id's"), and the register keeps its value. A subject and a
+service may share a number, and any number of ports may be off (65535). So two ports swap through a
+free number, or through off. A saved number that breaks the rule anyway, which only a configuration
+from elsewhere can bring (a backup from another firmware), turns the later port in the table off as
+the board starts, with a warning in its log; its register then reads 65535.</p>
+<p><strong>The holo:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Register</th>
+<th>Type</th>
+<th>Values</th>
+<th>Default</th>
+<th>Flags</th>
+<th>Takes effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>r2.holo.horizontal.endpoints_us</code>, <code>r2.holo.vertical.endpoints_us</code></td>
+<td>natural16[2]</td>
+<td>Closed, then open, in µs, each within the servo's absolute range (1000–2000 on this board) and not equal; closed above open turns the axis round. [0, 0] goes back to the firmware's default range, and clears the drive policy with it</td>
+<td><code>[1150, 1900]</code>, <code>[1300, 1950]</code>: the default range, not saved</td>
+<td>mutable, persistent</td>
+<td>At once: the next motion uses them</td>
+</tr>
+<tr>
+<td><code>r2.holo.horizontal.release</code>, <code>r2.holo.vertical.release</code></td>
+<td>bit[3]</td>
+<td>The drive policy, for the closed end, the open end and between (the ends are 2 % of the travel wide): true lets the servo go once it has settled, false keeps driving it</td>
+<td><code>[false, false, false]</code></td>
+<td>mutable, persistent</td>
+<td>At the servo's next frame</td>
+</tr>
+<tr>
+<td><code>r2.holo.horizontal.settle_ms</code>, <code>r2.holo.vertical.settle_ms</code></td>
+<td>natural16[1]</td>
+<td>How long a command is driven before a release takes effect: 0–65535, under 100 raised to 100</td>
+<td><code>100</code></td>
+<td>mutable, persistent</td>
+<td>At once</td>
+</tr>
+<tr>
+<td><code>r2.touch.reporting</code></td>
+<td>bit[1]</td>
+<td>Touch events on or off</td>
+<td><code>false</code> (<code>true</code> in a build with <code>BOARD_TOUCH_AUTOSTART</code>)</td>
+<td>mutable, persistent</td>
+<td>At once, and at every start</td>
+</tr>
+</tbody>
+</table>
+<p>The endpoints are the ones <code>holo endpoints</code> sets, and the drive policy the one the web app and
+<code>PUT /api/v1/servos/policy</code> set: the same saved values, the servos' own, so a change either way shows
+the other way. Two rules come with them from the servos: clearing the endpoints (<code>[0, 0]</code>, as <code>holo
+endpoints &lt;axis&gt; clear</code> and <code>DELETE /api/v1/servos/calibration</code> do) clears the drive policy too, back
+to holding everywhere and 100 ms; and a drive policy once saved has a settle time of 100 ms at
+least, so a <code>release</code> written over a policy never saved also saves 100 ms. Status's <code>horizontal</code> and
+<code>vertical</code> say whether each axis is calibrated and turned round. An axis whose servo isn't fitted reads
+<code>[0, 0]</code>, <code>[false, false, false]</code> and 0, and refuses a write (<code>the axis has no servo (not fitted)</code>). A
+refused write keeps the register as it was, with the reason on the console (<code>closed and open are each
+1000 to 2000 us, and not the same; [0, 0] goes back to the default range</code>, <code>a settle time is 0 to 65535
+ms</code>).</p>
+<p>A read of these six over Cyphal is carried out by the node's worker, as a write is, from the servos
+themselves (reading them can wait on a save in progress, which the node's own task mustn't): a change
+made on the console or over HTTP reads over Cyphal at once. With the board's queue of requests full,
+such a read isn't answered (<code>uavcan.register.Access</code> has no way to say busy), and the client asks
+again.</p>
+<p><code>r2.touch.reporting</code> is one of the board's <a href="../http-api/#settings">settings</a>: the same one as
+<code>touch.reporting</code> in <code>/api/v1/settings</code> and the console's <code>settings touch</code>. A write turns touch
+reporting on or off at once and saves it, so that a controller sets it once, and the board starts
+with touch reporting on or off as it says; <code>DELETE /api/v1/settings</code> and a factory reset put it back to
+its default. <code>touch on</code> and <code>touch off</code> on the console change it for the moment without saving; the
+register reads what is in effect, so after a <code>touch off</code> it reads false until it is written or the
+board restarts. It isn't a credential or an identity, so it is in a backup (NVS <code>holo_cfg</code>, <code>touch</code>,
+with the board's other settings).</p>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<p><code>uavcan.node.ExecuteCommand.1.3</code>, on service 435:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Number</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Restart</td>
+<td>65535</td>
+<td>Restarts the board a second after the response (by when it has gone). The node comes back with the registers as they now are</td>
+</tr>
+<tr>
+<td>Factory reset</td>
+<td>65532</td>
+<td>The node's registers back to their defaults (the node-ID, name and bitrate, every port), as <code>cyphal reset</code> does, and the board's <a href="../http-api/#settings">settings</a> to theirs (the boot scene, the backlight, the LEDs' brightness and count, touch reporting, which is the register <code>r2.touch.reporting</code>), as <code>DELETE /api/v1/settings</code> does; then a restart, a second after the response. Kept: the scenes, the files, the servos' calibration and drive policy (their registers keep their values), the network and the web app's settings, and the host link's mode and pins, so the node is still on the bus afterwards, asking for a node-ID by plug-and-play</td>
+</tr>
+<tr>
+<td>Identify</td>
+<td>65529</td>
+<td>The ring blinks white, once a second, and the screen shows the crosshair for 5 seconds, then both go back to what they were doing</td>
+</tr>
+<tr>
+<td>Store persistent states</td>
+<td>65530</td>
+<td>Nothing to do: every register is saved when it is written. Answers success</td>
+</tr>
+<tr>
+<td>Anything else</td>
+<td></td>
+<td>Refused: bad command. Power off, begin software update and emergency stop included</td>
+</tr>
+</tbody>
+</table>
+<p>A response's <code>status</code> is success when the command was taken, before a restart; failure when the
+board is still working through four earlier requests, or for identify, which is carried out with the
+Scene and Screen requests, two of those (send it again); internal error if a
+factory reset couldn't save, in which case nothing is reset (what was saved before is put back) and
+the board doesn't restart. <code>output</code> is always empty.</p>
+<p>Identify is a five-second scene, <code>identify</code>, applied as a scene of the board's own would be:
+the web app, the HTTP API's <code>GET /api/v1/scenes</code> and the events show it running, and it ends a
+scene that is running to its end. At its end the screen, the ring and the holo go back to what
+they were doing before it, as with any scene whose <code>then</code> is <code>restore</code> (a twitch or a scan starts
+again; a clip on its way to its end doesn't), or, if it ended a scene that restores, to what that
+scene would have restored.</p>
+<h2 id="sizes-and-bus-load">Sizes and bus load<a class="headerlink" href="#sizes-and-bus-load" title="Permanent link">&para;</a></h2>
+<p>Each type's size, from its definition ("least" with every variable-length field empty). A frame
+is about 130 bits on the wire, so 130 µs at 1 Mbit/s.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Least: bytes, frames</th>
+<th>Worst case: bytes, frames</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Status</code></td>
+<td>86, 13</td>
+<td>375, 54</td>
+</tr>
+<tr>
+<td><code>Event</code></td>
+<td>5, 1</td>
+<td>265, 39</td>
+</tr>
+<tr>
+<td><code>Axes</code></td>
+<td>4, 1</td>
+<td>4, 1</td>
+</tr>
+<tr>
+<td><code>Motion</code> request</td>
+<td>17, 3</td>
+<td>19, 3</td>
+</tr>
+<tr>
+<td><code>Light</code> request</td>
+<td>8, 2</td>
+<td>12, 2</td>
+</tr>
+<tr>
+<td><code>Scene</code> request</td>
+<td>3, 1</td>
+<td>35, 6</td>
+</tr>
+<tr>
+<td><code>Screen</code> request</td>
+<td>9, 2</td>
+<td>265, 39</td>
+</tr>
+<tr>
+<td><code>Ring</code> request</td>
+<td>6, 1</td>
+<td>11, 2</td>
+</tr>
+<tr>
+<td><code>ListScenes</code> request, response</td>
+<td>1, 1; 6, 1</td>
+<td>1, 1; 102, 15</td>
+</tr>
+<tr>
+<td><code>MediaInfo</code> request, response</td>
+<td>1, 1; 17, 3</td>
+<td>256, 37; 81, 12</td>
+</tr>
+<tr>
+<td><code>uavcan.file.List</code> request, response</td>
+<td>9, 2; 5, 1</td>
+<td>264, 38; 260, 38</td>
+</tr>
+<tr>
+<td><code>uavcan.file.GetInfo</code> request, response</td>
+<td>1, 1; 13, 3</td>
+<td>256, 37; 13, 3</td>
+</tr>
+<tr>
+<td>Any other response</td>
+<td>3, 1</td>
+<td>67, 10 (a refusal with a 64-byte message)</td>
+</tr>
+</tbody>
+</table>
+<p>The worst cases with a path count 255 bytes; this board's paths are at most 159. In practice a
+<code>Status</code> with a 20-byte path and a 10-byte scene name is 116 bytes, 17 frames; an event with a
+20-byte path, 4 or 5.</p>
+<p>What the board sends, at 1 Mbit/s:</p>
+<table>
+<thead>
+<tr>
+<th>Traffic</th>
+<th>Frames a second</th>
+<th>Share of the bus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Heartbeat, once a second</td>
+<td>1</td>
+<td>0.013 %</td>
+</tr>
+<tr>
+<td>Port list, 24 frames every 10 s</td>
+<td>2.4</td>
+<td>0.03 %</td>
+</tr>
+<tr>
+<td>Status once a second, 17 frames (13 with nothing showing and no scene)</td>
+<td>17</td>
+<td>0.22 %</td>
+</tr>
+<tr>
+<td>Status four times a second (while things change)</td>
+<td>68</td>
+<td>0.88 %</td>
+</tr>
+<tr>
+<td>Axes while moving, ten a second</td>
+<td>10</td>
+<td>0.13 %</td>
+</tr>
+<tr>
+<td>Axes at rest</td>
+<td>1</td>
+<td>0.013 %</td>
+</tr>
+<tr>
+<td>All of it, while moving and changing</td>
+<td>about 81</td>
+<td>about 1.1 %</td>
+</tr>
+</tbody>
+</table>
+<p>A controller streaming setpoints at 50 a second adds 50 frames, 0.65 %. The board hands its
+frames to the CAN controller one at a time, highest priority first, so a setpoint's echo in
+<code>axes</code> or a service's response waits behind at most one frame of a long <code>Status</code>, not the whole of
+it.</p>
+<h2 id="not-on-cyphal">Not on Cyphal<a class="headerlink" href="#not-on-cyphal" title="Permanent link">&para;</a></h2>
+<p>These stay on Wi-Fi, the USB console, or the host link:</p>
+<ul>
+<li>Uploading clips and images, and deleting or moving files.</li>
+<li>The network, the web app's settings, and any password or token.</li>
+<li>The configuration backup (<code>nvs_export</code>, <code>nvs_import</code>).</li>
+<li>Firmware updates: over Wi-Fi, as now.</li>
+<li>Saving, changing and deleting scenes, and applying a scene given whole: the web app and the
+  HTTP API do those. Cyphal applies a saved one.</li>
+<li>The board's settings (the boot scene and the levels it starts with) other than by a factory
+  reset, and the host link's own settings.</li>
+<li>Raw servo moves, for finding endpoints: the web app's calibration, <code>servo_move</code> and
+  <code>holo endpoints</code> do that. The endpoints themselves are registers.</li>
+<li>Catching up on missed events: the HTTP API's and the host link's "events after N" has no
+  Cyphal counterpart; Status is the catch-up.</li>
+<li>Diagnostics on the bus (<code>uavcan.diagnostic.Record</code>), time synchronisation, the IMU and the
+  battery.</li>
+<li>The console's <code>holo led</code> and <code>holo leia</code>, which still do nothing on this board: the
+  <a href="#light">Light</a> service is what drives the ring as the holo's light.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../host-protocol/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Host link protocol">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Host link protocol
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../config/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.sections","navigation.top","navigation.footer","content.code.copy","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../javascripts/installer/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/board/ui.js" type="module"></script>
+      
+        <script src="../../javascripts/api/ui.js" type="module"></script>
+      
+    
+  </body>
+</html>

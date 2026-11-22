@@ -1537,6 +1537,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../cyphal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cyphal interface
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../config/" class="md-nav__link">
         
   
@@ -2118,16 +2145,24 @@ screen is unchanged. <code>GET /api/v1/media?path=/</code> lists every clip and 
 their names, and <code>GET /api/v1/media/info?path=...</code> reads one file's header -- size, frames, frame
 rate -- without showing it.</p>
 <h2 id="the-leds">The LEDs<a class="headerlink" href="#the-leds" title="Permanent link">&para;</a></h2>
-<p><code>GET /api/v1/leds</code> is the strip: its <code>mode</code> (<code>off</code>, <code>solid</code>, <code>wipe</code>, <code>rainbow</code>, <code>flicker</code>),
-<code>colour</code>, <code>loop</code> and <code>brightness</code>. <code>flicker</code> flickers the colour like a failing hologram until
-something else replaces it. <code>PATCH</code> changes any of them now:</p>
+<p><code>GET /api/v1/leds</code> is the strip: its <code>mode</code> (<code>off</code>, <code>solid</code>, <code>wipe</code>, <code>rainbow</code>, <code>flicker</code>,
+<code>pulse</code>, <code>blink</code>), <code>colour</code>, <code>loop</code>, <code>period_ms</code>, <code>level</code> and <code>brightness</code>, and a timed mode's
+<code>timed</code> (its <code>remaining_s</code> and what it goes back to, <code>then</code>) with <code>leia</code>. <code>flicker</code> flickers the
+colour like a failing hologram, <code>pulse</code> fades it up and down once a period (<code>period_ms</code>, 200–60000;
+2000) and <code>blink</code> turns it on and off (1000), each until something else replaces it. <code>PATCH</code>
+changes any of them now:</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"solid","colour":"orange"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
 curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"rainbow","loop":true}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
 curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"flicker","colour":"#4da6ff"}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"pulse","period_ms":3000,"level":40}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"mode":"blink","colour":"red","time_s":5}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
 curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"brightness":10}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/leds"</span>
 </code></pre></div>
 <p>A colour is <code>#rrggbb</code>, <code>R,G,B</code>, or a name. Keep the brightness at 30 or below when the strip is
-powered from the board.</p>
+powered from the board. <code>level</code> (0–100) is the share of the brightness the mode lights at, as the
+holo's light has it (<a href="../../use/leds/#the-holos-light">the LED page</a>): a new mode starts at 100.
+<code>time_s</code> (0.1–3600) makes it a timed mode, after which the ring goes back to what it was doing; any
+change but the brightness alone during one replaces it for good. A scene's <code>leds</code> takes the same.</p>
 <h2 id="the-holoprojector-and-its-servos">The holoprojector and its servos<a class="headerlink" href="#the-holoprojector-and-its-servos" title="Permanent link">&para;</a></h2>
 <p><code>GET /api/v1/holo</code> is the holo's motion and position (<code>x</code> and <code>y</code>, -1 to 1, + right and up), and
 whether it can move (<code>ready</code>, or <code>why</code> not). <code>POST /api/v1/holo/motion</code> moves it, or starts or
@@ -2218,13 +2253,19 @@ the board was doing before the first.</p>
 <ul>
 <li><code>boot_scene</code>: the scene applied at every start, or null for nothing;</li>
 <li><code>screen.backlight</code>: the backlight it starts at;</li>
-<li><code>leds.brightness</code>, and <code>leds.count</code>, the LEDs on the strip.</li>
+<li><code>leds.brightness</code>, and <code>leds.count</code>, the LEDs on the strip;</li>
+<li><code>touch.reporting</code>: whether touch reporting (the <code>touch</code> events) is on at start; off unless set (on
+  by default in a build with <code>BOARD_TOUCH_AUTOSTART</code>). The Cyphal register <code>r2.touch.reporting</code> is
+  the same setting.</li>
 </ul>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"boot_scene":"cantina","screen":{"backlight":80}}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/settings"</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PATCH<span class="w"> </span>-H<span class="w"> </span><span class="s2">"</span><span class="nv">$J</span><span class="s2">"</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">'{"touch":{"reporting":true}}'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$B</span><span class="s2">/settings"</span>
 </code></pre></div>
-<p>The backlight and brightness change now too. A new <code>leds.count</code> waits for a restart, and the reply
-says so with <code>"restart_required": true</code>. <code>DELETE /api/v1/settings</code> goes back to the firmware's
-defaults, keeping scenes, calibration and networks.</p>
+<p>The backlight and brightness change now too, and touch reporting does when <code>touch</code> is sent (the
+console's <code>touch on</code> and <code>touch off</code> turn it on or off only until the next start, and a PATCH of
+something else leaves that alone). A new <code>leds.count</code> waits for a restart, and the reply says so
+with <code>"restart_required": true</code>. <code>DELETE /api/v1/settings</code> goes back to the firmware's defaults,
+applied now, keeping scenes, calibration and networks.</p>
 <h2 id="network-and-the-web-server">Network and the web server<a class="headerlink" href="#network-and-the-web-server" title="Permanent link">&para;</a></h2>
 <p><code>GET /api/v1/network</code> is the network the board is on, the networks it knows, and its access point.
 Passphrases are never read back. The board keeps 16 networks; saving another forgets the one saved

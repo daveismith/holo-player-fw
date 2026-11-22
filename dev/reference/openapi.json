@@ -2003,9 +2003,13 @@
                   "mode": "solid",
                   "colour": "#ff8000",
                   "loop": false,
+                  "period_ms": 0,
+                  "level": 100,
                   "brightness": 30,
                   "count": 16,
-                  "gpio": 16
+                  "gpio": 16,
+                  "timed": null,
+                  "leia": false
                 }
               }
             }
@@ -2018,7 +2022,7 @@
         ],
         "operationId": "patchLeds",
         "summary": "Change the LED strip now",
-        "description": "Send what changes. A new `mode` starts it (a pattern from the beginning); a new `colour` or `loop` alone restarts the current one with it. `brightness` applies at once, until the next start (`settings.leds.brightness` is what it starts at).",
+        "description": "Send what changes. A new `mode` starts it (a pattern from the beginning, at its default period, at level 100); a new `colour`, `loop`, `period_ms` or `level` alone restarts the current one with it. `brightness` applies at once, until the next start (`settings.leds.brightness` is what it starts at). `time_s` makes the change a timed one; any change but `brightness` alone ends a timed mode.",
         "security": [
           {},
           {
@@ -2057,6 +2061,21 @@
                   "value": {
                     "mode": "off"
                   }
+                },
+                "pulse": {
+                  "value": {
+                    "mode": "pulse",
+                    "colour": "#4da6ff",
+                    "period_ms": 3000,
+                    "level": 40
+                  }
+                },
+                "timed": {
+                  "value": {
+                    "mode": "blink",
+                    "colour": "red",
+                    "time_s": 5
+                  }
                 }
               }
             }
@@ -2074,9 +2093,13 @@
                   "mode": "solid",
                   "colour": "#ff8000",
                   "loop": false,
+                  "period_ms": 0,
+                  "level": 100,
                   "brightness": 30,
                   "count": 16,
-                  "gpio": 16
+                  "gpio": 16,
+                  "timed": null,
+                  "leia": false
                 }
               }
             }
@@ -3036,7 +3059,7 @@
                   "led": {
                     "value": {
                       "error": "bad_request",
-                      "message": "leds: `mode` is off, solid, wipe, rainbow or flicker"
+                      "message": "leds: `mode` is off, solid, wipe, rainbow, flicker, pulse or blink"
                     }
                   },
                   "then": {
@@ -3203,9 +3226,13 @@
                     "mode": "solid",
                     "colour": "#ff8000",
                     "loop": false,
+                    "period_ms": 0,
+                    "level": 100,
                     "brightness": 30,
                     "count": 16,
-                    "gpio": 16
+                    "gpio": 16,
+                    "timed": null,
+                    "leia": false
                   },
                   "holo": {
                     "ready": true,
@@ -3299,6 +3326,9 @@
                   "leds": {
                     "brightness": 30,
                     "count": 16
+                  },
+                  "touch": {
+                    "reporting": false
                   }
                 }
               }
@@ -3312,7 +3342,7 @@
         ],
         "operationId": "patchSettings",
         "summary": "Change what the board starts with",
-        "description": "Saved. The backlight and LED brightness also change now; `leds.count` waits for a restart.",
+        "description": "Saved. The backlight and LED brightness also change now, and touch reporting when `touch` is sent; `leds.count` waits for a restart.",
         "security": [
           {},
           {
@@ -3341,6 +3371,13 @@
                       "count": 24
                     }
                   }
+                },
+                "touch": {
+                  "value": {
+                    "touch": {
+                      "reporting": true
+                    }
+                  }
                 }
               }
             }
@@ -3363,6 +3400,9 @@
                     "leds": {
                       "brightness": 30,
                       "count": 24
+                    },
+                    "touch": {
+                      "reporting": false
                     }
                   },
                   "restart_required": true
@@ -3404,7 +3444,7 @@
         ],
         "operationId": "resetSettings",
         "summary": "Back to the firmware's defaults",
-        "description": "Scenes, servo calibration, networks and web settings are kept.",
+        "description": "Scenes, servo calibration, networks and web settings are kept. The backlight, LED brightness and touch reporting change now.",
         "security": [
           {},
           {
@@ -3431,6 +3471,9 @@
                     "leds": {
                       "brightness": 30,
                       "count": 16
+                    },
+                    "touch": {
+                      "reporting": false
                     }
                   },
                   "restart_required": false
@@ -5945,9 +5988,13 @@
           "mode",
           "colour",
           "loop",
+          "period_ms",
+          "level",
           "brightness",
           "count",
-          "gpio"
+          "gpio",
+          "timed",
+          "leia"
         ],
         "properties": {
           "mode": {
@@ -5957,17 +6004,31 @@
               "solid",
               "wipe",
               "rainbow",
-              "flicker"
+              "flicker",
+              "pulse",
+              "blink"
             ],
-            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring -- played once, either ends `off`. `flicker` flickers the colour like a failing hologram, until something else."
+            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring -- played once, either ends `off`. `flicker` flickers the colour like a failing hologram, `pulse` fades it up and down once a period, `blink` turns it on for half a period and off for the other half, each until something else."
           },
           "colour": {
             "type": "string",
             "pattern": "^#[0-9a-f]{6}$",
-            "description": "`#rrggbb`"
+            "description": "`#rrggbb`: kept through `off` and `rainbow`, for the next mode that has a colour"
           },
           "loop": {
             "type": "boolean"
+          },
+          "period_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000,
+            "description": "A pulse's or a blink's period, 200..60000; 0 for the other modes"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The share of `brightness` the mode lights at: 100 but where the holo's light (r2.holo.Light over Cyphal), `leds ... -l` or a `level` set another"
           },
           "brightness": {
             "type": "integer",
@@ -5979,6 +6040,35 @@
           },
           "gpio": {
             "type": "integer"
+          },
+          "timed": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "remaining_s",
+                  "then"
+                ],
+                "properties": {
+                  "remaining_s": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Until it goes back, in tenths of a second"
+                  },
+                  "then": {
+                    "$ref": "#/components/schemas/LedSetting"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A timed mode (`time_s`, `leds ... -t`, or r2.holo.Light's time limit or leia over Cyphal): how long it has left, and what it goes back to. null when the mode isn't timed"
+          },
+          "leia": {
+            "type": "boolean",
+            "description": "The timed mode is a leia's flicker (r2.holo.Light over Cyphal), until it ends or something replaces it"
           }
         }
       },
@@ -5994,7 +6084,9 @@
               "solid",
               "wipe",
               "rainbow",
-              "flicker"
+              "flicker",
+              "pulse",
+              "blink"
             ]
           },
           "colour": {
@@ -6004,7 +6096,7 @@
               "orange",
               "255,128,0"
             ],
-            "description": "For `solid`, `wipe` and `flicker` (white if never given). `#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
+            "description": "For every mode but `off` and `rainbow` (white if never given). `#rrggbb`, `rrggbb`, `R,G,B`, or a name: black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, grey"
           },
           "loop": {
             "type": "boolean",
@@ -6014,6 +6106,24 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100
+          },
+          "period_ms": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 60000,
+            "description": "For `pulse` and `blink`: the period. A new mode starts at its default, 2000 for a pulse, 1000 for a blink"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The share of the brightness the mode lights at, as the holo's light has it (0 lights nothing). A new mode starts at 100; without one, as it is"
+          },
+          "time_s": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 3600,
+            "description": "A timed mode: after this long the strip goes back to what it was doing before (mode, colour and level); during another timed mode, to what that one would have gone back to. Without it, the change is for good, and ends a timed mode"
           }
         }
       },
@@ -6508,7 +6618,8 @@
         "required": [
           "boot_scene",
           "screen",
-          "leds"
+          "leds",
+          "touch"
         ],
         "properties": {
           "boot_scene": {
@@ -6557,6 +6668,18 @@
                 "description": "LEDs on the strip. Takes effect at the next start."
               }
             }
+          },
+          "touch": {
+            "type": "object",
+            "required": [
+              "reporting"
+            ],
+            "properties": {
+              "reporting": {
+                "type": "boolean",
+                "description": "Touch reporting at every start (the `touch` events): off unless set, or unless the build's `BOARD_TOUCH_AUTOSTART` makes on the default. A PATCH that sets it also turns touch reporting on or off now; the console's `touch on` and `touch off` change it only until the next start. The Cyphal register `r2.touch.reporting` is the same setting"
+              }
+            }
           }
         }
       },
@@ -6600,6 +6723,15 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 256
+              }
+            }
+          },
+          "touch": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reporting": {
+                "type": "boolean"
               }
             }
           }
@@ -7712,6 +7844,52 @@
           }
         ],
         "description": "A scene was applied, saved or given whole"
+      },
+      "LedSetting": {
+        "type": "object",
+        "required": [
+          "mode",
+          "colour",
+          "loop",
+          "period_ms",
+          "level"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "solid",
+              "wipe",
+              "rainbow",
+              "flicker",
+              "pulse",
+              "blink"
+            ],
+            "description": "`wipe` lights each LED in turn to the colour; `rainbow` turns the colour wheel round the ring -- played once, either ends `off`. `flicker` flickers the colour like a failing hologram, `pulse` fades it up and down once a period, `blink` turns it on for half a period and off for the other half, each until something else."
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "`#rrggbb`: kept through `off` and `rainbow`, for the next mode that has a colour"
+          },
+          "loop": {
+            "type": "boolean"
+          },
+          "period_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000,
+            "description": "A pulse's or a blink's period, 200..60000; 0 for the other modes"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The share of `brightness` the mode lights at: 100 but where the holo's light (r2.holo.Light over Cyphal), `leds ... -l` or a `level` set another"
+          }
+        },
+        "description": "What the strip is set to do"
       }
     }
   }
