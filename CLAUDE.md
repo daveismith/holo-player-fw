@@ -81,11 +81,24 @@ the dome panel firmware (`r2_domeplayer`). **A fix to any of it is made in the s
 committed there, then the pin is bumped here** (and in the other firmware). Never patch a kit file
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
-`external/esp-console-kit`, and push the kit before pushing a pin that names it.
+`external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-21 the
+pin names `59f2670` on the kit's branch `events-reply-no-reparse`: kit main's `2311a74`, `b8d24e2` (the
+chunked `GET /events` reply) and `59f2670` (a happening counted and kept in one hold; a history reply never
+passes over one pushed out). The branch is pushed to the kit's origin; it is not on kit main, and merging it
+there is the user's decision.)
 
 A pin bump is not neutral: read the kit's log for the range first. The ones on 2026-10-22 moved
 the servo objects into PSRAM, added three console commands, a component and a change to Wi-Fi at
-boot, and changed what `cmd_i2c` and `servo` require.
+boot, and changed what `cmd_i2c` and `servo` require. The one on 2026-11-21 (`2276e73` to kit
+main's `2311a74`, five commits of dome work) changed nothing this board does: `cmd_wifi` asks one
+hidden `CMD_WIFI_HAS_RADIO` (native, host or remote radio), takes its factory MACs at bring-up
+and names the access point through `wifi_factory_mac()` (on the S3, the efuse as before, so
+`holo-xxxx` is unchanged); `CMD_WIFI_KNOWN_NVS_NAMESPACE` moved outside the radio gate (same
+default); the backup's `# board` line is the base MAC, the same bytes as the station's here, so
+older exports still match; `cmd_i2c` gained `CMD_I2C_DEFAULT_PORT` (0, this board's
+`BOARD_I2C_PORT`). Its two new symbols take their defaults (nothing in `sdkconfig.defaults`); no
+command, route, NVS key, task or buffer; idle internal free 85,979 against 85,971 before; Wi-Fi
+rejoins at boot as before; `fs_xfer.py` is untouched, so `_Port` below stays.
 
 **A known, temporary exception (2026-11-21): `tools/board_console.py`'s `_Port`.** The kit's
 `tools/fs_xfer.py` `Console.pump()` answers linenoise's `ESC[6n`/`ESC[5n` only when a query is whole
@@ -198,9 +211,10 @@ the byte. A worst-case PNG takes it to about
 32 KB, a clip replacing a clip to 24-26 KB, a GIF replacing a GIF to 5-12 KB (both GIFs' buffers at once;
 the decoder is 24 KB, internal first by design, so whenever a block that big is free it takes it, and the
 lowest there is whatever is left: more free RAM elsewhere lowers it). **Rapid screen replacement starves
-internal RAM** (pre-existing, in the video player; not fixed): clips replaced 8-10 times a second, over HTTP
+internal RAM** (pre-existing, in the video player): clips replaced 8-10 times a second, over HTTP
 or Cyphal Screen alike, took the free heap to under 1 KB, and GIF replacing GIF to about 5 KB; shows are then
-refused ("it could not be drawn") until the screen is cleared, and nothing crashed. The events store keeps
+refused ("it could not be drawn") until the screen is cleared, and nothing crashed. (Measured again on
+2026-11-21 below: clip by clip no longer refuses; a GIF over anything playing is a different cause.) The events store keeps
 its 32 happenings' JSON in internal RAM (150-250 B each), so the free heap falls a little until it is full.
 The largest free block read 31,744 B at rest throughout: no fragmentation seen. Two ways to give the Cyphal
 side more room were offered to the user on 2026-11-21 and not taken: running the slow jobs (Scene, Screen,
@@ -235,6 +249,65 @@ List walks and GetInfo to the phase 5 run, and a frame's decoder (8.9 KB), a Med
 /events` of a full store, `GET /scenes` and Wi-Fi buffers at the same instant would reach it. Nothing was
 refused or ran out. libcanard's heap 2.4 KB at most, the send queue 25 frames; stacks never used: the node
 task's 1,704 of 3,072, the worker's 2,508 of 4,608, the second worker's 3,356 of 7,680.
+**The soak's low-water mark was the kit's `GET /events`** (traced 2026-11-21 with a diagnostic build that
+recorded every internal allocation below a threshold, with its backtrace): 193 of the 202 lows under 20 KB
+in a 20-minute soak came inside it. It parsed every kept happening's JSON back into one cJSON tree (12.8 KB
+of small allocations, all internal under `SPIRAM_MALLOC_ALWAYSINTERNAL`) and printed the reply whole
+(3.7 KB), 16.5-18.5 KB at the peak, every 2 s from the web app, on top of a playing clip's 17.7 KB of decode
+buffers, its 8 KB task, its 3.7 KB of QuickTime tables and its decoder's 8.8 KB a frame. The kit now sends
+that reply in 1 KB chunks straight from the stored text (kit `b8d24e2`, `events_open()`/`events_next()`,
+byte for byte the same body, chunked instead of a Content-Length): the diagnostic soak's lowest per
+4-minute window went from 10.2-14.6 KB to 27.3-27.5 KB (both diagnostic builds, which also lower
+`SPIRAM_MALLOC_ALWAYSINTERNAL` to 2 KB), and no low at all came from the web server's task (before: nearly
+all of them). The plain 20-minute soak (`test_soak.py`) with only that fix still reached 6.3 KB, at minute 9
+(free 39.8-52.1 KB through the run; 17.6 KB at minute 4 before it): one run, and the low-water mark is
+whichever allocations happen to coincide, so the next lowest holder, the video task made at every scene's
+restore of the clip, took its place. With the video task fix below as well, from a fresh boot: 24.8 KB at
+minute 20 and 24.3 KB over 30 minutes, free 42.6-54.2 KB, 30.00 fps, none late. **A soak's lowest needs a
+restart of the board first**: `cyphal`'s `lowest` is since the board's start, its `up` is the node's (the
+suite's `cyphal restart`s reset it), so a soak after other tests reports their low (seen: 8.0 and 12.7 KB
+from the rapid-replacement runs and api-smoke before it). **The video player's task is made once** (2026-11-21), not for every clip, GIF and
+scene restore: an 8 KB stack and its TCB had been taken from internal RAM (no PSRAM fallback) at each start,
+and the old task's were given back only when the idle task got to them. Its stack is static and internal
+(the task reads files: a flash read turns the cache off, so a PSRAM stack would be out of reach) and sized
+from the measurement: 2,592-2,624 B the most used over clips streamed and whole-frame, every GIF to hand
+(full-frame noise included), played out and stopped, so 4,608 B (2 KB spare; `tasks` shows its mark over
+every play since the start). Idle free with the node on a fixed ID: 85.4 KB before, 80.1 KB after (the
+stack and TCB now held). Replacing what shows 8-9 times a second over HTTP (20 s each, a restart before
+each, `POST /screen/show`), lowest before and after: clip by clip 27.4 and 31.3 KB, clips and stills 25.6
+and 29.2 KB, none refused either time; GIF by GIF 11.7 and 12.6 KB; clip by GIF 4.9 and 8.0 KB. **A 240-wide
+GIF over anything playing is refused, every time and at any rate** ("out of memory for the decode
+buffers"; 72 and 20 of 76 in GIF by GIF, all 90 in clip by GIF, and again slowly afterwards): `show_gif()`
+opens the GIF, its decoder taking 24 KB internal first and then its two 7.5 KB DMA blocks (no fallback),
+before the playback it replaces has stopped and given back its own. Fixed in code the same day, by the user's
+choice of the two options (the other, one pair of blocks kept in the player for clips and GIFs alike, 15.4
+KB held for good): nothing of the GIF is opened until the panel has been taken. `show_gif()` checks it with
+`gif_probe()` only (PSRAM first, no pixels); an animation is opened by `play_gif()` on the player's task,
+a one-frame GIF by `show_gif()` after `screen_take_panel()`; and `gif_open()` takes the two DMA blocks
+before the decoder, which can fall back to PSRAM where they can't. The cost: an out-of-memory now comes
+after the show was accepted, so the API says 200 and the playback ends at once (`clip_ended`
+`finished: false`, the panel asleep, one console line). **Run on the board
+the same day** (final build, `.bin` sha256 `3b67e552...`): 0 refusals in 20 s at 7-8 shows a second for GIF by
+GIF, clip by GIF and GIF by clip (before: 20 of 76 and 90 of 90); the strict xfail for it is gone from
+`tests/hardware/test_screen_replace.py`. The clip's decode buffers (2 x 7,680 B DMA and the frame's bytes) are still taken at each
+clip start: nothing was seen to refuse them, and keeping them is the 15.4 KB above.
+**Verified on the board, 2026-11-21, final build (`.bin` sha256 `3b67e552...`).** `GET /api/v1/events`: replies
+byte for byte those from before apart from `t_ms` (78 compared), and now `Transfer-Encoding: chunked`. The
+close-instead-of-skipping path was provoked: a stalled reader with 27 happenings generated meanwhile had the
+reply being sent cut and the connection reset in 6 of 9 trials, never a complete reply with a happening
+missing; a control stall with no happenings left every reply complete. Scenes runner: a scene whose clip fails
+after acceptance ends `by: replaced`, its `then` not run, and is not left running; a one-frame clip ends its
+scene `by: clip`; scene B over scene A's playing clip 50 times with the same clip and 50 with another, every B
+ended by its own clip; a timed end racing an apply 20 times, B never overwritten. The video task's stack
+(4,608 B): least never used 1,760 B, reached during rapid replacement (clips and stills, not only GIFs);
+ordinary clips and GIFs leave 2,016 B; opening a GIF on the player's task added nothing measurable. Memory,
+from a fresh restart: idle free 82.3 KB; 20-minute soak lowest 25.7 KB (before this work: 17.6 KB in 20
+minutes, 11.1 KB in an hour), 30.01 fps, 0 late frames. Rapid replacement lows: clip by clip 25.7 KB, GIF by
+GIF 15.2 KB, clip by GIF 15.2 KB, GIF by clip 11.7 KB; the board recovered by itself every time.
+**OPEN: once, in the whole-suite run, the internal heap's lowest read 1,120 B at
+`test_get_info_during_a_clip`** (earlier runs read 19.8-41.4 KB at the same point). Two reruns of that slice
+from a fresh restart stopped at 15,192 B (set by a scene showing a 240-wide GIF) and did not reproduce it. The
+cause is unknown. A heap that low is enough for allocations with no PSRAM fallback to fail.
 The kit's `SERVO_TASK_STACK_IN_PSRAM` would add 4 KB and is deliberately off
 (`sdkconfig.defaults`). The kit's task-walk hook is not wired: the LCD is SPI with DMA, and the
 ring is RMT with DMA when it gets a DMA channel, so `tasks`/`top` holding the kernel lock for
@@ -268,9 +341,8 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   adapter, pycyphal on the computer (its allocator for plug-and-play); `make can-setup` makes
   `.venv-can` from `requirements-can.txt` (or pass `CAN_PY=`). `ARGS="--board-host <ip>"` adds the
   test that uploads to the spare OTA slot without activating it, and asserts the board still boots
-  `ota_0`. 33.5 minutes with `--board-host --holo-minutes 10` (measured 2026-11-21, 84 tests: 82
-  passed, the timed scan's strict xfail, the soak skipped); about 26 with the load test at its default
-  3 minutes. `--soak-minutes <n>` runs `test_soak.py` (skipped otherwise; `-k test_soak` to run it
+  `ota_0`. On the final build, 2026-11-21: 97 passed, 1 skipped (the soak) and 1 expected failure (the
+  kit's timed scan), 42 min 51 s. `--soak-minutes <n>` runs `test_soak.py` (skipped otherwise; `-k test_soak` to run it
   alone). Stop cyphal_service first. The suite sets fixed node-ID 52 and leaves it.
 - **The adapter's firmware** (read with gs_usb's control-IN requests only, 2026-11-21): until that day a
   canable.io build of candleLight, features 0xF3 (listen-only, loop-back, hardware timestamps,
@@ -509,6 +581,10 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   `--holo-minutes` (3 by default); the phase gates run it with 10.
 
 ## Not tested on the board
+
+Video and scenes, as of 2026-11-21: the 2 s "did not stop" refusal (it needs a fault build); a GIF running
+out of memory after acceptance (it could not be forced with a file); "cannot read frame" (the probe refuses
+truncated clips).
 
 As of 2026-10-22: `import_note()`'s reminder (`main/main.c`) on a board with no saved network (it
 would mean erasing them); a real NVS wipe and restore; the guard clearing state here; the I2C

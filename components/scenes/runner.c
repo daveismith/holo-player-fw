@@ -8,7 +8,8 @@
  *
  * Events (components `events`): `clip_started` and `clip_ended` for every clip or animation that
  * starts and stops, whoever started it; `scene_started` for every scene applied, and
- * `scene_ended` for a watched scene that ends -- its clip done, its time up, ended, or replaced;
+ * `scene_ended` for a watched scene that ends -- its clip done, its time up, ended, or replaced (which is
+ * also what a scene's clip failing after it was accepted is: `clip_ended` `finished: false`, no `then`);
  * and `scene` (the state: which one is watched) whenever that changes. A scene's own clip starts
  * as its screen part is applied, so its `clip_started` comes before its `scene_started`; at its
  * end, `scene_ended` comes before what its `then` starts.
@@ -44,14 +45,25 @@ typedef struct {
     holo_motion_t holo_last;
 } snapshot_t;
 
-typedef struct {
-    char path[160];
-    bool finished;
-} clip_end_t;
-
 static SemaphoreHandle_t s_lock;
-static SemaphoreHandle_t s_apply;      /* one scene_apply() or scene_end() at a time: the console and the API */
-static QueueHandle_t s_queue;
+static SemaphoreHandle_t s_apply;      /* one scene_apply(), scene_end() or runner's ending at a time */
+static QueueHandle_t s_queue;          /* wakes the runner: a clip's end, or a scene armed; what it carries is not used */
+
+/*
+ * Which playback a clip's end is for, by number, not by path (a scene may show the clip it replaces). The start hook
+ * numbers each playback; the player plays one at a time, and tells of one's end before the next can start (its
+ * start hook comes before the player has it; the next waits until the end hook has returned), so an end is always
+ * the latest start's. The clip a scene's own screen part starts -- the start hook on the applying task, within
+ * scene_apply_parts() -- is `s_own`, and its end is kept there, not only queued: an end that comes before the scene
+ * is armed (a clip that fails at once, or is one frame long) is still there when the runner looks. All under s_lock.
+ */
+static uint32_t s_playback;            /* the latest start's number; 0 before the first */
+static TaskHandle_t s_applier;         /* the task inside scene_apply_parts(), or NULL */
+static struct {
+    uint32_t id;                       /* 0: the scene being applied, or armed, started none */
+    bool ended;
+    bool finished;
+} s_own;
 static struct {
     bool on;
     char name[SCENE_NAME_MAX + 1];
@@ -166,25 +178,30 @@ static void runner_task(void *arg)
         }
         xSemaphoreGive(s_lock);
 
-        clip_end_t ev;
-        const bool got = xQueueReceive(s_queue, &ev, wait) == pdTRUE;
+        uint8_t wake;
+        (void)xQueueReceive(s_queue, &wake, wait);
         char name[SCENE_NAME_MAX + 1];
         int slot = 0;
         scene_then_t then = SCENE_THEN_STAY;
         bool end = false;
         bool over = false;
         scene_by_t by = SCENE_BY_CLIP;
+        /* An ending is decided and done whole, between scene_apply()s: one applied meanwhile either finds this scene
+         * over and its `then` done, or ends it first (replaced), and this finds nothing to end -- never a `then`
+         * putting things back over the new scene */
+        xSemaphoreTake(s_apply, portMAX_DELAY);
         xSemaphoreTake(s_lock, portMAX_DELAY);
         if (s_run.on) {
-            if (got && s_run.clip[0] != '\0' && strcmp(ev.path, s_run.clip) == 0) {
+            if (s_run.clip[0] != '\0' && s_own.ended) {
                 over = true;
-                if (ev.finished) {
+                if (s_own.finished) {
                     end = true;
                     by = SCENE_BY_CLIP;
                 } else {
-                    s_run.on = false;       /* something else took the screen: it is over, as it is */
+                    /* Something else took the screen, or the clip failed after it was accepted (it could not be
+                     * read, or no memory for it): over, as it is, without its `then` */
                     by = SCENE_BY_REPLACED;
-                    ESP_LOGI(TAG, "'%s' replaced", s_run.name);
+                    ESP_LOGI(TAG, "'%s' replaced: its clip stopped before its end", s_run.name);
                 }
             }
             if (!over && s_run.until_us != 0 && esp_timer_get_time() >= s_run.until_us) {
@@ -207,12 +224,22 @@ static void runner_task(void *arg)
         if (end) {
             finish(then, &snap, name);
         }
+        xSemaphoreGive(s_apply);
     }
 }
 
 static void on_clip_start(const char *path, int plays, uint32_t frames, double fps, void *ctx)
 {
     (void)ctx;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (++s_playback == 0) {
+        s_playback = 1;                 /* 0 is none */
+    }
+    if (s_applier != NULL && s_applier == xTaskGetCurrentTaskHandle()) {
+        s_own.id = s_playback;          /* the scene's own clip, started by its screen part */
+        s_own.ended = false;
+    }
+    xSemaphoreGive(s_lock);
     char rel[FS_ABS_MAX];
     fs_rel(path, rel, sizeof(rel));
     cJSON *f = cJSON_CreateObject();
@@ -250,9 +277,14 @@ static void on_clip_end(const char *path, bool finished, void *ctx)
     cJSON_AddStringToObject(f, "path", rel);
     cJSON_AddBoolToObject(f, "finished", finished);
     events_happened("clip_ended", f);
-    clip_end_t ev = { .finished = finished };
-    strlcpy(ev.path, path, sizeof(ev.path));
-    xQueueSend(s_queue, &ev, 0);
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_own.id != 0 && s_own.id == s_playback) {    /* the end is the latest start's: see s_own */
+        s_own.ended = true;
+        s_own.finished = finished;
+    }
+    xSemaphoreGive(s_lock);
+    const uint8_t wake = 0;
+    xQueueSend(s_queue, &wake, 0);      /* a full queue has wakes enough: the runner reads s_own, not these */
 }
 
 esp_err_t scenes_start(void)
@@ -262,7 +294,7 @@ esp_err_t scenes_start(void)
     }
     s_lock = xSemaphoreCreateMutex();
     s_apply = xSemaphoreCreateMutex();
-    s_queue = xQueueCreate(8, sizeof(clip_end_t));
+    s_queue = xQueueCreate(8, sizeof(uint8_t));
     if (s_lock == NULL || s_apply == NULL || s_queue == NULL ||
         xTaskCreate(runner_task, "scene", STACK, NULL, 4, NULL) != pdPASS) {
         return ESP_ERR_NO_MEM;
@@ -337,6 +369,9 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
         before_slot = s_run.slot;
     }
     s_run.on = false;               /* any scene before this one is over */
+    s_own.id = 0;                   /* and the end of its clip, or of any before, is not this scene's */
+    s_own.ended = false;
+    s_applier = xTaskGetCurrentTaskHandle();
     xSemaphoreGive(s_lock);
     if (before[0] != '\0') {
         publish_end(before, before_slot, before_then, SCENE_BY_REPLACED);
@@ -346,6 +381,9 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     }
 
     err = scene_apply_parts(scene, why, why_len);
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_applier = NULL;               /* a clip this task starts from here on is not the scene's */
+    xSemaphoreGive(s_lock);
     if (err == SCENE_OK) {
         publish_start(scene, then, clip[0] != '\0', dur);
     }
@@ -353,8 +391,9 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
         cJSON_Delete(once);
         return err;
     }
+    /* No queue reset: the ends of what this scene replaced are not s_own's, and its own clip's, however soon it
+     * came, is in s_own for the runner to find */
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    xQueueReset(s_queue);           /* the ends of what this scene replaced */
     s_run.on = true;
     strlcpy(s_run.name, cJSON_GetObjectItem(scene, "name")->valuestring, sizeof(s_run.name));
     s_run.then = then;
@@ -365,8 +404,8 @@ static scene_err_t apply(const cJSON *scene, char *why, size_t why_len)
     s_run.snap = snap;
     xSemaphoreGive(s_lock);
     cJSON_Delete(once);
-    const clip_end_t kick = { .path = "" };
-    xQueueSend(s_queue, &kick, 0);  /* the runner looks at the new time */
+    const uint8_t kick = 0;
+    xQueueSend(s_queue, &kick, 0);  /* the runner looks at the new time, and at s_own */
     events_changed("scene");
     return SCENE_OK;
 }

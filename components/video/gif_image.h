@@ -41,8 +41,13 @@ bool gif_is_gif(const uint8_t *buf, size_t len);
  */
 esp_err_t gif_probe(const char *path, GifHeader *hdr, char *err, size_t err_len);
 
-/* Open `path` for playing: the decoder, a black canvas and the buffers to paint from. */
-GifFile *gif_open(const char *path, char *err, size_t err_len);
+/*
+ * Open `path` for playing: the buffers to paint from (internal DMA memory, `width` x 16 lines
+ * each, taken first), the decoder and a black canvas. `width` is the canvas's, from gif_probe();
+ * a file that no longer has it is refused. Called only once the panel has been taken from what
+ * was playing (an animation opens on the player's task), so that playback's memory is free first.
+ */
+GifFile *gif_open(const char *path, uint32_t width, char *err, size_t err_len);
 
 /*
  * Decode the next frame onto the canvas and paint the part of it that changed, the canvas's
@@ -60,5 +65,10 @@ void gif_rewind(GifFile *g);
 
 void gif_close(GifFile *g);
 
-/* A playing animation, on the video player's task: it owns `g` from here, even on failure. */
-esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int plays);
+/*
+ * A playing animation, on the video player's task, which opens it (gif_open()) once the playback
+ * before it has stopped. ESP_OK once accepted; an open that fails after that (out of memory) ends
+ * the playback with the end hook's `finished` false and the panel asleep, and is printed once.
+ * ESP_ERR_TIMEOUT as screen_take_panel().
+ */
+esp_err_t video_play_gif(const GifHeader &hdr, const char *path, int plays);

@@ -268,6 +268,11 @@ curl -X PUT -H "$J" "$B/scenes/scene?name=bow" -d '{
 in place of its clip, ends it without its `then`. One `restore` scene after another goes back to what
 the board was doing before the first.
 
+A clip that fails after the scene was accepted (it can't be read, or there is no memory for it just
+then) ends the scene the same way, at once, even with `duration_s` still to run: `scene_ended` says
+`by: "replaced"`, its `then` isn't done, the screen goes dark, and the LEDs and holo stay as the scene
+set them. Its `clip_ended` has `finished: false`, and may come even before the `scene_started`.
+
 ## Settings
 
 `GET /api/v1/settings` is what the board starts with; `PATCH` changes it, and it is saved:

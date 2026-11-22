@@ -246,8 +246,13 @@ bool probe_gif(const char *path, GifHeader *hdr)
 
 /*
  * A GIF: one frame is a still, painted here like any other; more than one is an animation,
- * handed to the video player's task. Either way the decoder and its buffers are ready before
- * the panel is touched.
+ * handed to the video player's task. Either way everything that can refuse the file (gif_probe(),
+ * which decodes no pixels and takes PSRAM first) is checked before the panel is touched, and the
+ * decoder and its buffers are taken only after it has been taken from whatever was playing, so
+ * that playback's memory is free first: opened earlier, a 240-wide GIF's 24 KB decoder took the
+ * internal RAM its display blocks needed, and every one shown over a playing clip or GIF was
+ * refused (holo board, 2026-11-21). The cost: running out of memory now comes after the panel was
+ * taken -- here, a still that fails and a dark screen; for an animation, on the player's task.
  */
 int show_gif(const char *path, int plays)
 {
@@ -255,25 +260,29 @@ int show_gif(const char *path, int plays)
     if (!probe_gif(path, &hdr)) {
         return 1;
     }
-    char err[ERR_LEN] = "";
-    GifFile *g = gif_open(path, err, sizeof(err));
-    if (g == nullptr) {
-        printf("image: %s: %s\n", path, err);
-        return 1;
-    }
 
     if (hdr.frames > 1) {
         char loops[32];
         describe_loops(hdr.loop_count, loops, sizeof(loops));
-        if (video_play_gif(g, hdr, path, plays) != ESP_OK) {
-            return 1;
+        const esp_err_t played = video_play_gif(hdr, path, plays);
+        if (played != ESP_OK) {
+            return played == ESP_ERR_TIMEOUT ? IMAGE_NOT_STOPPED : 1;
         }
         printf("image: playing %s (%" PRIu32 "x%" PRIu32 " GIF, %" PRId32 " frames, %s)\n",
                path, hdr.width, hdr.height, hdr.frames, plays == 0 ? "looping" : loops);
         return 0;
     }
 
-    screen_take_panel();
+    if (screen_take_panel() != ESP_OK) {
+        return IMAGE_NOT_STOPPED;
+    }
+    char err[ERR_LEN] = "";
+    GifFile *g = gif_open(path, hdr.width, err, sizeof(err));
+    if (g == nullptr) {
+        board_lcd_power_off();      /* nothing shows: not what was there before, which is gone */
+        printf("image: %s: %s\n", path, err);
+        return 1;
+    }
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
     const int64_t t0 = now_us();
@@ -373,7 +382,10 @@ int show(const char *path, int plays)
 
     /* Committed: take the panel from whatever had it, and wake it black so nothing of what was
      * there survives around a smaller image. */
-    screen_take_panel();
+    if (screen_take_panel() != ESP_OK) {
+        heap_caps_free(buf);
+        return IMAGE_NOT_STOPPED;
+    }
     const int x = (BOARD_LCD_H_RES - (int)w) / 2, y = (BOARD_LCD_V_RES - (int)h) / 2;
     const char *mode = "16-line blocks";
     int rc = JPEG_ERR_OK;
@@ -462,7 +474,7 @@ int cmd_image(int argc, char **argv)
         screen_lock();
         const int rc = show(path, -1);
         screen_unlock();
-        return rc;
+        return rc != 0 ? 1 : 0;
     }
     if (strcmp(sub, "info") == 0 && argc >= 3) {
         screen_resolve_path(argv[2], path, sizeof(path));

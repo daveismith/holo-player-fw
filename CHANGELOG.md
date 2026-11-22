@@ -182,6 +182,28 @@ so the release tag is the version baked into the image and reported by `version`
 - `leds` shows a pulse's or a blink's period, a level other than 100, and a timed mode's time left
   and what follows. `leds rainbow` keeps the ring's colour for the next mode that has one, rather than
   forgetting it.
+- **`GET /api/v1/events` (the kept happenings as JSON) is sent in chunks** straight from the stored
+  happenings, rather than parsed back into one tree and printed whole: at most a few KB of internal RAM
+  where it took 16-18 KB with all 32 kept, which set the board's low-water mark while a clip played and
+  the web app polled. The body is byte for byte the same; the reply has `Transfer-Encoding: chunked` in
+  place of a `Content-Length`. (esp-console-kit `b8d24e2`.) A reader that stalls while happenings are made now has its
+  connection closed, never a reply with one missing (`59f2670`; on the kit's branch
+  `events-reply-no-reparse`, not on its main).
+- **The video player's task is made once, at start**, and waits between plays, rather than being made
+  for every clip, GIF and scene restore: its stack, now 4.5 KB (8 KB before; 1.8 KB is the least it was
+  seen to leave free, in rapid replacement), is held for good, about 5 KB less internal RAM free at rest, and is no longer taken at
+  each start, where it could be refused. A stop now also cuts short the wait for a GIF's next frame. Any
+  show (a clip, an image or GIF, a colour, the calibration pattern) that finds the last playback still not
+  stopped after 2 s is refused, with `what was playing did not stop within 2 s` over HTTP and Cyphal: nothing
+  is drawn, the stop stands and the screen goes dark at once. Before, a clip would have started alongside
+  it, and a colour or a still was drawn and then put out by the old playback's end.
+- **A GIF takes its memory only once what was playing has stopped**: `image show` and `POST /screen/show`
+  check it first, as before, but open it (its 24 KB decoder and its two DMA paint buffers) after the panel
+  is taken, the paint buffers first. The cost: running out of memory now comes after the show is accepted,
+  and ends the animation at once (`clip_ended` with `finished: false`, the screen dark, the reason on the
+  console).
+- esp-console-kit moved to its main (`2311a74`): radio and MAC handling for the dome panel's ESP32-P4,
+  and `CMD_I2C_DEFAULT_PORT`; nothing changes on this board.
 
 ### Fixed
 
@@ -192,6 +214,22 @@ so the release tag is the version baked into the image and reported by `version`
 - Touch could be started or stopped from two places at once (the console and the Cyphal register, or
   the settings over HTTP), making two drivers or deleting one under its task: start and stop now take
   turns.
+- A 240-pixel-wide animated GIF shown over a playing clip or GIF was always refused (`it could not be
+  drawn`): it was opened before the playback it replaced had given back its memory. See Changed.
+- A clip or GIF that failed after it was accepted (the file not opened, no memory for its buffers, a
+  broken GIF frame) was reported as played out: `clip_ended` said `finished: true`, and a scene that ends
+  with its clip ran its `then` at once. Now `finished: false`, and the panel sleeps rather than keep what
+  the failed clip replaced.
+- A clip or GIF that ended at once could have its `clip_ended` sent before its `clip_started`. The start is
+  now told before the player has the clip.
+- A scene that ends with its clip could miss that end and run on until another scene or `POST
+  /scenes/end`: a clip that failed or played out within moments of being shown had its end thrown away
+  with those of the playback the scene replaced, and a scene showing the clip it replaced could be ended
+  at once by the old playback's end. The scene now knows its own clip's playback, and a clip that fails
+  ends its scene `by: replaced`, without its `then`. A scene's time running out as another scene is
+  applied no longer lets its `then` put things back over the new scene. A colour or the calibration
+  pattern refused because the playback before it did not stop now says so, rather than `the panel did
+  not take it`.
 
 ## [1.1.0] - 2026-10-22
 

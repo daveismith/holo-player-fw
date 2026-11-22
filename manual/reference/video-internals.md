@@ -10,7 +10,10 @@ The component's parts:
   `stco`/`co64`, frame durations from `stts`, a codec check in `stsd`, 64-bit atom sizes, and
   enough bounds validation that a damaged file fails to open rather than playing garbage.
 - **`video_player.cpp`** — the player, decoding with Espressif's `esp_new_jpeg` on a task pinned
-  to core 1. It plays animated GIFs too, and owns what the screen is showing.
+  to core 1. It plays animated GIFs too, and owns what the screen is showing. The task is made once,
+  at start, and waits for each play: its 4.5 KB stack is static, in internal RAM (the task reads
+  files, and a flash read turns off the cache a stack in PSRAM would need), rather than taken for
+  every clip.
 - **`image.cpp`**, **`png_image.c`** and **`gif_image.cpp`** — `image show`, with libpng and
   bitbank2's AnimatedGIF; see [Still images](#still-images) and [GIFs](#gifs) below.
 
@@ -197,8 +200,24 @@ and `delay()` it still calls when it is built for neither Arduino, Linux nor mac
 shares with a clip is everything around the decoder: a clock, a way to stop, being replaced
 without the panel blinking, `video status`, and the console history being held back while it
 plays (see [Flash writes and late frames](#flash-writes-and-late-frames)). A second task would
-have had to reproduce all of it. `image show` opens the file, checks it and allocates everything
-before the panel is touched, then hands it to the player already open.
+have had to reproduce all of it. `image show` checks the file before the panel is touched (the
+header, the size, the walk below: the same checks `image info` and `GET /media/info` report, with
+a decoder taken from PSRAM first) and hands the player its path and header; the player opens it
+once whatever played before has stopped and given its memory back. Opening it any earlier, a
+240-wide GIF's 24 KB decoder (internal RAM first, for speed) took the internal block its two
+7.5 KB DMA paint buffers needed, and every one shown over a playing clip or GIF was refused. The
+paint buffers are taken first, since they have nowhere else to go, then the decoder, which falls
+back to PSRAM. A one-frame GIF is opened the same way, after `image show` has taken the panel.
+
+The cost is that running out of memory now comes after the show was accepted. The player prints
+the reason once, ends the playback with `clip_ended` `finished: false` and puts the panel to sleep,
+so `screen` says nothing is showing rather than leave the replaced picture up.
+
+**Any show is refused when what was playing has not stopped within 2 s** — a clip, an image or GIF,
+a colour or the calibration pattern alike (`what was playing did not stop within 2 s` over HTTP and
+Cyphal). Nothing is drawn; the stop stands, since the player may already be ending because of it,
+and the panel goes to sleep at once, so the screen is dark until the next show. Clearing the screen
+is never refused: that is what it asks for.
 
 ### A canvas, not frames
 
@@ -244,8 +263,9 @@ reports it as an image.
 ### What it costs
 
 The GIF path adds **11 KB** of flash. At 240×240 the decoder's state is 24 KB, in internal RAM
-for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task keeps
-6.7 KB of its 8 KB stack free while a GIF plays, and repeated plays leave the heap where it was.
+for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task has used
+2.6 KB of its 4.5 KB stack at most, over clips and GIFs alike (`tasks` shows its high-water mark), and
+repeated plays leave the heap where it was.
 
 The ceiling is a GIF that changes every pixel of a 240×240 panel with incompressible content:
 30.9 ms to decode and 14 ms to paint, about **22 fps**. The decoder's *turbo* mode, which trades

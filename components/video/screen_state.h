@@ -21,8 +21,13 @@ extern "C" {
  * Take the panel for something else: stop any clip -- leaving the panel lit, rather than
  * blinking it off and back on -- and forget any colour, pattern or image that was showing.
  * Call it before drawing, and set what is showing afterwards.
+ *
+ * ESP_ERR_TIMEOUT when what was playing did not stop within video_stop()'s 2 s: the caller draws
+ * nothing and refuses. The stop stands (it can't be taken back: the player may already be ending
+ * because of it), and the panel is put to sleep here, so the screen goes dark at once and shows
+ * nothing until the next show; the playback ends when it can, with clip_ended `finished: false`.
  */
-void screen_take_panel(void);
+esp_err_t screen_take_panel(void);
 
 /* What `screen` reports from here on: the image at `path`, w x h. */
 void screen_set_image(const char *path, uint32_t w, uint32_t h);

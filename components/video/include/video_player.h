@@ -27,20 +27,30 @@ esp_err_t video_play_n(const char *path, int plays, bool whole_frame);
 
 /*
  * Told when a clip or animation stops: `finished` when it played out, false when it was stopped
- * (something else took the screen, or an error). Called from the player's task, which is ending:
- * it must not call into this component -- signal another task instead. One hook.
+ * (something else took the screen) or failed on the player's task (the file could not be opened
+ * or read, no memory for its buffers, a broken GIF frame). Called from the player's task as the
+ * playback ends, and always after the same playback's start hook: it must not call into this
+ * component (a stop or a show would wait for the player itself) -- signal another task instead.
+ * One hook.
  */
 typedef void (*screen_end_hook_t)(const char *path, bool finished, void *ctx);
 void screen_set_end_hook(screen_end_hook_t hook, void *ctx);
 
 /*
  * Told when a clip or animation starts: its path (absolute), `plays` (0 forever), and its frames
- * and frame rate from its header. Called on the task that started it, holding the screen: it may
- * read the screen's state, but not start or stop anything. One hook.
+ * and frame rate from its header. Called on the task that started it, holding the screen, once the
+ * play is committed and before the player's task has it (so before its end hook): it may read the
+ * screen's state, which names the new clip, but not start or stop anything. One hook.
  */
 typedef void (*screen_start_hook_t)(const char *path, int plays, uint32_t frames, double fps, void *ctx);
 void screen_set_start_hook(screen_start_hook_t hook, void *ctx);
-/* Stop playback and wait for it to end. */
+/*
+ * Stop playback and wait for it to end, 2 s at most. Any show (a clip, an image or GIF, a colour,
+ * the calibration pattern) that finds the last playback still not stopped by then is refused,
+ * ESP_ERR_TIMEOUT, having drawn nothing: the stop stands, and the screen goes dark at once (the
+ * panel asleep) rather than keep what was playing. screen_clear() is not refused: that is what it
+ * asks for.
+ */
 void video_stop(void);
 bool video_playing(void);
 
@@ -91,7 +101,8 @@ esp_err_t media_probe(const char *path, media_info_t *out);
  * plays `plays` times: 0 forever, -1 the default (a clip once, a GIF as the file says). Checked
  * before the panel is touched:
  * ESP_ERR_NOT_FOUND, or ESP_ERR_INVALID_ARG for a file the board cannot show, with `why`
- * (a sentence without the path), and the screen unchanged.
+ * (a sentence without the path), and the screen unchanged. ESP_ERR_TIMEOUT, with `why`, when what
+ * was playing did not stop within 2 s (video_stop()): nothing shown, and the screen off.
  */
 esp_err_t screen_show_file(const char *path, int plays, bool whole_frame, char *why, size_t why_len);
 
