@@ -82,9 +82,11 @@ committed there, then the pin is bumped here** (and in the other firmware). Neve
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
 `external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-22 the
-pin is `42f480b`, the kit's branch `cyphal`, **which is on no remote: push the kit before this branch**. It is `59f2670` (the kit's main) plus the CAN and Cyphal move. `59f2670` is the kit's main: its `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and
-`59f2670` (a happening counted and kept in one hold; a history reply never passes over one pushed out),
-merged from the branch `events-reply-no-reparse`. The move brought in `canbus`, `libcanard` and `cyphal` from here, with their host tests and `can_check.py`.)
+pin is `42f480b`, the kit's main: `59f2670` plus the CAN and Cyphal move, which brought in `canbus`,
+`libcanard` and `cyphal` from here, with their host tests and `can_check.py`. `59f2670` was the
+kit's `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and `59f2670` (a happening counted
+and kept in one hold; a history reply never passes over one pushed out), merged from the branch
+`events-reply-no-reparse`.)
 
 A pin bump is not neutral: read the kit's log for the range first. The ones on 2026-10-22 moved
 the servo objects into PSRAM, added three console commands, a component and a change to Wi-Fi at
@@ -415,8 +417,8 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   `-Werror`; zero is the default. `r2_cyphal_dsdl` is changed in its own repository and the pin
   bumped here, as with the kit; a type that has shipped gets a new version, never an edit. **Push
   `r2_cyphal_dsdl` before pushing a pin that names an unpushed commit of it**: the release workflow
-  and every clone fetch the pin from GitHub. As of 2026-11-21 the pin is `30acd0f` (a comment in
-  `MotionSpec`), which is only in the local checkout; its `origin/main` is `aac2fe0`.
+  and every clone fetch the pin from GitHub. As of 2026-11-22 the pin is `30acd0f` (a comment in
+  `MotionSpec`), which is its `origin/main`.
 - **Submodules**: `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests), and the kit's own
   `third_party/libcanard` (the build needs it) and `third_party/public_regulated_data_types`
   (`gen_dsdl.py` and the tests). Clone `--recursive`.
