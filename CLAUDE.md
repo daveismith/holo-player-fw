@@ -433,6 +433,10 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **A restart over Cyphal happens with the adapter open.** The harness then sends nothing until
   the board is back (`Net.muted()` in `tests/hardware/conftest.py`); a factory reset brings the
   node back with plug-and-play, never quiet, which the tests handle with pycyphal's allocator.
+- **A reopen of the adapter inside one process can fail with ENODEV, and never recovers in that process** (2026-11-22,
+  the adapter's current firmware: twice in ~25 reopens, `usb.core.USBError: [Errno 19]`; a new process opens normally).
+  So the tests that restart the board (`test_name.py`, `test_first_setpoint_after_boot`) keep the adapter open and the
+  harness muted (`Net.muted()`) across the restart, as the ExecuteCommand tests do, then check a heartbeat is back.
 - **Yakut wedged the CANable** (2026-11-20, on its old firmware; not tried on the new). `tools/yakut_can.py` opens and closes it in the
   board's listens, runs each `cyphal restart` to its prompt (linenoise swallows input until its
   `ESC[6n` is answered: a `cyphal restart` written without reading the reply was lost, and the

@@ -473,7 +473,10 @@ async def node(net: Net, board: Board, dut_node_id: int) -> pycyphal.application
 @pytest.fixture
 async def alone(board: Board, dut_node_id: int) -> None:
     """The node online with nobody else on the bus: the adapter closed if an earlier test opened it,
-    and not opened for this one"""
+    and not opened for this one.
+    A reopen can follow in one process: the `slow` tests that come after test_alone (test_holo_during_a_clip,
+    test_soak) use the `node` fixture, which opens the adapter again ~10 minutes later. That is not a quick
+    reopen, but a failed open (ENODEV, 2026-11-22) would not recover in this process"""
     for n in Net.made:
         await n.close()
     ensure_node(board, dut_node_id)

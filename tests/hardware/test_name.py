@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import uavcan.node.GetInfo_1_0 as GetInfo
 
-from .conftest import ensure_node, open_checked, until_state
+from .conftest import ensure_node, heartbeats, open_checked, until_state
 
 DEFAULT = "r2.dome.holo.front"
 NEW = "r2.dome.holo.top"
@@ -50,13 +50,14 @@ async def test_new_name_after_restarts(node, net, board, dut_node_id):
         board.command("cyphal restart")
         await until_state(board, "online", dut_node_id)
         assert await name_reported(net, dut_node_id) == NEW
-        # The board's restart: the adapter closed first, so that nothing goes unacknowledged, and
-        # opened again in the node's listen
-        await net.close()
-        board.restart()
-        st = await until_state(board, "online", dut_node_id, timeout=15)
+        # The board's restart, with the adapter open and the harness muted until the board acknowledges again, as
+        # the ExecuteCommand tests do. (Closing the adapter and opening it again here failed with ENODEV on the
+        # adapter's current firmware, twice in ~25 reopens on 2026-11-22, and never recovered in that process.)
+        async with net.muted():
+            board.restart()
+            st = await until_state(board, "online", dut_node_id, timeout=15)
         assert st["name"] == NEW
-        await open_checked(net, board, dut_node_id)
+        assert await heartbeats(net.node, dut_node_id, 4.0), "no heartbeat after the board's restart"
         assert await name_reported(net, dut_node_id) == NEW
     finally:
         board.command("cyphal name --reset")
