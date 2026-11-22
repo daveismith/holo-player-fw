@@ -5,22 +5,43 @@
 #include <stdio.h>
 #include <string.h>
 #include "leds.h"
+#include "sdkconfig.h"
 #include "scenes.h"
 #include "video_player.h"
 #include "board_api.h"
 
+/* Each scene_err_t's HTTP status and JSON error: SCENE_OK's none, and any not here 500 failed */
+static const struct { int status; const char *error; } SCENE_ERRORS[] = {
+    [SCENE_BAD] = { 400, "bad_request" }, [SCENE_BAD_PATH] = { 400, "bad_path" }, [SCENE_MISSING] = { 404, "not_found" },
+    [SCENE_UNPLAYABLE] = { 422, "not_playable" }, [SCENE_NOT_READY] = { 409, "not_ready" },
+    [SCENE_FULL] = { 409, "full" }, [SCENE_TAKEN] = { 409, "slot_taken" },
+};
+
+static void scene_error_of(int err, int *status, const char **error)
+{
+    const bool known = err > SCENE_OK && (size_t)err < sizeof(SCENE_ERRORS) / sizeof(SCENE_ERRORS[0]) &&
+                       SCENE_ERRORS[err].error != NULL;
+    *status = known ? SCENE_ERRORS[err].status : 500;
+    *error = known ? SCENE_ERRORS[err].error : "failed";
+}
+
 api_reply_t api_scene_error(int err, const char *why)
 {
-    switch ((scene_err_t)err) {
-    case SCENE_BAD:        return api_error(400, "bad_request", "%s", why);
-    case SCENE_BAD_PATH:   return api_error(400, "bad_path", "%s", why);
-    case SCENE_MISSING:    return api_error(404, "not_found", "%s", why);
-    case SCENE_UNPLAYABLE: return api_error(422, "not_playable", "%s", why);
-    case SCENE_NOT_READY:  return api_error(409, "not_ready", "%s", why);
-    case SCENE_FULL:       return api_error(409, "full", "%s", why);
-    case SCENE_TAKEN:      return api_error(409, "slot_taken", "%s", why);
-    default:               return api_error(500, "failed", "%s", why);
+    int status;
+    const char *error;
+    scene_error_of(err, &status, &error);
+    return api_error(status, error, "%s", why);
+}
+
+api_code_t api_scene_code(int err)
+{
+    if (err == SCENE_OK) {
+        return API_CODE_OK;
     }
+    int status;
+    const char *error;
+    scene_error_of(err, &status, &error);
+    return api_code_of(status, error);
 }
 
 /* The query's scene name: false with the error in `err`. */
@@ -173,6 +194,8 @@ cJSON *api_settings_json(const settings_t *s)
     cJSON *leds = cJSON_AddObjectToObject(o, "leds");
     cJSON_AddNumberToObject(leds, "brightness", s->led_brightness);
     cJSON_AddNumberToObject(leds, "count", s->led_count);
+    cJSON *touch = cJSON_AddObjectToObject(o, "touch");
+    cJSON_AddBoolToObject(touch, "reporting", s->touch);
     return o;
 }
 
@@ -206,13 +229,28 @@ static bool in_range(const cJSON *o, const char *key, int lo, int hi, int *out)
     return true;
 }
 
-static bool only(const cJSON *o, const char *a, const char *b, const char *c)
+static bool only(const cJSON *o, const char *a, const char *b, const char *c, const char *d)
 {
     for (const cJSON *k = o->child; k != NULL; k = k->next) {
-        if (strcmp(k->string, a) && (b == NULL || strcmp(k->string, b)) && (c == NULL || strcmp(k->string, c))) {
+        if (strcmp(k->string, a) && (b == NULL || strcmp(k->string, b)) && (c == NULL || strcmp(k->string, c)) &&
+            (d == NULL || strcmp(k->string, d))) {
             return false;
         }
     }
+    return true;
+}
+
+/* A bool at o[key], if there: false when there and not one */
+static bool a_bool(const cJSON *o, const char *key, bool *out)
+{
+    const cJSON *v = cJSON_GetObjectItem(o, key);
+    if (v == NULL) {
+        return true;
+    }
+    if (!cJSON_IsBool(v)) {
+        return false;
+    }
+    *out = cJSON_IsTrue(v);
     return true;
 }
 
@@ -224,16 +262,24 @@ static api_reply_t settings_patch(const api_req_t *req)
     const cJSON *boot = cJSON_GetObjectItem(body, "boot_scene");
     const cJSON *screen = cJSON_GetObjectItem(body, "screen");
     const cJSON *leds = cJSON_GetObjectItem(body, "leds");
+    const cJSON *touch = cJSON_GetObjectItem(body, "touch");
     const char *bad = NULL;
-    if (body->child == NULL || !only(body, "boot_scene", "screen", "leds")) {
-        bad = "send boot_scene, screen {backlight} or leds {brightness, count}";
-    } else if (screen && !(cJSON_IsObject(screen) && only(screen, "backlight", NULL, NULL) &&
+    if (body->child == NULL || !only(body, "boot_scene", "screen", "leds", "touch")) {
+        bad = "send boot_scene, screen {backlight}, leds {brightness, count} or touch {reporting}";
+    } else if (screen && !(cJSON_IsObject(screen) && only(screen, "backlight", NULL, NULL, NULL) &&
                            in_range(screen, "backlight", 1, 100, &s.backlight))) {
         bad = "`screen` is {\"backlight\": 1-100}";
-    } else if (leds && !(cJSON_IsObject(leds) && only(leds, "brightness", "count", NULL) &&
+    } else if (leds && !(cJSON_IsObject(leds) && only(leds, "brightness", "count", NULL, NULL) &&
                          in_range(leds, "brightness", 1, 100, &s.led_brightness) &&
                          in_range(leds, "count", 1, 256, &s.led_count))) {
         bad = "`leds` is {\"brightness\": 1-100, \"count\": 1-256}";
+    } else if (touch && !(cJSON_IsObject(touch) && only(touch, "reporting", NULL, NULL, NULL) &&
+                          a_bool(touch, "reporting", &s.touch))) {
+        bad = "`touch` is {\"reporting\": true or false}";
+#if !CONFIG_BOARD_TOUCH_ENABLE
+    } else if (s.touch) {
+        bad = "this build has no touch (BOARD_TOUCH_ENABLE)";
+#endif
     } else if (boot && !cJSON_IsNull(boot) && !(cJSON_IsString(boot) && scene_name_ok(boot->valuestring))) {
         bad = "`boot_scene` is a scene's name, or null";
     }
@@ -256,8 +302,7 @@ static api_reply_t settings_patch(const api_req_t *req)
     if (err != ESP_OK) {
         return api_error(500, "failed", "not saved: %s", esp_err_to_name(err));
     }
-    screen_set_backlight(s.backlight);
-    leds_set_brightness(s.led_brightness);
+    settings_apply(&s, touch != NULL);      /* touch reporting only when asked: `touch on` stands otherwise */
     return settings_result(&s);
 }
 
@@ -265,13 +310,10 @@ static api_reply_t settings_delete(const api_req_t *req)
 {
     (void)req;
     settings_t s;
-    settings_defaults(&s);
-    const esp_err_t err = settings_save(&s);
+    const esp_err_t err = settings_reset(&s);
     if (err != ESP_OK) {
         return api_error(500, "failed", "not saved: %s", esp_err_to_name(err));
     }
-    screen_set_backlight(s.backlight);
-    leds_set_brightness(s.led_brightness);
     return settings_result(&s);
 }
 

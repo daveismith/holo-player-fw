@@ -178,7 +178,8 @@ void board_register_commands(void)
 #if CONFIG_BOARD_TOUCH_ENABLE
     const esp_console_cmd_t touch = {
         .command = "touch",
-        .help = "CST816S touch reporting on or off (off at boot); prints down/move/up with x,y",
+        .help = "CST816S touch reporting on or off for now, not saved: the board starts as `settings touch` says "
+                "(off unless set); prints down/move/up with x,y",
         .hint = "[on|off|status]",
         .func = touch_cmd,
     };

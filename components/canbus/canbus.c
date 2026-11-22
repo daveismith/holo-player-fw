@@ -72,6 +72,9 @@ static volatile bool s_owed;        /* bus-off aborted the frame in the TX buffe
 
 _Static_assert(sizeof(canbus_frame_t) == 24, "canbus_frame_t is the receive queue's item: keep it 24 bytes");
 
+/* canbus_wake()'s item in the receive queue: no frame has this length, and canbus_receive() skips it */
+#define WAKE_LEN 0xFF
+
 /* Counters since canbus_start(): written by the ISR, read whole (32-bit) by anyone */
 static volatile uint32_t s_tx_frames, s_tx_failed, s_rx_frames, s_rx_dropped, s_bus_errors, s_bus_off;
 static volatile uint32_t s_rx_peak;     /* the most frames the receive queue has held */
@@ -409,7 +412,28 @@ esp_err_t canbus_wait_room(canbus_handle_t handle, TickType_t wait)
 bool canbus_receive(canbus_handle_t handle, canbus_frame_t *frame, TickType_t wait)
 {
     /* A running handle means the queue exists: it is made at the first start */
-    return owns(handle) && xQueueReceive(s_rxq, frame, wait) == pdTRUE;
+    if (!owns(handle)) {
+        return false;
+    }
+    while (xQueueReceive(s_rxq, frame, wait) == pdTRUE) {
+        if (frame->len != WAKE_LEN) {
+            return true;
+        }
+        /* canbus_wake()'s: whatever else is queued, without waiting. So a false return still means
+         * the queue was empty, which the Cyphal node's listen relies on (cyphal_listen_empty()) */
+        wait = 0;
+    }
+    return false;
+}
+
+esp_err_t canbus_wake(canbus_handle_t handle)
+{
+    if (!owns(handle)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    /* Behind any frames already queued; a stale one left by a stop is cleared by the next start */
+    const canbus_frame_t wake = { .len = WAKE_LEN };
+    return xQueueSend(s_rxq, &wake, 0) == pdTRUE ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t canbus_recover(canbus_handle_t handle)

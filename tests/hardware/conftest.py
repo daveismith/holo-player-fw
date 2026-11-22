@@ -30,12 +30,18 @@ Markers: `restarts` (restarts the node or the board; every test restarts the nod
 opens the adapter), `slow` (minutes), `ota` (writes the board's spare OTA slot over Wi-Fi: needs
 --board-host; never activates it).
 
-The DSDL is the public_regulated_data_types submodule, the revision the firmware's C headers were
-generated from (tools/gen_dsdl.py); pycyphal's Python for it is compiled once into
-build/pycyphal-dsdl/.
+A board that restarts itself (uavcan.node.ExecuteCommand's restart and factory reset) does so with the
+adapter open. The harness then sends nothing until the board acknowledges again: Net.muted() drops the
+pycyphal node's frames (its heartbeat, its port list) at the adapter while the board is down.
+
+The DSDL is two submodules, the revisions the firmware's C headers were generated from
+(tools/gen_dsdl.py): public_regulated_data_types (`uavcan`) and r2_cyphal_dsdl (`r2`); pycyphal's
+Python for them is compiled once into build/pycyphal-dsdl/, and again when either moves.
 """
 from __future__ import annotations
 
+import contextlib
+import json
 import os
 import re
 import struct
@@ -46,20 +52,21 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 DSDL = REPO / "external" / "public_regulated_data_types"
+R2_DSDL = REPO / "external" / "r2_cyphal_dsdl"
 DSDL_OUT = REPO / "build" / "pycyphal-dsdl"
 
 
 def _compile_dsdl() -> None:
-    """pycyphal's Python for the uavcan namespace, compiled again when the DSDL revision moves.
+    """pycyphal's Python for the uavcan and r2 namespaces, compiled again when either revision moves.
     Before pycyphal.application is imported: it imports uavcan.node at load."""
-    revision = subprocess.run(["git", "-C", str(DSDL), "rev-parse", "HEAD"], capture_output=True, text=True,
-                              check=True).stdout.strip()
+    revision = " ".join(subprocess.run(["git", "-C", str(d), "rev-parse", "HEAD"], capture_output=True, text=True,
+                                       check=True).stdout.strip() for d in (DSDL, R2_DSDL))
     stamp = DSDL_OUT / "revision"
     if not stamp.exists() or stamp.read_text().strip() != revision:
         import pycyphal.dsdl
 
         DSDL_OUT.mkdir(parents=True, exist_ok=True)
-        pycyphal.dsdl.compile_all([DSDL / "uavcan"], DSDL_OUT)
+        pycyphal.dsdl.compile_all([DSDL / "uavcan", R2_DSDL / "r2"], DSDL_OUT)
         stamp.write_text(revision + "\n")
     if str(DSDL_OUT) not in sys.path:
         sys.path.insert(0, str(DSDL_OUT))
@@ -78,15 +85,23 @@ import usb.core  # noqa: E402
 
 import uavcan.node.GetInfo_1_0 as GetInfo  # noqa: E402
 import uavcan.node.Heartbeat_1_0 as Heartbeat  # noqa: E402
+import uavcan.primitive.array.Bit_1_0 as Bit  # noqa: E402
+import uavcan.primitive.array.Natural16_1_0 as Natural16  # noqa: E402
+import uavcan.primitive.array.Natural32_1_0 as Natural32  # noqa: E402
+import uavcan.primitive.String_1_0 as String  # noqa: E402
+import uavcan.register.Access_1_0 as Access  # noqa: E402
+import uavcan.register.List_1_0 as RegisterList  # noqa: E402
+import uavcan.register.Name_1_0 as Name  # noqa: E402
+import uavcan.register.Value_1_0 as Value  # noqa: E402
 
-# The kit's console helper opens the port without resetting the board and answers linenoise's
-# terminal queries; can_check has the gs_usb workaround for macOS. No bytecode: the submodule stays
-# clean.
+# board_console has the console (on the kit's helper, which opens the port without resetting the board
+# and answers linenoise's terminal queries), shared with tools/yakut_can.py; can_check has the gs_usb
+# workaround for macOS. No bytecode: the submodule stays clean.
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(REPO / "external" / "esp-console-kit" / "tools"))
 sys.path.insert(0, str(REPO / "tools"))
+import api_smoke  # noqa: E402
+import board_console  # noqa: E402
 import can_check  # noqa: E402
-import fs_xfer  # noqa: E402
 
 can_check.patch_gs_usb_for_macos()
 
@@ -124,131 +139,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                      help="the board's console (default $ESPPORT, or the bench's CH343P)")
     parser.addoption("--dut-node-id", default=52, type=int, help="the fixed node-ID the board is given (default 52)")
     parser.addoption("--local-node-id", default=10, type=int, help="the test harness's node-ID (default 10)")
-    parser.addoption("--board-host", default=None, help="the board's address on Wi-Fi, for the `ota` tests")
+    parser.addoption("--board-host", default=None,
+                     help="the board's address on Wi-Fi, for the `ota` tests and the HTTP comparisons (an API password "
+                          "from $HOLO_PASSWORD)")
     parser.addoption("--clip", default="leia240.mjpeg.mov", help="a clip on the board for the load tests")
+    parser.addoption("--holo-minutes", default=3.0, type=float,
+                     help="how long the holo's load test runs (default 3; the phase gates run 10)")
+    parser.addoption("--soak-minutes", default=0.0, type=float,
+                     help="how long the soak runs (test_soak.py; default 0: skipped)")
 
 
 # --------------------------------------------------------------------------------------------- board
 
 
-class Board:
-    """The board's console. Commands are sent once each, never repeated: a timeout fails the test.
-    Output that arrives between commands (log lines) is kept in `log`."""
+class Board(board_console.Console):
+    """The board's console (board_console.Console: commands, the log between them, `restart`, quiet()),
+    and what the tests ask of the node through it"""
 
-    PROMPT_WAIT = 3
-
-    def __init__(self, port: str):
-        self.con = fs_xfer.Console(port, 115200)
-        self.log = ""
-
-    def close(self) -> None:
-        self.con.close()
-
-    def _keep(self) -> None:
-        while self.con.pump():
-            pass
-        self.log += self.con.take().replace("\r", "")
-
-    def mark(self) -> int:
-        """A place in `log`, for since()"""
-        self._keep()
-        return len(self.log)
-
-    def since(self, mark: int) -> str:
-        """What was printed outside commands since mark()"""
-        self._keep()
-        return self.log[mark:]
-
-    def command(self, line: str, timeout: float = 20) -> str:
-        self._keep()
-        # An empty line first, for a prompt to start from. A log line printed just after that
-        # prompt (the node's "online", say) leaves none at the end, and linenoise doesn't print it
-        # again: the empty line, unlike the command, is safe to send twice.
-        for _ in range(2):
-            self.con.s.write(b"\r")
-            if self.con.wait_prompt(self.PROMPT_WAIT):
-                break
-        else:
-            self._keep()
-            raise AssertionError(f"no console prompt before {line!r}; last output:\n{self.log[-500:]}")
-        self._keep()
-        self.con.s.write(line.encode() + b"\r")
-        ok, nudged = self._wait_end(timeout)
-        text = self.con.take().replace("\r", "")
-        if not ok:
-            raise AssertionError(f"no prompt after {line!r}:\n{text}")
-        if nudged:
-            # The command's output ends at its prompt; what came after that (a log line, then the
-            # prompt the nudge brought) is the log's
-            text, rest = self._split_at_prompt(text)
-            self.log += rest
-        return fs_xfer.strip_echo(text, line)
-
-    QUIET_S = 0.3       # no output for this long after a prompt and a log line: the log line is whole
-    # A prompt at the start of a line with more after it on the same line: a log line printed after it
-    PROMPT_THEN_LOG = re.compile(r"(?:^|\n)\S+> (?=\S)")
-
-    def _wait_end(self, timeout: float) -> tuple[bool, bool]:
-        """(whether the command's prompt came to be the last thing printed, whether it took a nudge).
-        The console's second trap: the command has finished, and a log line came after its prompt
-        (Wi-Fi joining, after a restart of the board), so the output doesn't end at a prompt and
-        linenoise won't print it again. Then an empty line, safe to send (the command is over), brings
-        a fresh prompt to end on."""
+    async def restarted(self, mark: int, timeout: float = 20) -> None:
+        """Wait for a restart the board was told of some other way (uavcan.node.ExecuteCommand): its boot
+        log after mark(), then its console. The event loop runs meanwhile"""
         end = time.monotonic() + timeout
-        last_data = nudged_at = time.monotonic()
-        nudged = False
-        while time.monotonic() < end:
-            if self.con.pump():
-                last_data = time.monotonic()
-            if self.con.at_prompt():
-                return True, nudged
-            now = time.monotonic()
-            if now - last_data >= self.QUIET_S and now - nudged_at >= 2 * self.QUIET_S and self._prompt_then_log():
-                self.con.s.write(b"\r")
-                nudged, nudged_at = True, now
-                end = max(end, now + self.PROMPT_WAIT)
-        return False, nudged
-
-    @staticmethod
-    def _echo_end(text: str) -> int:
-        """Where the command's own line ends: its newline, from which a search for a prompt at the start
-        of a line after it begins"""
-        return text.find("\n") if "\n" in text else len(text)
-
-    def _prompt_then_log(self) -> bool:
-        """Whether the output since the command's own line holds a prompt with a log line after it"""
-        text = fs_xfer.ANSI.sub(b"", self.con.buf).decode("utf-8", "replace").replace("\r", "")
-        return self.PROMPT_THEN_LOG.search(text, self._echo_end(text)) is not None
-
-    @classmethod
-    def _split_at_prompt(cls, text: str) -> tuple[str, str]:
-        """(the echo, the output and its prompt; what came after that prompt), for output that took a
-        nudge to end"""
-        m = cls.PROMPT_THEN_LOG.search(text, cls._echo_end(text))
-        if m is None:
-            return text, ""
-        return text[:m.end()], text[m.end():]
-
-    def restart(self, timeout: float = 20) -> None:
-        """`restart`, and wait for the console to come back"""
-        self._keep()
-        self.con.s.write(b"restart\r")
-        time.sleep(1.5)
-        end = time.time() + timeout
-        while time.time() < end:
-            self.con.s.write(b"\r")
-            if self.con.wait_prompt(1):
-                self._keep()
-                return
-        raise AssertionError("the console did not come back after `restart`")
+        while "ESP-ROM:" not in self.since(mark):
+            if time.monotonic() > end:
+                raise AssertionError(f"the board did not restart; it printed:\n{self.since(mark)[-500:]}")
+            await asyncio.sleep(0.1)
+        await asyncio.sleep(1.5)
+        self.prompt_back(timeout, "its restart")
 
     # ---- the node
-
-    def quiet(self) -> None:
-        """`cyphal restart`: the node then listens for 2 s, sending nothing, which is when the
-        adapter may be opened or closed"""
-        out = self.command("cyphal restart")
-        assert "listening" in out, out
 
     def plug_and_play(self) -> None:
         """`cyphal id auto`, from the node's next start. Only with the adapter open (or closed for good):
@@ -268,6 +187,10 @@ class Board:
 
     def cyphal(self) -> dict:
         return parse_cyphal(self.command("cyphal"))
+
+    def first_line(self, command: str) -> str:
+        """A command's first line of output: `leds`'s setting, `screen`'s, ..."""
+        return self.command(command).strip().splitlines()[0]
 
     def in_state(self, state: str, node_id: int | None, end: float) -> dict | None:
         """The status if the node is in `state` (on `node_id`, if given); None to look again, unless
@@ -333,9 +256,21 @@ def parse_cyphal(text: str) -> dict:
         ("not_read", r"not read \(queue full\) (\d+)"), ("heap_used", r"libcanard heap (\d+) of"),
         ("heap_peak", r"bytes \((\d+) at most"), ("stack_unused", r"stack (\d+) bytes never used"),
         ("internal_free", r"internal heap (\d+) free"), ("internal_lowest", r"(\d+) lowest"),
+        ("txq_peak", r"send queue at most (\d+)"), ("worker_unused", r"job slots held; its stack (\d+) of"),
+        ("slow_unused", r"the second worker \d+ of \d+, its stack (\d+) of"),
     ]:
         st[key] = _int(pattern, text)
     st["heap_ran_out"] = "it ran out" in text
+    if m := re.search(r"services: registers read (\d+), written (\d+), refused (\d+), listed (\d+); commands (\d+), "
+                      r"bad (\d+); busy (\d+); port lists (\d+)", text):
+        st["services"] = dict(zip(("register_reads", "register_writes", "register_refused", "register_lists",
+                                   "commands", "commands_refused", "busy", "port_lists"), map(int, m.groups())))
+    if m := re.search(r"application: requests (\d+), messages (\d+); health (\w+)", text):
+        st["application"] = {"requests": int(m.group(1)), "messages": int(m.group(2)), "health": m.group(3)}
+    # Each published port: sent, and replaced by a newer one (or refused, a queue being full)
+    if m := re.search(r"published: (.*)", text):
+        st["published"] = {p.group(1): {"sent": int(p.group(2)), "lost": int(p.group(3))}
+                           for p in re.finditer(r"(\w+) (\d+) \((\d+) (?:replaced|refused, full)\)", m.group(1))}
     return st
 
 
@@ -373,14 +308,29 @@ def dut_node_id(request: pytest.FixtureRequest) -> int:
     return request.config.getoption("--dut-node-id")
 
 
+@pytest.fixture(scope="session")
+def http(request: pytest.FixtureRequest) -> api_smoke.Board | None:
+    """The board's HTTP API with --board-host (Board.call(method, path, body=...) -> (status, reply)), else None"""
+    host = request.config.getoption("--board-host")
+    return api_smoke.Board(host, os.environ.get("HOLO_PASSWORD")) if host else None
+
+
 # ------------------------------------------------------------------------------------------ the bus
+
+
+@pytest.fixture
+def need_http(http: api_smoke.Board | None) -> api_smoke.Board:
+    """The HTTP side, for a test that compares with it: skipped without --board-host"""
+    if http is None:
+        pytest.skip("compares with the HTTP API: --board-host")
+    return http
 
 
 class Net:
     """The computer's side of the bus: a pycyphal node on the one adapter. Each open and close is
     made while the board is quiet (Board.quiet()). Close it before the board restarts."""
 
-    REOPEN_S = 2.0      # the adapter resets as it closes: what it takes to come back on USB
+    REOPEN_S = board_console.ADAPTER_REOPEN_S      # the adapter resets as it closes: back on USB after this
     BACK_S = 20.0       # how long an open keeps trying while the adapter is off USB
     made: list[Net] = []
     open_failed = False     # an open found the adapter gone at least once: see pytest_unconfigure()
@@ -392,7 +342,33 @@ class Net:
         self.media: pycyphal.transport.can.media.pythoncan.PythonCANMedia | None = None
         self.closed_at = 0.0
         self._capture: Capture | None = None
+        self.mute = False           # muted(): the harness's frames dropped before the adapter
+        self.dropped = 0            # how many, since the open
         Net.made.append(self)
+
+    def _mutable(self, media: pycyphal.transport.can.media.pythoncan.PythonCANMedia) -> None:
+        """The media's send, through mute: pycyphal is told the frames went, and nothing goes on the bus"""
+        send = media.send
+
+        async def send_unless_muted(frames, monotonic_deadline: float) -> int:
+            frames = list(frames)
+            if self.mute:
+                self.dropped += len(frames)
+                return len(frames)
+            return await send(frames, monotonic_deadline)
+
+        media.send = send_unless_muted
+
+    @contextlib.asynccontextmanager
+    async def muted(self) -> AsyncIterator[None]:
+        """Nothing sent by the harness meanwhile: for a board that restarts while the adapter is open. Until
+        it acknowledges again, a frame from the harness would go unacknowledged, which the adapter can't
+        stand (conftest's rules)"""
+        self.mute = True
+        try:
+            yield
+        finally:
+            self.mute = False
 
     @staticmethod
     def _retry(make):
@@ -417,6 +393,8 @@ class Net:
         self.board.quiet()
         self.media = self._retry(lambda: pycyphal.transport.can.media.pythoncan.PythonCANMedia(
             self.iface, self.bitrate, mtu=8))
+        self._mutable(self.media)
+        self.dropped = 0
         transport = pycyphal.transport.can.CANTransport(self.media, local_node_id=self.local_node_id)
         self.node = pycyphal.application.make_node(pycyphal.application.NodeInfo(name="holo.tests.harness"),
                                                    transport=transport)
@@ -424,13 +402,17 @@ class Net:
         return self.node
 
     async def close(self) -> None:
+        """Closed while the board is quiet; and closed whatever happens, even if the board can't be made quiet (a
+        stuck console): left open, the adapter would be closed at the process's exit, while the board sends"""
         if self.node is not None:
-            self.board.quiet()
-            self.node.close()
-            self.node = None
-            self.media = None
-            self._capture = None
-            self.closed_at = time.monotonic()     # open() waits out the rest of REOPEN_S
+            try:
+                self.board.quiet()
+            finally:
+                self.node.close()
+                self.node = None
+                self.media = None
+                self._capture = None
+                self.closed_at = time.monotonic()     # open() waits out the rest of REOPEN_S
 
     def capture(self) -> Capture:
         """Every frame on the bus from now until Capture.stop(). One Capture for each open of the
@@ -550,8 +532,28 @@ def warnings(log: str, node_id: int) -> int:
     return len(re.findall(re.escape(WARNING.format(node_id)), log))
 
 
-def gaps(beats: list[tuple[float, int, object]]) -> list[float]:
-    return [b[0] - a[0] for a, b in zip(beats, beats[1:])]
+def gaps(beats: list) -> list[float]:
+    """The times between each and the next: heartbeats()' (their arrival first) or plain times"""
+    times = [b[0] if isinstance(b, tuple) else b for b in beats]
+    return [b - a for a, b in zip(times, times[1:])]
+
+
+class Beats:
+    """Every heartbeat from `server` in the background until close(), by its own stamp (pycyphal gives a gs_usb
+    adapter's frame the adapter's clock), for the gaps between them over minutes, which a console command holding
+    the event loop would otherwise stretch. heartbeats() is the same in the foreground, for a few seconds"""
+
+    def __init__(self, node: pycyphal.application.Node, server: int):
+        self.times: list[float] = []
+        self._sub = node.make_subscriber(Heartbeat)
+
+        async def keep(msg, transfer) -> None:
+            if transfer.source_node_id == server:
+                self.times.append(float(transfer.timestamp.monotonic))
+        self._sub.receive_in_background(keep)
+
+    def close(self) -> None:
+        self._sub.close()
 
 
 class Frame:
@@ -608,3 +610,120 @@ def expected_software_version(version: str) -> tuple[int, int, int]:
         return min(int(m.group(1)), 255), min(int(m.group(2)), 255), 0
     m = re.search(r"-g([0-9a-f]{4,})(?=-|$)", version) or re.fullmatch(r"([0-9a-f]{4,})(?:-.*)?", version)
     return 0, 0, int(m.group(1)[:16], 16) if m else 0
+
+
+# ------------------------------------------------------------------------------------- registers
+
+
+def natural16(*values: int) -> Value:
+    return Value(natural16=Natural16(list(values)))
+
+
+def natural32(*values: int) -> Value:
+    return Value(natural32=Natural32(list(values)))
+
+
+def string(text: str) -> Value:
+    return Value(string=String(text))
+
+
+def bits(*values: bool) -> Value:
+    return Value(bit=Bit([bool(v) for v in values]))
+
+
+def plain(value: Value) -> int | list[int] | list[bool] | str | None:
+    """A register's value as Python: one number, several, a string, a list of bools for a bit array, or None for empty
+    (no register)"""
+    if value.empty is not None:
+        return None
+    if value.bit is not None:
+        return [bool(x) for x in value.bit.value]
+    if value.string is not None:
+        return bytes(value.string.value).decode()
+    for kind in ("natural16", "natural32"):
+        if (v := getattr(value, kind)) is not None:
+            numbers = [int(x) for x in v.value]
+            return numbers[0] if kind == "natural16" and len(numbers) == 1 else numbers
+    raise AssertionError(f"a value of a type no register here has: {value}")
+
+
+async def call(node: pycyphal.application.Node, dtype, server: int, request, timeout: float = 1.0,
+               port: int | None = None):
+    """One call of the service `dtype` to node `server`, on its fixed port or `port`: the response, which the test
+    fails without"""
+    client = node.make_client(dtype, server) if port is None else node.make_client(dtype, server, port)
+    client.response_timeout = timeout
+    try:
+        result = await client.call(request)
+    finally:
+        client.close()
+    assert result is not None, f"no response from node {server} to {dtype.__name__}{'' if port is None else f' on {port}'}: {request}"
+    return result[0]
+
+
+async def access(node: pycyphal.application.Node, server: int, name: str, value: Value | None = None) -> Access.Response:
+    """uavcan.register.Access: a read, or with `value` a write"""
+    return await call(node, Access, server, Access.Request(name=Name(name), value=value or Value()))
+
+
+async def register_names(node: pycyphal.application.Node, server: int) -> list[str]:
+    """uavcan.register.List from index 0 until the empty name"""
+    names = []
+    for index in range(1000):
+        name = bytes((await call(node, RegisterList, server, RegisterList.Request(index=index))).name.name).decode()
+        if not name:
+            break
+        names.append(name)
+    return names
+
+
+def _reference_value(kind: str, token: str):
+    """A default as the reference page writes it in backticks ("65535", "[1150, 1900]", "false", a name) as plain() gives
+    a value of that type"""
+    if kind == "string":
+        return token
+    value = json.loads(token)
+    if kind.startswith("bit"):
+        return [bool(v) for v in (value if isinstance(value, list) else [value])]
+    return value
+
+
+def reference_registers() -> dict[str, tuple[str, object, bool]]:
+    """The registers manual/reference/cyphal.md gives: the node's, the ports' and the holo's. name -> (type, default,
+    mutable)"""
+    page = (REPO / "manual" / "reference" / "cyphal.md").read_text()
+    out: dict[str, tuple[str, object, bool]] = {}
+    node = page[page.index("**The node:**"):page.index("**The ports**")]
+    for m in re.finditer(r"^\| `([a-z0-9_.]+)` \| (natural16\[1\]|natural32\[2\]|string) \|[^|]*\| ([^|]+) \| "
+                         r"(mutable|immutable), persistent \|", node, re.M):
+        default = m.group(3).strip()
+        value = (default.strip("`") if m.group(2) == "string" else
+                 [int(x) for x in re.findall(r"\d+", default)] if default.startswith("[") else int(default))
+        out[m.group(1)] = (m.group(2), value, m.group(4) == "mutable")
+    # The port types, by their default port, from the table of the node's ports
+    types = {(m.group(2), int(m.group(3))): m.group(1) for m in re.finditer(
+        r"\| `(r2\.holo\.\w+\.\d+\.\d+)` \| (subject|service) (\d+)", page)}
+    kinds = {"Published": "pub", "Subscribed": "sub", "Served": "srv"}
+    for m in re.finditer(r"^\| `(\w+)` \| (Published|Subscribed|Served) \| (subject|service) (\d+) \|", page, re.M):
+        name, kind, default = m.group(1), kinds[m.group(2)], int(m.group(4))
+        out[f"uavcan.{kind}.{name}.id"] = ("natural16[1]", default, True)
+        out[f"uavcan.{kind}.{name}.type"] = ("string", types[(m.group(3), default)], False)
+    # The holo's: one row for an axis pair (a default each, or one for both) or for touch reporting
+    holo = page[page.index("**The holo:**"):page.index("## Commands")]
+    for m in re.finditer(r"^\| ((?:`[a-z0-9_.]+`(?:, )?)+) \| (natural16\[\d\]|bit\[\d\]) \|[^|]*\| ([^|]+) \| "
+                         r"(mutable|immutable), persistent \|", holo, re.M):
+        names = re.findall(r"`([a-z0-9_.]+)`", m.group(1))
+        defaults = re.findall(r"`([^`]+)`", m.group(3))
+        for i, name in enumerate(names):
+            token = defaults[i] if len(defaults) >= len(names) else defaults[0]
+            out[name] = (m.group(2), _reference_value(m.group(2), token), m.group(4) == "mutable")
+    return out
+
+
+def console_registers(text: str) -> dict[str, str]:
+    """`cyphal register`'s list: name -> the value as shown"""
+    out = {}
+    for line in text.splitlines():
+        if m := re.match(r"([a-z0-9_.]+) +(.+?) +(natural16\[\d\]|natural32\[2\]|bit\[\d\]|string), ", line):
+            out[m.group(1)] = m.group(2)
+    return out

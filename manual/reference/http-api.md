@@ -156,19 +156,27 @@ rate -- without showing it.
 
 ## The LEDs
 
-`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`, `flicker`),
-`colour`, `loop` and `brightness`. `flicker` flickers the colour like a failing hologram until
-something else replaces it. `PATCH` changes any of them now:
+`GET /api/v1/leds` is the strip: its `mode` (`off`, `solid`, `wipe`, `rainbow`, `flicker`,
+`pulse`, `blink`), `colour`, `loop`, `period_ms`, `level` and `brightness`, and a timed mode's
+`timed` (its `remaining_s` and what it goes back to, `then`) with `leia`. `flicker` flickers the
+colour like a failing hologram, `pulse` fades it up and down once a period (`period_ms`, 200–60000;
+2000) and `blink` turns it on and off (1000), each until something else replaces it. `PATCH`
+changes any of them now:
 
 ```sh
 curl -X PATCH -H "$J" -d '{"mode":"solid","colour":"orange"}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"mode":"rainbow","loop":true}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"mode":"flicker","colour":"#4da6ff"}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"pulse","period_ms":3000,"level":40}' "$B/leds"
+curl -X PATCH -H "$J" -d '{"mode":"blink","colour":"red","time_s":5}' "$B/leds"
 curl -X PATCH -H "$J" -d '{"brightness":10}' "$B/leds"
 ```
 
 A colour is `#rrggbb`, `R,G,B`, or a name. Keep the brightness at 30 or below when the strip is
-powered from the board.
+powered from the board. `level` (0–100) is the share of the brightness the mode lights at, as the
+holo's light has it ([the LED page](../use/leds.md#the-holos-light)): a new mode starts at 100.
+`time_s` (0.1–3600) makes it a timed mode, after which the ring goes back to what it was doing; any
+change but the brightness alone during one replaces it for good. A scene's `leds` takes the same.
 
 ## The holoprojector and its servos
 
@@ -266,15 +274,21 @@ the board was doing before the first.
 
 - `boot_scene`: the scene applied at every start, or null for nothing;
 - `screen.backlight`: the backlight it starts at;
-- `leds.brightness`, and `leds.count`, the LEDs on the strip.
+- `leds.brightness`, and `leds.count`, the LEDs on the strip;
+- `touch.reporting`: whether touch reporting (the `touch` events) is on at start; off unless set (on
+  by default in a build with `BOARD_TOUCH_AUTOSTART`). The Cyphal register `r2.touch.reporting` is
+  the same setting.
 
 ```sh
 curl -X PATCH -H "$J" -d '{"boot_scene":"cantina","screen":{"backlight":80}}' "$B/settings"
+curl -X PATCH -H "$J" -d '{"touch":{"reporting":true}}' "$B/settings"
 ```
 
-The backlight and brightness change now too. A new `leds.count` waits for a restart, and the reply
-says so with `"restart_required": true`. `DELETE /api/v1/settings` goes back to the firmware's
-defaults, keeping scenes, calibration and networks.
+The backlight and brightness change now too, and touch reporting does when `touch` is sent (the
+console's `touch on` and `touch off` turn it on or off only until the next start, and a PATCH of
+something else leaves that alone). A new `leds.count` waits for a restart, and the reply says so
+with `"restart_required": true`. `DELETE /api/v1/settings` goes back to the firmware's defaults,
+applied now, keeping scenes, calibration and networks.
 
 ## Network and the web server
 

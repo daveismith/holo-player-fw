@@ -1,5 +1,6 @@
 idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c" "holo_servos.c"
-                            "wifi_fallback.c"
+                            "wifi_fallback.c" "holo_cyphal.c" "holo_cyphal_services.c" "holo_cyphal_events.c"
+                            "holo_cyphal_util.c" "holo_cyphal_lists.c" "holo_cyphal_registers.c"
                        PRIV_REQUIRES console esp_driver_uart esp_driver_usb_serial_jtag
                                      esp_usb_cdc_rom_console nvs_flash esp_netif esp_event
                                      esp_timer vfs espcoredump esp_driver_gpio
@@ -11,5 +12,5 @@ idf_component_register(SRCS "main.c" "console_settings.c" "console_history.c" "h
                                      # any other IDF stops at its #error rather than going
                                      # on unguarded with at most a configure warning.
                                      i2c_bus_guard
-                                     web_server webui scenes hostlink canbus cyphal
+                                     web_server webui scenes hostlink canbus cyphal board_api events
                        INCLUDE_DIRS ".")

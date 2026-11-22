@@ -119,9 +119,17 @@ esp_err_t canbus_send(canbus_handle_t handle, const canbus_frame_t *frame, TickT
  * reads the frames that came meanwhile. */
 esp_err_t canbus_wait_room(canbus_handle_t handle, TickType_t wait);
 
-/* The next received frame, waiting up to `wait`. False on timeout. One consumer at a time: the
- * owner, from after its canbus_start() until before its canbus_stop() (as cmd_can.c does). */
+/* The next received frame, waiting up to `wait`. False on timeout, or when canbus_wake() cut the wait
+ * short with no frame queued: false always means the queue was found empty. One consumer at a time:
+ * the owner, from after its canbus_start() until before its canbus_stop() (as cmd_can.c does). */
 bool canbus_receive(canbus_handle_t handle, canbus_frame_t *frame, TickType_t wait);
+
+/* Wake the owner's reader: its canbus_receive() that is waiting, or else its next one, returns at
+ * once (with a frame if one is queued). For another task with work for a reader that sleeps in
+ * canbus_receive(), as the Cyphal node's worker has, or one that stops it. From any task, with the run's handle:
+ * ESP_ERR_INVALID_STATE with any other; ESP_FAIL when the receive queue is full, which leaves the
+ * reader frames to read and so awake anyway. */
+esp_err_t canbus_wake(canbus_handle_t handle);
 
 /* Start the controller's way back from bus-off: it rejoins after 128 x 11 recessive bits.
  * ESP_ERR_INVALID_STATE if it isn't bus-off. The frame bus-off aborted is lost (counted in

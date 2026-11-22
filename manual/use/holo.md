@@ -113,4 +113,7 @@ The holo engine also supports a light, with `holo led` and `holo leia`.
 !!! warning "There is no light on this board"
     This firmware registers the holo with no light attached, so `holo led` and the light half of
     `holo leia` do nothing here. `holo leia` still centres and moves the axes. The NeoPixel ring
-    is driven separately by [`leds`](leds.md), and is not wired to the holo engine.
+    is driven separately by [`leds`](leds.md), and is not wired to the holo engine. Over Cyphal
+    the ring is the holo's light: `r2.holo.Light` sets it with the same modes, a leia included
+    ([the holo on Cyphal](cyphal.md#the-light-is-the-led-ring)), and `leds` has them too
+    ([the holo's light](leds.md#the-holos-light)).

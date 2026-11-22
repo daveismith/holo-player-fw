@@ -21,7 +21,8 @@ touch the USB console or Wi-Fi: all three work at once.
 | [I2C](../connect/host-i2c.md) | SDA, SCL, IRQ, GND | many, one address each | native frames | A host that already has an I2C bus in the dome |
 
 [CAN](../connect/host-can.md) gives the same pins, through a CAN transceiver, to a
-[Cyphal node](cyphal.md) (`link mode can`), which so far only identifies itself. Plain GPIO
+[Cyphal node](cyphal.md) (`link mode can`), which a Cyphal controller drives with types of its
+own: [the holo on Cyphal](cyphal.md#the-holo-on-cyphal). Plain GPIO
 triggers are planned for later.
 
 **JSON lines** are the [HTTP API](../reference/http-api.md), one request a line:

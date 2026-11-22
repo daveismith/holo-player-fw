@@ -45,7 +45,11 @@ function networkCard(info) {
       "No network nearby? Press BOOT on the board, or run ", code("wifi ap on"), " on the console, to start its own access point."));
 }
 
-function nowCard(screen, leds, holo) {
+// A timed LED mode's time left, as text, `left` seconds: counted down in the page (timedLeft()), since the board
+// says nothing more until the mode ends
+const leftText = (left) => `${left.toFixed(1)} s`;
+
+function nowCard(screen, leds, holo, timedSpan) {
   const showing = !screen ? null
     : screen.showing === "clip" ? `playing ${screen.path}${screen.loop ? ", looping" : ""}`
     : screen.showing === "image" ? `showing ${screen.path}`
@@ -53,7 +57,8 @@ function nowCard(screen, leds, holo) {
     : screen.showing === "calibration" ? "the alignment crosshair" : "off";
   return h("section", { class: "card" }, h("h2", {}, "Now"), facts([
     screen ? ["Screen", h("span", { class: "mono" }, showing)] : null,
-    leds ? ["LEDs", leds.mode === "off" ? "off" : `${leds.mode}${leds.mode !== "rainbow" ? ` ${leds.colour}` : ""}${leds.loop ? ", looping" : ""}, ${leds.brightness}%`] : null,
+    leds ? ["LEDs", h("span", {}, `${leds.mode === "off" ? "off" : `${leds.mode}${leds.mode !== "rainbow" ? ` ${leds.colour}` : ""}${leds.loop ? ", looping" : ""}, ${leds.level !== undefined && leds.level !== 100 ? `at ${leds.level}% of ` : ""}${leds.brightness}%`}`,
+      leds.timed ? [", for ", timedSpan, ` more${leds.leia ? " (a leia)" : ""}`] : null)] : null,
     holo ? ["Holo", holo.ready ? (holo.motion === "hold" ? "still" : holo.motion) : `can't move: ${holo.why}`] : null,
   ]), h("div", { class: "actions" },
     screen ? h("a", { class: "button", href: "#/show" }, "Show") : null,
@@ -88,10 +93,18 @@ export default {
     let holo = null;
     let checked = false;
 
+    // A timed LED mode's countdown: from the board's remaining_s when the LEDs were last read, in the page
+    let ledsAt = 0;
+    const timedSpan = h("span", {});
+    const timedLeft = () => Math.max(0, leds.timed.remaining_s - (Date.now() - ledsAt) / 1000);
+    const tick = setInterval(() => { if (leds?.timed) timedSpan.textContent = leftText(timedLeft()); }, 100);
+    const setLeds = (l) => { leds = l; ledsAt = Date.now(); };
+
     function render() {
       const info = ctx.info;
       const running = slots?.find((s) => s.running);
-      grid.replaceChildren(...[screen || leds || holo ? nowCard(screen, leds, holo) : null,
+      if (leds?.timed) timedSpan.textContent = leftText(timedLeft());
+      grid.replaceChildren(...[screen || leds || holo ? nowCard(screen, leds, holo, timedSpan) : null,
         firmwareCard(info, running), networkCard(info), systemCard(info)].filter(Boolean));
     }
 
@@ -101,11 +114,13 @@ export default {
       if (has("ota")) {
         slots = (await ctx.api.get("/ota")).slots;
       }
-      [screen, leds, holo] = await Promise.all([
+      let l;
+      [screen, l, holo] = await Promise.all([
         has("screen") ? ctx.api.get("/screen") : null,
         has("leds") ? ctx.api.get("/leds") : null,
         has("holo") ? ctx.api.get("/holo") : null,
       ]);
+      setLeds(l);
       render();
 
       // One look for a newer release per visit, when the board can reach the internet
@@ -131,10 +146,11 @@ export default {
     };
     if (has("ota")) on.ota = () => ctx.api.get("/ota").then((o) => { slots = o.slots; render(); }).catch(() => {});
     if (has("screen")) on.screen = (s) => { screen = s; render(); };
-    if (has("leds")) on.leds = (l) => { leds = l; render(); };
+    if (has("leds")) on.leds = (l) => { setLeds(l); render(); };
     if (has("holo")) on.holo = (x) => { holo = x; render(); };
 
     const lost = (e) => alert.replaceChildren(notice("bad", h("p", {}, `Lost touch with the board: ${e.message}`)));
-    return ctx.events.follow({ on, refresh, fallback: 10000, onError: lost, onLost: lost });
+    const stopFollowing = ctx.events.follow({ on, refresh, fallback: 10000, onError: lost, onLost: lost });
+    return () => { clearInterval(tick); stopFollowing(); };
   },
 };

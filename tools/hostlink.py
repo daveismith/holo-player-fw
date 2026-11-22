@@ -13,6 +13,7 @@ Native frames -- the small binary messages (see manual/reference/host-protocol.m
     tools/hostlink.py /dev/cu.usbserial-X --native status
     tools/hostlink.py /dev/cu.usbserial-X --native scene 3
     tools/hostlink.py /dev/cu.usbserial-X --native leds solid 255 128 0 30
+    tools/hostlink.py /dev/cu.usbserial-X --native leds pulse 0 0 255 30 3000
     tools/hostlink.py /dev/cu.usbserial-X --native holo nod
 
 Events -- ask for them, then print them as they come, until Ctrl-C:
@@ -43,7 +44,7 @@ TYPES = {"ping": 0x01, "version": 0x02, "status": 0x03, "scene": 0x10, "end": 0x
          "colour": 0x21, "backlight": 0x22, "leds": 0x30, "holo": 0x40, "events-set": 0x50, "events-get": 0x51,
          "restart": 0x7F}
 STATUS = ["ok", "bad request", "not found", "not playable", "not ready", "busy", "failed", "unknown type"]
-LED_MODES = ["off", "solid", "wipe", "rainbow", "flicker"]
+LED_MODES = ["off", "solid", "wipe", "rainbow", "flicker", "pulse", "blink"]
 MOTIONS = ["center", "move", "nudge", "twitch", "wag", "nod", "scan", "circle", "stop", "off"]
 SHOWING = ["nothing", "colour", "calibration", "image", "clip"]
 HOLO = ["hold", "move", "twitch", "wag", "nod", "scan", "circle"]
@@ -130,7 +131,7 @@ def describe(type_: int, payload: bytes) -> dict:
         b = data
         out.update(showing=SHOWING[b[0]] if b[0] < 5 else b[0], scene_slot=None if b[1] == 0 else b[1],
                    remaining_s=None if b[2] | b[3] << 8 == 0xFFFF else (b[2] | b[3] << 8) / 10,
-                   holo="can't move" if b[4] == 0xFF else HOLO[b[4]], leds=LED_MODES[b[5]] if b[5] < 5 else b[5],
+                   holo="can't move" if b[4] == 0xFF else HOLO[b[4]], leds=LED_MODES[b[5]] if b[5] < len(LED_MODES) else b[5],
                    backlight=b[6], brightness=b[7], seq=b[8] | b[9] << 8, last_status=b[10],
                    touch=bool(b[11] & 1), holo_ready=bool(b[11] & 2))
     elif t == 0x50:
@@ -153,12 +154,13 @@ def native_payload(words: list[str]) -> tuple[int, bytes]:
     if name == "backlight":
         return t, bytes([num[0]])
     if name == "leds":
-        # leds <mode> [r g b] [brightness]
+        # leds <mode> [r g b] [brightness] [period_ms]
         mode = LED_MODES.index(args[0]) if args[0] in LED_MODES else 0xFF
         rgb = num[:3] if len(num) >= 3 else [0, 0, 0]
         bright = num[3] if len(num) >= 4 else 0
         flags = (2 if len(num) >= 3 else 0) | (1 if "loop" in args else 0)
-        return t, bytes([mode, *rgb, bright, flags])
+        period = struct.pack("<H", num[4]) if len(num) >= 5 else b""     # pulse, blink: two bytes more
+        return t, bytes([mode, *rgb, bright, flags]) + period
     if name == "holo":
         # holo <motion> [x y] [duration_ms] [range] [count]
         m = MOTIONS.index(args[0])

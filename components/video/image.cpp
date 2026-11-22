@@ -509,7 +509,9 @@ void probe_jpeg(const char *path, size_t len, media_info_t *out)
         snprintf(out->why, sizeof(out->why), "%u bytes: too large for a JPEG the screen could show", (unsigned)len);
         return;
     }
-    uint8_t *buf = static_cast<uint8_t *>(heap_caps_malloc(len, MALLOC_CAP_8BIT));
+    /* PSRAM first: a probe takes no internal RAM a playing clip's frames need (the decoder's own state, in
+     * jpeg_probe(), is esp_new_jpeg's to place) */
+    uint8_t *buf = static_cast<uint8_t *>(heap_caps_malloc_prefer(len, 2, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT));
     FILE *f = buf != nullptr ? fopen(path, "rb") : nullptr;
     const size_t n = f != nullptr ? fread(buf, 1, len, f) : 0;
     if (f != nullptr) {

@@ -7,7 +7,8 @@
  *   {"name": "cantina", "description": "...",
  *    "screen": {"path": "/clips/cantina.mov", "loop": true} | {"colour": "#ff8000"}
  *              | {"calibration": true} | {"clear": true},
- *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30},
+ *    "leds":   {"mode": "solid", "colour": "orange", "loop": false, "brightness": 30, "period_ms": 2000,
+ *               "level": 100, "time_s": 5},
  *    "holo":   {"motion": "twitch", "range": 50, ...},
  *    "then": "stay" | "restore" | "off", "duration_s": 30, "slot": 3}
  * Each part is optional; a part left out leaves that alone. A scene ends when its clip has played
@@ -19,7 +20,10 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "cJSON.h"
+#include "happening.h"
+#include "holo.h"
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -53,6 +57,55 @@ scene_err_t scene_do_screen(const cJSON *show, bool in_scene, bool dry, char *wh
 scene_err_t scene_do_leds(const cJSON *patch, bool dry, char *why, size_t why_len);
 scene_err_t scene_do_holo(const cJSON *motion, bool dry, char *why, size_t why_len);
 
+/*
+ * What the screen is to show, as POST /screen/show and a scene's `screen` take it once read from JSON
+ * (scene_do_screen()), or as the Cyphal node's r2.holo.Screen builds it: a file (a clip, an image or a GIF) by
+ * its path from the volume's root, `loop` (forever) or `loops` (1..1000; 0 for the default: a clip once, a GIF
+ * as the file says), never both, and `whole_frame`; a colour; the alignment crosshair; or nothing (clear: the
+ * panel asleep). Checked (the loops, then the path, by fs_path(): SCENE_BAD_PATH), and unless dry, shown, with
+ * the JSON API's words: SCENE_MISSING for no such file, SCENE_UNPLAYABLE for one the screen can't show, and the
+ * screen unchanged by any refusal. A file isn't looked for when dry.
+ */
+typedef enum { SCENE_SCREEN_FILE, SCENE_SCREEN_COLOUR, SCENE_SCREEN_CALIBRATION, SCENE_SCREEN_CLEAR } scene_screen_kind_t;
+typedef struct {
+    scene_screen_kind_t show;
+    const char *path;           /* FILE */
+    bool loop;                  /* FILE */
+    int loops;                  /* FILE: 0 for none given */
+    bool whole_frame;           /* FILE */
+    uint8_t rgb[3];             /* COLOUR */
+} scene_screen_t;
+scene_err_t scene_screen_change(const scene_screen_t *s, bool dry, char *why, size_t why_len);
+
+/*
+ * A change to the LEDs, as PATCH /leds and a scene's `leds` take it, each field optional (has_*):
+ * scene_do_leds() reads one from JSON; the Cyphal node's r2.holo.Light builds one, and adds `leia`. A
+ * new mode starts at its default period, at level 100, once (looping only if asked); a colour, loop,
+ * period or level alone restarts the mode running with it; the brightness alone changes nothing else.
+ * With a time, a timed setting that goes back to what the ring was doing (leds_set_timed()); without,
+ * for good, ending a timed one. The ranges are checked here, with the JSON API's messages.
+ */
+typedef struct {
+    bool has_mode, has_colour, has_loop, has_brightness, has_period, has_level, has_time;
+    int mode;                   /* a leds_mode_t */
+    uint8_t rgb[3];
+    bool loop;
+    int brightness;             /* 1..100 */
+    int period_ms;              /* 200..60000 */
+    int level;                  /* 0..100 */
+    double time_s;              /* 0.1..3600 */
+    bool leia;                  /* with a time: the timed setting is a leia's */
+} scene_leds_t;
+scene_err_t scene_leds_change(const scene_leds_t *change, bool dry, char *why, size_t why_len);
+
+/*
+ * A motion, as POST /holo/motion and a scene's `holo` take it once read from JSON (scene_do_holo()), or as the
+ * Cyphal node's r2.holo.Motion builds it: checked (a kind that is none, then holo_motion_check()'s ranges, each
+ * refused SCENE_BAD with the JSON API's words) and, unless dry, started on the holo (SCENE_NOT_READY, with the
+ * engine's words, when it can't move).
+ */
+scene_err_t scene_holo_change(const holo_motion_t *m, bool dry, char *why, size_t why_len);
+
 bool scene_name_ok(const char *name);
 
 /* A scene's structure (every part dry-run), and its name. `why` names the part at fault. */
@@ -63,8 +116,7 @@ scene_err_t scene_check(const cJSON *scene, char *why, size_t why_len);
  * other than stay is watched until it ends; any other scene applied first cancels that. */
 scene_err_t scene_apply(const cJSON *scene, char *why, size_t why_len);
 
-typedef enum { SCENE_THEN_STAY, SCENE_THEN_RESTORE, SCENE_THEN_OFF } scene_then_t;
-extern const char *const SCENE_THEN_NAMES[];
+/* scene_then_t and SCENE_THEN_NAMES: happening.h */
 int scene_then_of(const cJSON *then);      /* a scene_then_t, or -1 for none of them */
 
 /* The scene being watched to its end, if one is. */
@@ -73,7 +125,7 @@ typedef struct {
     int slot;                   /* 0 for none */
     scene_then_t then;
     bool clip;                  /* ends when its clip is done */
-    double remaining_s;         /* until its time is up; -1 when it has no duration */
+    double remaining_s;         /* until its time is up, 0 once it is (until the runner ends it); -1 when it has no duration */
 } scene_active_t;
 bool scene_active(scene_active_t *out);
 
@@ -87,6 +139,18 @@ esp_err_t scenes_start(void);
 cJSON *scene_load(const char *name);
 cJSON *scene_load_slot(int slot);   /* the scene with that slot */
 cJSON *scene_load_all(void);        /* an array, in the order they were first saved */
+/* The saved scenes one at a time, in scene_load_all()'s order (the Cyphal node's r2.holo.ListScenes): how many
+ * there are, counted by their saved lengths alone, and the index-th's name into `name` (empty past the last) and
+ * its slot (0 for none), only that one read and parsed. SCENE_LIST_UNREADABLE if the store can't be opened, or the
+ * index-th doesn't parse (corrupt, which only a restored backup could make, or no memory for it now), which
+ * scene_load_all() and so GET /api/v1/scenes would leave out instead */
+#define SCENE_LIST_UNREADABLE (-1)
+int scene_list_entry(int index, char *name, size_t name_len, int *slot);
+
+/* A saved scene applied (scene_apply()), by its slot, or by `name` (not checked: one that breaks the rules is
+ * simply not found) when slot is 0. SCENE_MISSING for none, with why "no scene with slot N" (a NULL name with slot 0
+ * is slot 0's, which no scene has) or "no scene 'name'"; scene_apply()'s refusals otherwise */
+scene_err_t scene_apply_by(const char *name, int slot, char *why, size_t why_len);
 
 /* Save (checked first); SCENE_FULL when SCENE_MAX are saved and this is a new one, SCENE_TAKEN
  * when another scene has its slot. */
@@ -104,17 +168,28 @@ typedef struct {
     int backlight;                          /* 1..100 */
     int led_brightness;                     /* 1..100 */
     int led_count;                          /* 1..256 */
+    /* Touch reporting at the start (the Cyphal register r2.touch.reporting); CONFIG_BOARD_TOUCH_AUTOSTART's
+     * default until saved. Always false in a build without touch (CONFIG_BOARD_TOUCH_ENABLE). `touch on` and
+     * `touch off` change what is in effect until the next start, not this */
+    bool touch;
 } settings_t;
 
 void settings_defaults(settings_t *out);
 void settings_get(settings_t *out);
 esp_err_t settings_save(const settings_t *s);
+/* What applies now of `s`: the backlight and the LEDs' brightness (their count waits for the next start), and
+ * touch reporting with `touch` (only when it is what changed, so that `touch on` or `touch off` stands until the next
+ * start otherwise). A failure to start touch is logged and returned; the rest is applied anyway */
+esp_err_t settings_apply(const settings_t *s, bool touch);
+/* Back to the defaults (*out), saved, and applied now (settings_apply(), only once saved):
+ * DELETE /api/v1/settings, and the Cyphal node's factory reset */
+esp_err_t settings_reset(settings_t *out);
 
 /* The LED count to make the strip with (before leds_init()). */
 int settings_led_count(void);
 
-/* At the start, once the screen, LEDs and holo are up: the backlight and LED brightness, then
- * the boot scene, if one is set. */
+/* At the start, once the screen, LEDs and holo are up: the backlight, LED brightness and touch
+ * reporting, then the boot scene, if one is set. */
 void settings_apply_boot(void);
 
 /* `settings` */

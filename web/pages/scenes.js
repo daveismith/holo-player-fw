@@ -13,7 +13,7 @@ function summary(scene) {
   if (s) parts.push(s.path ? `screen: ${s.path.split("/").pop()}${s.loop ? " (loop)" : s.loops ? ` ×${s.loops}` : ""}` : s.colour ? `screen: ${s.colour}`
     : s.calibration ? "screen: crosshair" : "screen: off");
   const l = scene.leds;
-  if (l) parts.push(`LEDs: ${l.mode ?? ""}${l.colour ? ` ${l.colour}` : ""}${l.brightness ? ` ${l.brightness}%` : ""}`.trim());
+  if (l) parts.push(`LEDs: ${l.mode ?? ""}${l.colour ? ` ${l.colour}` : ""}${l.level !== undefined && l.level !== 100 ? ` at ${l.level}% of` : ""}${l.brightness ? ` ${l.brightness}%` : ""}${l.time_s ? ` for ${l.time_s} s` : ""}`.trim());
   if (scene.holo) parts.push(`holo: ${scene.holo.motion}`);
   if (scene.duration_s) parts.push(`${scene.duration_s} s`);
   if (scene.then && scene.then !== "stay") parts.push(scene.then === "restore" ? "then back as it was" : "then all off");
@@ -37,10 +37,14 @@ function sceneOf(form) {
     else scene.screen = { clear: true };
   }
   if (form.useLeds.checked) {
-    scene.leds = { mode: form.ledMode.value };
-    if (form.ledMode.value !== "rainbow" && form.ledMode.value !== "off") scene.leds.colour = form.ledColour.value;
-    if (form.ledMode.value === "flicker") delete scene.leds.loop;
-    if (form.ledMode.value === "wipe" || form.ledMode.value === "rainbow") scene.leds.loop = form.ledLoop.checked;
+    const mode = form.ledMode.value;
+    scene.leds = { mode };
+    if (mode !== "rainbow" && mode !== "off") scene.leds.colour = form.ledColour.value;
+    if (mode === "wipe" || mode === "rainbow") scene.leds.loop = form.ledLoop.checked;
+    // Left empty: the mode's own period, level 100, for good
+    if ((mode === "pulse" || mode === "blink") && form.ledPeriod.value !== "") scene.leds.period_ms = Number(form.ledPeriod.value);
+    if (mode !== "off" && form.ledLevel.value !== "") scene.leds.level = Number(form.ledLevel.value);
+    if (form.ledTime.value !== "") scene.leds.time_s = Number(form.ledTime.value);
     scene.leds.brightness = Number(form.ledBright.value);
   }
   if (form.useHolo.checked) {
@@ -147,11 +151,14 @@ export default {
 
       // LEDs
       f.useLeds = h("input", { type: "checkbox", checked: Boolean(s.leds) });
-      f.ledMode = h("select", {}, ["solid", "wipe", "rainbow", "flicker", "off"].map((m) => h("option", { value: m }, m)));
+      f.ledMode = h("select", {}, ["solid", "wipe", "rainbow", "flicker", "pulse", "blink", "off"].map((m) => h("option", { value: m }, m)));
       f.ledMode.value = s.leds?.mode ?? "solid";
       f.ledColour = h("input", { type: "color", value: colourOf(s.leds?.colour) });
       f.ledLoop = h("input", { type: "checkbox", checked: s.leds?.loop ?? true });
       f.ledBright = h("input", { type: "number", min: 1, max: 100, value: s.leds?.brightness ?? 30 });
+      f.ledPeriod = h("input", { type: "number", min: 200, max: 60000, step: 1, value: s.leds?.period_ms ?? "", placeholder: "pulse 2000, blink 1000" });
+      f.ledLevel = h("input", { type: "number", min: 0, max: 100, step: 1, value: s.leds?.level ?? "", placeholder: "100" });
+      f.ledTime = h("input", { type: "number", min: 0.1, max: 3600, step: "any", value: s.leds?.time_s ?? "", placeholder: "for good" });
 
       // holo
       f.useHolo = h("input", { type: "checkbox", checked: Boolean(s.holo) });
@@ -202,6 +209,9 @@ export default {
           f.ledColour.value = colourOf(leds.colour);
           f.ledLoop.checked = leds.loop;
           f.ledBright.value = leds.brightness;
+          f.ledPeriod.value = leds.period_ms ? leds.period_ms : "";
+          f.ledLevel.value = leds.level !== undefined && leds.level !== 100 ? leds.level : "";
+          f.ledTime.value = "";       // what shows now, for good: a timed mode's time left isn't the scene's
           f.useHolo.checked = holo.motion !== "hold";
           if (holo.motion !== "hold" && MOTIONS.includes(holo.motion)) f.holoMotion.value = holo.motion;
           for (const c of [f.useScreen, f.useLeds, f.useHolo]) c.dispatchEvent(new Event("change"));
@@ -216,6 +226,9 @@ export default {
         h("div", { class: "actions" }, fill),
         part("The screen", f.useScreen, field("Show", f.screenKind), screenFields),
         part("The LEDs", f.useLeds, h("div", { class: "fields" }, field("Pattern", f.ledMode), field("Colour", f.ledColour), field("Brightness (%)", f.ledBright)),
+          h("div", { class: "fields" }, field("Period (ms)", f.ledPeriod, "A pulse's or a blink's, 200-60000"),
+            field("Level (%)", f.ledLevel, "A share of the brightness, 0-100"),
+            field("For (seconds)", f.ledTime, "0.1-3600, then back to what the LEDs were doing")),
           h("label", { class: "toggle" }, f.ledLoop, h("span", {}, "Loop a wipe or rainbow"))),
         part("The holo", f.useHolo, h("div", { class: "fields" }, field("Motion", f.holoMotion), field("How far (%)", f.holoRange))),
         h("fieldset", { class: "card", style: "margin-top:12px" }, h("legend", {}, h("strong", {}, "When it ends")),

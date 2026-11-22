@@ -178,11 +178,15 @@ const char *reason(int err)
 }
 
 /* The decoder's state is 24 KB, too much for any task's stack. Internal RAM for speed -- it is
- * the LZW tables and the read buffer -- with PSRAM as the fallback. */
-AnimatedGIF *new_decoder()
+ * the LZW tables and the read buffer -- with PSRAM as the fallback; a probe (`psram_first`), which
+ * decodes no pixels, takes PSRAM first, so that it never takes internal RAM a playing clip's frames
+ * need. */
+AnimatedGIF *new_decoder(bool psram_first = false)
 {
-    void *mem = heap_caps_malloc(sizeof(AnimatedGIF), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (mem == nullptr) {
+    void *mem = psram_first ? heap_caps_malloc_prefer(sizeof(AnimatedGIF), 2, MALLOC_CAP_SPIRAM,
+                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+                            : heap_caps_malloc(sizeof(AnimatedGIF), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (mem == nullptr && !psram_first) {
         mem = heap_caps_malloc(sizeof(AnimatedGIF), MALLOC_CAP_SPIRAM);
     }
     return mem != nullptr ? new (mem) AnimatedGIF() : nullptr;
@@ -219,7 +223,7 @@ bool gif_is_gif(const uint8_t *buf, size_t len)
 esp_err_t gif_probe(const char *path, GifHeader *hdr, char *err, size_t err_len)
 {
     *hdr = {};
-    AnimatedGIF *dec = new_decoder();
+    AnimatedGIF *dec = new_decoder(true);      /* the header only: PSRAM first */
     if (dec == nullptr) {
         snprintf(err, err_len, "out of memory");
         return ESP_ERR_NO_MEM;

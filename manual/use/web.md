@@ -18,7 +18,7 @@ a fourth checks every few seconds instead.
 | **Holo** | Point the holoprojector by dragging on a pad, or start a behaviour: twitch, scan, wag, nod or circle. Calibrate each servo's travel, and set its drive policy |
 | **Scenes** | Save what the screen, the LEDs and the holo do together, apply it with one tap, and choose the one the board starts with |
 | **Files** | Browse the board's storage, upload clips and images (several at once, with progress), and rename, move, copy, download or delete them |
-| **Settings** | What the board starts with (the scene, backlight, LED brightness and count), and the web app's name, password and trusted sites |
+| **Settings** | What the board starts with (the scene, backlight, LED brightness and count, touch reporting), and the web app's name, password and trusted sites |
 | **Network** | The Wi-Fi network the board is on, the ones it knows, what is in range, and its own access point |
 | **Update** | [Install new firmware](ota.md#updating-over-wi-fi) from a file, or have the board fetch the latest release itself |
 

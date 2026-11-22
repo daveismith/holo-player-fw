@@ -106,6 +106,8 @@ CONFIG_TWAI_ISR_CACHE_SAFE=y
 # The component's defaults are generic, since it is meant to move to other firmware.
 CONFIG_CYPHAL_UNIQUE_ID_PREFIX="holoplay"
 CONFIG_CYPHAL_DEFAULT_NAME="r2.dome.holo.front"
+# The register that names it (manual/reference/cyphal.md, "Registers")
+CONFIG_CYPHAL_NAME_REGISTER="r2.node.name"
 CONFIG_CYPHAL_HARDWARE_VERSION_MAJOR=1
 CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
 # Its task reads the CAN receive queue and keeps the heartbeat on time, so it runs above the video
@@ -113,3 +115,8 @@ CONFIG_CYPHAL_HARDWARE_VERSION_MINOR=0
 # 1.009 s through a clip with the LED ring, 1.023 s through an update over Wi-Fi.
 CONFIG_CYPHAL_TASK_PRIORITY=6
 CONFIG_CYPHAL_TASK_CORE=0
+# The node's two workers' stacks, internal RAM held from the node's first start (components/cyphal/Kconfig has
+# the measurements, 2026-11-21): the worker 2,088 bytes used at most of 4,608, the second worker (which decodes
+# the stills a Screen request shows) 5,708 of 7,680. The second worker's can't be in PSRAM: it reads flash.
+CONFIG_CYPHAL_WORKER_STACK=4608
+CONFIG_CYPHAL_SLOW_STACK=7680

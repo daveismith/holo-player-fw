@@ -139,7 +139,7 @@ milliseconds):
 | `clip_ended` | A clip or animation has stopped | `path`, from the root of the storage volume; `finished`: `true` when it played to its end, `false` when something replaced or stopped it |
 | `scene_started` | A scene has been applied, saved or given whole | `name`; `slot`, when it has one; `then`: `stay`, `restore` or `off`; `until_clip_ends`: it ends when its clip has played; `duration_s`, when it has one |
 | `scene_ended` | A scene running to its end has ended | `name`; `slot`, when it has one; `then`: what it does at its end; `by`: `clip` (its clip played), `time` (its `duration_s` was up), `end` (`POST /scenes/end`), or `replaced` (another scene or clip took over, and its `then` wasn't done) |
-| `touch` | The screen was touched, or let go. Only while touch reporting is on (`touch on`) | `action`: `down` or `up`; `x`, `y`: 0–239 |
+| `touch` | The screen was touched, or let go. Only while touch reporting is on (the board's `touch` setting in `/api/v1/settings`, or `touch on` until the next start) | `action`: `down` or `up`; `x`, `y`: 0–239 |
 
 **A resource changed.** The event carries the resource under `state`, exactly as its `GET`
 returns it: `screen`, `leds`, `holo`, `scene` (the scene running to its end, or null), `scenes`,
@@ -293,7 +293,7 @@ only on UART, where it's the only board on the wire.
 | 0x20 | `SCREEN_OFF` | — | — |
 | 0x21 | `COLOUR` | `r`, `g`, `b` u8 | — |
 | 0x22 | `BACKLIGHT` | `percent` u8, 0–100 | — |
-| 0x30 | `LEDS` | `mode` u8, `r`, `g`, `b` u8, `brightness` u8, `flags` u8 | — |
+| 0x30 | `LEDS` | `mode` u8, `r`, `g`, `b` u8, `brightness` u8, `flags` u8, and optionally `period_ms` u16 | — |
 | 0x40 | `HOLO` | `motion` u8, `x` s8, `y` s8, `duration_ms` u16, `range` u8, `count` u8 | — |
 | 0x50 | `EVENTS_SET` | `kinds` u8, `push` u8 | `seq` u16 |
 | 0x51 | `EVENTS_GET` | `after` u16 | `lost` u8, `count` u8, then `count` [event records](#event-records) (up to 5) |
@@ -302,10 +302,17 @@ only on UART, where it's the only board on the wire.
 - **`SCENE`** applies the scene with that [slot](#scene-slots), as `POST /scenes/apply` does.
   **`END`** ends the scene running to its end, doing its `then`, as `POST /scenes/end` does.
 - **`LEDS`**:
-  - `mode`: 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, or 0xFF to leave it as it is;
+  - `mode`: 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink, or 0xFF to leave it as
+    it is;
   - `brightness`: 1–100, or 0 to leave it;
   - `flags`: bit 0 is `loop`, and bit 1 means `r`, `g`, `b` is a new colour (without it, they are
-    ignored).
+    ignored);
+  - `period_ms`, after `flags`: a pulse's or a blink's period, 200–60000. Two bytes more, which a
+    host may leave out; 0 or none for the mode's default (2000 for a pulse, 1000 for a blink).
+
+  Pulse, blink and the period came after the first five modes, as an extension: a host that
+  doesn't know them sends six bytes as before. The level and the timed modes of `PATCH /leds` are
+  JSON lines' only.
 - **`HOLO`**:
   - `motion`: 0 center, 1 move, 2 nudge, 3 twitch, 4 wag, 5 nod, 6 scan, 7 circle, 8 stop, 9 off;
   - `x`, `y`: -100 to 100 for `move`, -128 to 127 for `nudge`;
@@ -331,7 +338,7 @@ only on UART, where it's the only board on the wire.
 | 1 | `scene` | The slot of the scene running to its end; 0 for none, 0xFF for one without a slot |
 | 2–3 | `remaining` | Until that scene's `duration_s` is up, in tenths of a second; 0xFFFF for none |
 | 4 | `holo` | 0 hold, 1 move, 2 twitch, 3 wag, 4 nod, 5 scan, 6 circle; 0xFF when it can't move |
-| 5 | `leds` | 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker |
+| 5 | `leds` | 0 off, 1 solid, 2 wipe, 3 rainbow, 4 flicker, 5 pulse, 6 blink |
 | 6 | `backlight` | 0–100 |
 | 7 | `brightness` | The LEDs', 1–100 |
 | 8–9 | `seq` | The latest event's number, 0 for none yet |

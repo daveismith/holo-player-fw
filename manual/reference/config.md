@@ -14,7 +14,7 @@ a fresh clone builds correctly and a stale `sdkconfig` can always be deleted and
 |---|---|---|
 | `BOARD_LCD_PCLK_MHZ` | 80 | LCD SPI clock, 10–80 MHz |
 | `BOARD_TOUCH_ENABLE` | on | Compile in the touch driver and the `touch` command |
-| `BOARD_TOUCH_AUTOSTART` | off | Start touch reporting at boot rather than on `touch on` |
+| `BOARD_TOUCH_AUTOSTART` | off | The default of the touch reporting setting (`settings touch`, `touch.reporting` in `/api/v1/settings`, the Cyphal register `r2.touch.reporting`): on in a build with it. A saved setting wins |
 
 The clock default is not arbitrary. The GC9A01 has no tearing-effect line on this board, so
 nothing synchronises a frame write to the panel's own ~60 Hz refresh. A full 240×240 RGB565 frame

@@ -7,22 +7,35 @@
 #include "scenes.h"
 #include "board_api.h"
 
-static const char *const MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
+/* A setting's fields into o: mode, colour, loop, period_ms, level */
+static void add_setting(cJSON *o, const leds_setting_t *s)
+{
+    char hex[8];
+    snprintf(hex, sizeof(hex), "#%02x%02x%02x", s->rgb[0], s->rgb[1], s->rgb[2]);
+    cJSON_AddStringToObject(o, "mode", leds_mode_name(s->mode));
+    cJSON_AddStringToObject(o, "colour", hex);
+    cJSON_AddBoolToObject(o, "loop", s->loop);
+    cJSON_AddNumberToObject(o, "period_ms", s->period_ms);
+    cJSON_AddNumberToObject(o, "level", s->level);
+}
 
 cJSON *api_leds_json(void)
 {
-    uint8_t rgb[3];
-    bool loop = false;
-    const leds_mode_t mode = leds_mode(rgb, &loop);
-    char hex[8];
-    snprintf(hex, sizeof(hex), "#%02x%02x%02x", rgb[0], rgb[1], rgb[2]);
+    leds_state_t st;
+    leds_state(&st);
     cJSON *o = cJSON_CreateObject();
-    cJSON_AddStringToObject(o, "mode", MODES[mode]);
-    cJSON_AddStringToObject(o, "colour", hex);
-    cJSON_AddBoolToObject(o, "loop", loop);
-    cJSON_AddNumberToObject(o, "brightness", leds_get_brightness());
+    add_setting(o, &st.now);
+    cJSON_AddNumberToObject(o, "brightness", st.brightness);
     cJSON_AddNumberToObject(o, "count", leds_count());
     cJSON_AddNumberToObject(o, "gpio", CONFIG_LEDS_GPIO);
+    if (st.until_us != 0) {
+        cJSON *t = cJSON_AddObjectToObject(o, "timed");
+        cJSON_AddNumberToObject(t, "remaining_s", (double)((leds_remaining_ms(&st) + 50) / 100) / 10);
+        add_setting(cJSON_AddObjectToObject(t, "then"), &st.after);
+    } else {
+        cJSON_AddNullToObject(o, "timed");
+    }
+    cJSON_AddBoolToObject(o, "leia", st.leia);
     return o;
 }
 

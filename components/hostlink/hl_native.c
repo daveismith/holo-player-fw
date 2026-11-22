@@ -20,6 +20,8 @@
 #include "scenes.h"
 #include "hostlink.h"
 #include "hl.h"
+#include "hl_record.h"
+#include "leds.h"
 
 #define BODY_MAX    56      /* addr, seq, type, 48 of payload, crc16 -- and room over */
 #define PAYLOAD_MAX 48
@@ -27,6 +29,10 @@
 enum {
     ST_OK, ST_BAD, ST_NOT_FOUND, ST_NOT_PLAYABLE, ST_NOT_READY, ST_BUSY, ST_FAILED, ST_UNKNOWN,
 };
+_Static_assert((int)ST_OK == (int)API_CODE_OK && (int)ST_BAD == (int)API_CODE_BAD_REQUEST &&
+               (int)ST_NOT_FOUND == (int)API_CODE_NOT_FOUND && (int)ST_NOT_PLAYABLE == (int)API_CODE_NOT_PLAYABLE &&
+               (int)ST_NOT_READY == (int)API_CODE_NOT_READY && (int)ST_BUSY == (int)API_CODE_BUSY &&
+               (int)ST_FAILED == (int)API_CODE_FAILED, "a status is the route's api_code_t");
 
 enum {
     T_PING = 0x01, T_VERSION = 0x02, T_STATUS = 0x03,
@@ -131,27 +137,8 @@ static uint8_t *frame(uint8_t addr, uint8_t seq, uint8_t type, const uint8_t *pa
 
 static uint8_t status_of(const api_reply_t *r)
 {
-    if (r->status >= 200 && r->status < 300) {
-        return ST_OK;
-    }
     const cJSON *e = cJSON_GetObjectItem(r->body, "error");
-    const char *code = cJSON_IsString(e) ? e->valuestring : "";
-    if (strcmp(code, "bad_request") == 0 || strcmp(code, "bad_path") == 0) {
-        return ST_BAD;
-    }
-    if (strcmp(code, "not_found") == 0 || strcmp(code, "unknown_scene") == 0 || strcmp(code, "not_running") == 0) {
-        return ST_NOT_FOUND;
-    }
-    if (strcmp(code, "not_playable") == 0) {
-        return ST_NOT_PLAYABLE;
-    }
-    if (strcmp(code, "not_ready") == 0) {
-        return ST_NOT_READY;
-    }
-    if (strcmp(code, "busy") == 0) {
-        return ST_BUSY;
-    }
-    return ST_FAILED;
+    return (uint8_t)api_code_of(r->status, cJSON_IsString(e) ? e->valuestring : NULL);
 }
 
 /* Call a route with `body` (taken): the status */
@@ -188,7 +175,6 @@ static void status_block(uint8_t b[12])
 {
     static const char *const SHOWING[] = { "nothing", "colour", "calibration", "image", "clip" };
     static const char *const HOLO[] = { "hold", "move", "twitch", "wag", "nod", "scan", "circle" };
-    static const char *const LEDS[] = { "off", "solid", "wipe", "rainbow", "flicker" };
     memset(b, 0, 12);
     cJSON *screen = api_screen_json();
     cJSON *leds = api_leds_json();
@@ -210,8 +196,10 @@ static void status_block(uint8_t b[12])
     const bool ready = cJSON_IsTrue(cJSON_GetObjectItem(holo, "ready"));
     const int motion = index_in(HOLO, 7, cJSON_GetObjectItem(holo, "motion"));
     b[4] = ready && motion >= 0 ? (uint8_t)motion : 0xFF;
-    const int mode = index_in(LEDS, 5, cJSON_GetObjectItem(leds, "mode"));
-    b[5] = mode < 0 ? 0 : (uint8_t)mode;
+    const cJSON *mode_name = cJSON_GetObjectItem(leds, "mode");
+    leds_mode_t mode = LEDS_OFF;
+    leds_mode_of(cJSON_IsString(mode_name) ? mode_name->valuestring : NULL, &mode);
+    b[5] = (uint8_t)mode;
     const cJSON *bl = cJSON_GetObjectItem(screen, "backlight");
     b[6] = cJSON_IsNumber(bl) ? (uint8_t)bl->valueint : 0;
     const cJSON *br = cJSON_GetObjectItem(leds, "brightness");
@@ -230,63 +218,12 @@ static void status_block(uint8_t b[12])
     cJSON_Delete(active);
 }
 
-/* An event (its JSON) as an 8-byte record: false for one that has none */
+/* An event (its JSON) as an 8-byte record (hl_record.c): false for one that has none */
 static bool record_of(const cJSON *e, uint8_t r[8])
 {
-    static const char *const THEN[] = { "stay", "restore", "off" };
-    static const char *const BY[] = { "clip", "time", "end", "replaced" };
-    memset(r, 0, 8);
-    const cJSON *name = cJSON_GetObjectItem(e, "event");
-    const cJSON *seq = cJSON_GetObjectItem(e, "seq");
-    const uint16_t s = cJSON_IsNumber(seq) ? (uint16_t)seq->valueint : 0;
-    r[1] = (uint8_t)(s & 0xFF);
-    r[2] = (uint8_t)(s >> 8);
-    if (!cJSON_IsString(name)) {
-        return false;
-    }
-    if (strcmp(name->valuestring, "clip_ended") == 0) {
-        r[0] = 1;
-        r[3] = cJSON_IsTrue(cJSON_GetObjectItem(e, "finished"));
-    } else if (strcmp(name->valuestring, "scene_ended") == 0) {
-        r[0] = 2;
-        const cJSON *slot = cJSON_GetObjectItem(e, "slot");
-        r[3] = cJSON_IsNumber(slot) ? (uint8_t)slot->valueint : 0;
-        const int then = index_in(THEN, 3, cJSON_GetObjectItem(e, "then"));
-        const int by = index_in(BY, 4, cJSON_GetObjectItem(e, "by"));
-        r[4] = then < 0 ? 0 : (uint8_t)then;
-        r[5] = by < 0 ? 0 : (uint8_t)by;
-    } else if (strcmp(name->valuestring, "clip_started") == 0) {
-        r[0] = 4;
-        r[3] = cJSON_IsTrue(cJSON_GetObjectItem(e, "loop"));
-        const double plays = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "plays"));
-        r[4] = (uint8_t)(plays > 255 ? 255 : plays);
-        const double frames = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "frames"));
-        const uint16_t f = (uint16_t)(frames > 65535 ? 65535 : frames);
-        r[5] = (uint8_t)(f & 0xFF);
-        r[6] = (uint8_t)(f >> 8);
-        const double fps = cJSON_GetNumberValue(cJSON_GetObjectItem(e, "fps"));
-        r[7] = (uint8_t)(fps > 255 ? 255 : fps + 0.5);
-    } else if (strcmp(name->valuestring, "scene_started") == 0) {
-        r[0] = 5;
-        const cJSON *slot = cJSON_GetObjectItem(e, "slot");
-        r[3] = cJSON_IsNumber(slot) ? (uint8_t)slot->valueint : 0;
-        const int then = index_in(THEN, 3, cJSON_GetObjectItem(e, "then"));
-        r[4] = then < 0 ? 0 : (uint8_t)then;
-        r[5] = cJSON_IsTrue(cJSON_GetObjectItem(e, "until_clip_ends"));
-        const cJSON *dur = cJSON_GetObjectItem(e, "duration_s");
-        const double d = cJSON_IsNumber(dur) ? dur->valuedouble + 0.999 : 0;
-        const uint16_t secs = (uint16_t)(d > 65535 ? 65535 : d);
-        r[6] = (uint8_t)(secs & 0xFF);
-        r[7] = (uint8_t)(secs >> 8);
-    } else if (strcmp(name->valuestring, "touch") == 0) {
-        r[0] = 3;
-        r[3] = strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(e, "action")) ?: "", "up") == 0;
-        r[4] = (uint8_t)cJSON_GetNumberValue(cJSON_GetObjectItem(e, "x"));
-        r[5] = (uint8_t)cJSON_GetNumberValue(cJSON_GetObjectItem(e, "y"));
-    } else {
-        return false;
-    }
-    return true;
+    happening_t h;
+    happening_of(e, &h);
+    return hl_record(&h, r);
 }
 
 /* Happenings (an array of event JSON) as records into `p`, at most `max`: how many */
@@ -361,15 +298,13 @@ uint8_t *hl_native_handle(const uint8_t *f, size_t len, const hl_settings_t *run
         out_n = 12;
         break;
     case T_SCENE: {
-        cJSON *scene = n >= 1 ? scene_load_slot(p[0]) : NULL;
-        if (scene == NULL) {
-            st = n >= 1 ? ST_NOT_FOUND : ST_BAD;
+        /* POST /api/v1/scenes/apply's code, by the slot: its status (api_scene_code(), as the route's reply maps) */
+        if (n < 1) {
+            st = ST_BAD;
             break;
         }
-        cJSON *body = cJSON_CreateObject();
-        cJSON_AddStringToObject(body, "name", cJSON_GetStringValue(cJSON_GetObjectItem(scene, "name")));
-        cJSON_Delete(scene);
-        st = call(API_POST, "/api/v1/scenes/apply", body);
+        char why[128];
+        st = (uint8_t)api_scene_code(scene_apply_by(NULL, p[0], why, sizeof(why)));
         break;
     }
     case T_END:
@@ -400,14 +335,15 @@ uint8_t *hl_native_handle(const uint8_t *f, size_t len, const hl_settings_t *run
         break;
     }
     case T_LEDS: {
-        static const char *const MODES[] = { "off", "solid", "wipe", "rainbow", "flicker" };
-        if (n < 6 || (p[0] > 4 && p[0] != 0xFF)) {
+        /* 5 pulse and 6 blink arrived after the first five, with `period_ms` after `flags` (optional: two bytes
+         * more, 0 or none for the default), as a host that doesn't know them never sends them */
+        if (n < 6 || (p[0] >= LEDS_MODES && p[0] != 0xFF)) {
             st = ST_BAD;
             break;
         }
         cJSON *body = cJSON_CreateObject();
         if (p[0] != 0xFF) {
-            cJSON_AddStringToObject(body, "mode", MODES[p[0]]);
+            cJSON_AddStringToObject(body, "mode", leds_mode_name((leds_mode_t)p[0]));
         }
         if (p[5] & 2) {
             snprintf(hex, sizeof(hex), "#%02x%02x%02x", p[1], p[2], p[3]);
@@ -418,6 +354,10 @@ uint8_t *hl_native_handle(const uint8_t *f, size_t len, const hl_settings_t *run
         }
         if (p[0] == 2 || p[0] == 3) {
             cJSON_AddBoolToObject(body, "loop", p[5] & 1);
+        }
+        const uint16_t period = n >= 8 ? (uint16_t)(p[6] | p[7] << 8) : 0;
+        if (period != 0) {
+            cJSON_AddNumberToObject(body, "period_ms", period);
         }
         st = call(API_PATCH, "/api/v1/leds", body);
         break;
