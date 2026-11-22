@@ -1726,7 +1726,10 @@ For using it, see <a href="../../use/video/">Video clips</a> and <a href="../../
   <code>stco</code>/<code>co64</code>, frame durations from <code>stts</code>, a codec check in <code>stsd</code>, 64-bit atom sizes, and
   enough bounds validation that a damaged file fails to open rather than playing garbage.</li>
 <li><strong><code>video_player.cpp</code></strong> — the player, decoding with Espressif's <code>esp_new_jpeg</code> on a task pinned
-  to core 1. It plays animated GIFs too, and owns what the screen is showing.</li>
+  to core 1. It plays animated GIFs too, and owns what the screen is showing. The task is made once,
+  at start, and waits for each play: its 4.5 KB stack is static, in internal RAM (the task reads
+  files, and a flash read turns off the cache a stack in PSRAM would need), rather than taken for
+  every clip.</li>
 <li><strong><code>image.cpp</code></strong>, <strong><code>png_image.c</code></strong> and <strong><code>gif_image.cpp</code></strong> — <code>image show</code>, with libpng and
   bitbank2's AnimatedGIF; see <a href="#still-images">Still images</a> and <a href="#gifs">GIFs</a> below.</li>
 </ul>
@@ -1902,8 +1905,22 @@ and <code>delay()</code> it still calls when it is built for neither Arduino, Li
 shares with a clip is everything around the decoder: a clock, a way to stop, being replaced
 without the panel blinking, <code>video status</code>, and the console history being held back while it
 plays (see <a href="#flash-writes-and-late-frames">Flash writes and late frames</a>). A second task would
-have had to reproduce all of it. <code>image show</code> opens the file, checks it and allocates everything
-before the panel is touched, then hands it to the player already open.</p>
+have had to reproduce all of it. <code>image show</code> checks the file before the panel is touched (the
+header, the size, the walk below: the same checks <code>image info</code> and <code>GET /media/info</code> report, with
+a decoder taken from PSRAM first) and hands the player its path and header; the player opens it
+once whatever played before has stopped and given its memory back. Opening it any earlier, a
+240-wide GIF's 24 KB decoder (internal RAM first, for speed) took the internal block its two
+7.5 KB DMA paint buffers needed, and every one shown over a playing clip or GIF was refused. The
+paint buffers are taken first, since they have nowhere else to go, then the decoder, which falls
+back to PSRAM. A one-frame GIF is opened the same way, after <code>image show</code> has taken the panel.</p>
+<p>The cost is that running out of memory now comes after the show was accepted. The player prints
+the reason once, ends the playback with <code>clip_ended</code> <code>finished: false</code> and puts the panel to sleep,
+so <code>screen</code> says nothing is showing rather than leave the replaced picture up.</p>
+<p><strong>Any show is refused when what was playing has not stopped within 2 s</strong> — a clip, an image or GIF,
+a colour or the calibration pattern alike (<code>what was playing did not stop within 2 s</code> over HTTP and
+Cyphal). Nothing is drawn; the stop stands, since the player may already be ending because of it,
+and the panel goes to sleep at once, so the screen is dark until the next show. Clearing the screen
+is never refused: that is what it asks for.</p>
 <h3 id="a-canvas-not-frames">A canvas, not frames<a class="headerlink" href="#a-canvas-not-frames" title="Permanent link">&para;</a></h3>
 <p>A GIF frame is rarely a picture on its own. Most are a rectangle drawn over the frames before
 it; some have transparent holes the earlier picture shows through; some ask for their area to be
@@ -1940,8 +1957,9 @@ without the extension plays once. When the passes run out, the last frame stays 
 reports it as an image.</p>
 <h3 id="what-it-costs_1">What it costs<a class="headerlink" href="#what-it-costs_1" title="Permanent link">&para;</a></h3>
 <p>The GIF path adds <strong>11 KB</strong> of flash. At 240×240 the decoder's state is 24 KB, in internal RAM
-for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task keeps
-6.7 KB of its 8 KB stack free while a GIF plays, and repeated plays leave the heap where it was.</p>
+for speed, with the 173 KB canvas and two 7.5 KB DMA blocks alongside it. The player task has used
+2.6 KB of its 4.5 KB stack at most, over clips and GIFs alike (<code>tasks</code> shows its high-water mark), and
+repeated plays leave the heap where it was.</p>
 <p>The ceiling is a GIF that changes every pixel of a 240×240 panel with incompressible content:
 30.9 ms to decode and 14 ms to paint, about <strong>22 fps</strong>. The decoder's <em>turbo</em> mode, which trades
 memory for decoding speed, does not help. Its 82 KB buffer only fits in PSRAM, where it decoded

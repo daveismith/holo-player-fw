@@ -2142,7 +2142,7 @@ milliseconds):</p>
 <tr>
 <td><code>clip_ended</code></td>
 <td>A clip or animation has stopped</td>
-<td><code>path</code>, from the root of the storage volume; <code>finished</code>: <code>true</code> when it played to its end, <code>false</code> when something replaced or stopped it</td>
+<td><code>path</code>, from the root of the storage volume; <code>finished</code>: <code>true</code> when it played to its end, <code>false</code> when something replaced or stopped it, or it failed after it was accepted (it could not be read, or there was no memory for it)</td>
 </tr>
 <tr>
 <td><code>scene_started</code></td>
@@ -2152,7 +2152,7 @@ milliseconds):</p>
 <tr>
 <td><code>scene_ended</code></td>
 <td>A scene running to its end has ended</td>
-<td><code>name</code>; <code>slot</code>, when it has one; <code>then</code>: what it does at its end; <code>by</code>: <code>clip</code> (its clip played), <code>time</code> (its <code>duration_s</code> was up), <code>end</code> (<code>POST /scenes/end</code>), or <code>replaced</code> (another scene or clip took over, and its <code>then</code> wasn't done)</td>
+<td><code>name</code>; <code>slot</code>, when it has one; <code>then</code>: what it does at its end; <code>by</code>: <code>clip</code> (its clip played), <code>time</code> (its <code>duration_s</code> was up), <code>end</code> (<code>POST /scenes/end</code>), or <code>replaced</code> (another scene or clip took over, or its clip failed after it was accepted, and its <code>then</code> wasn't done)</td>
 </tr>
 <tr>
 <td><code>touch</code></td>

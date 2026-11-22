@@ -1699,6 +1699,16 @@ frame stays up</strong> — it was shown as an image, and an image stays until s
 <code>video stop</code> stops it and puts the panel to sleep, <code>video status</code> reports its frame times, and
 another image, clip or colour replaces it without the panel blinking. A one-frame GIF is a
 still like any other.</p>
+<div class="admonition note">
+<p class="admonition-title">A GIF that runs out of memory after it was accepted</p>
+<p>A GIF takes its memory (its decoder and the buffers it paints from) only once what was playing
+has stopped and given back its own, so a full-width GIF replaces a playing clip or GIF like
+anything else. The other side of that: the file is checked before the show is accepted, but
+its memory is taken after, so if the board is short of internal RAM at that moment the show is
+still accepted (HTTP 200) and the animation ends at once. The console prints why once (<code>out of
+memory for the decode buffers</code>, say), <code>clip_ended</code> comes with <code>finished: false</code>, and the
+screen goes dark rather than keep what was there.</p>
+</div>
 <h3 id="making-one">Making one<a class="headerlink" href="#making-one" title="Permanent link">&para;</a></h3>
 <p>From a clip or any video, at 240 pixels across and a frame rate the panel can keep up with:</p>
 <div class="highlight"><pre><span></span><code>ffmpeg<span class="w"> </span>-i<span class="w"> </span>&lt;input&gt;<span class="w"> </span>-vf<span class="w"> </span><span class="s2">"fps=15,scale=240:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse"</span><span class="w"> </span>r2-wave.gif

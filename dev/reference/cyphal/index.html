@@ -2708,7 +2708,7 @@ the latest Event's, once it has gone into that queue.</p>
 </tr>
 <tr>
 <td><code>clip_ended</code></td>
-<td><code>finished</code> bool (played to its end; false when something replaced or stopped it), <code>path</code></td>
+<td><code>finished</code> bool (played to its end; false when something replaced or stopped it, or it failed after it was accepted: it could not be read, or there was no memory for it), <code>path</code></td>
 <td><code>clip_ended</code></td>
 </tr>
 <tr>
@@ -2718,7 +2718,7 @@ the latest Event's, once it has gone into that queue.</p>
 </tr>
 <tr>
 <td><code>scene_ended</code></td>
-<td><code>then</code> uint8, <code>by</code> uint8 (0 its clip played, 1 its time was up, 2 it was ended, 3 replaced), <code>slot</code> uint8, <code>name</code></td>
+<td><code>then</code> uint8, <code>by</code> uint8 (0 its clip played, 1 its time was up, 2 it was ended, 3 replaced: another scene or clip took over, or its clip failed after it was accepted, and its <code>then</code> wasn't done), <code>slot</code> uint8, <code>name</code></td>
 <td><code>scene_ended</code></td>
 </tr>
 <tr>

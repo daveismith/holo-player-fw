@@ -2248,6 +2248,10 @@ curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span
 /api/v1/scenes/end</code> ends it now, doing its <code>then</code>. Applying another scene, or showing something else
 in place of its clip, ends it without its <code>then</code>. One <code>restore</code> scene after another goes back to what
 the board was doing before the first.</p>
+<p>A clip that fails after the scene was accepted (it can't be read, or there is no memory for it just
+then) ends the scene the same way, at once, even with <code>duration_s</code> still to run: <code>scene_ended</code> says
+<code>by: "replaced"</code>, its <code>then</code> isn't done, the screen goes dark, and the LEDs and holo stay as the scene
+set them. Its <code>clip_ended</code> has <code>finished: false</code>, and may come even before the <code>scene_started</code>.</p>
 <h2 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h2>
 <p><code>GET /api/v1/settings</code> is what the board starts with; <code>PATCH</code> changes it, and it is saved:</p>
 <ul>
