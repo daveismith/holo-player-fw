@@ -14,7 +14,9 @@ YAKUT_PY ?= python3
 # managed_components at the first build (or reconfigure), or another: make unit-test CJSON_DIR=/path/to/cJSON
 CJSON_DIR ?= managed_components/espressif__cjson/cJSON
 # The kit: the Cyphal node's sources and its host tests, which `unit-test` builds against the holo's own
-# port table (main/dsdl/r2/holo/ports.h) rather than the kit's frozen copy of it
+# port table (main/dsdl/r2/holo/ports.h) rather than the kit's frozen copy of it.
+# The allocator's host test (the kit's test_cyphal_alloc.c) is not built here: the allocator is off in
+# this firmware. The kit's `make -C tests/host` runs it.
 KIT := external/esp-console-kit
 
 help:                  ## list targets

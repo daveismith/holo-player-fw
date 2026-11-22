@@ -12,6 +12,9 @@ so the release tag is the version baked into the image and reported by `version`
 
 ### Changed
 
+- **The kit pin is `06b41a0`**: the kit's Cyphal node can now be built as a plug-and-play allocator
+  (`CONFIG_CYPHAL_PNP_ALLOCATOR`), off in this firmware, whose `cyphal` objects are identical to before
+  except one line-number constant.
 - **The CAN controller wrapper, libcanard and the Cyphal node are the kit's** (`canbus`, `libcanard`
   and `cyphal` in `external/esp-console-kit`, shared with the dome panel's firmware), and this
   repository's copies of them are gone, with the `external/libcanard` and

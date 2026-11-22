@@ -82,8 +82,10 @@ committed there, then the pin is bumped here** (and in the other firmware). Neve
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
 `external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-22 the
-pin is `42f480b`, the kit's main: `59f2670` plus the CAN and Cyphal move, which brought in `canbus`,
-`libcanard` and `cyphal` from here, with their host tests and `can_check.py`. `59f2670` was the
+pin is `06b41a0` (the plug-and-play allocator, off in this firmware): as of 2026-11-22 on the kit's branch
+`pnp-allocator` and on no remote; when the kit merges it, re-check this hash and the ones in `CHANGELOG.md`
+and "CAN and Cyphal". Its parent `42f480b` was the kit's main: `59f2670` plus the CAN and Cyphal move,
+which brought in `canbus`, `libcanard` and `cyphal` from here, with their host tests and `can_check.py`. `59f2670` was the
 kit's `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and `59f2670` (a happening counted
 and kept in one hold; a history reply never passes over one pushed out), merged from the branch
 `events-reply-no-reparse`.)
@@ -338,6 +340,10 @@ the kit's `canbus` (the TWAI controller) and `libcanard` (all three moved to `ex
 on 2026-11-22, so that the dome panel shares them: a fix to any is made there, per "esp-console-kit"); `can` is the raw-frame bench command on the
 same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manual/connect/host-can.md`.
 
+- **The kit's node can allocate node-IDs** (`CONFIG_CYPHAL_PNP_ALLOCATOR`, default n, **off here**; the dome
+  panel turns it on for a holo wired straight to it). `cyphal_alloc.c` is never compiled here, so `unit-test`
+  skips the kit's `test_cyphal_alloc.c`. With it off the `cyphal` objects are identical to before the
+  `06b41a0` bump except one line-number constant (CHANGELOG).
 - **Tests.** `make unit-test`: the node's pure parts (the kit's `cyphal_util.c`, and the register table in
   `cyphal_registers.c`, built from the kit's `tests/host/` against this board's live port table
   `main/dsdl/r2/holo/ports.h`, not the kit's frozen copy of it: 314 and 521 checks) and the holo's (`main/holo_cyphal_util.c`: requests, Status's parts, Event, the
