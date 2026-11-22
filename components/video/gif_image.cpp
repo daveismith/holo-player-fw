@@ -263,11 +263,24 @@ esp_err_t gif_probe(const char *path, GifHeader *hdr, char *err, size_t err_len)
     return ESP_OK;
 }
 
-GifFile *gif_open(const char *path, char *err, size_t err_len)
+GifFile *gif_open(const char *path, uint32_t width, char *err, size_t err_len)
 {
     GifFile *g = static_cast<GifFile *>(heap_caps_calloc(1, sizeof(GifFile), MALLOC_CAP_8BIT));
     if (g == nullptr) {
         snprintf(err, err_len, "out of memory");
+        return nullptr;
+    }
+    /* The blocks first: internal DMA memory with nothing to fall back on, where the decoder's 24 KB, internal
+     * first, can go to PSRAM if it must. Taken the other way round, the decoder could take the very block they
+     * would have fitted in */
+    const size_t block_len = (size_t)width * BLOCK_LINES * 2;
+    for (auto &b : g->blocks) {
+        b = static_cast<uint8_t *>(
+            heap_caps_aligned_alloc(16, block_len, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+    }
+    if (g->blocks[0] == nullptr || g->blocks[1] == nullptr) {
+        snprintf(err, err_len, "out of memory for the decode buffers");
+        gif_close(g);
         return nullptr;
     }
     g->dec = new_decoder();
@@ -285,6 +298,11 @@ GifFile *gif_open(const char *path, char *err, size_t err_len)
     }
     g->w = (uint32_t)g->dec->getCanvasWidth();
     g->h = (uint32_t)g->dec->getCanvasHeight();
+    if (g->w != width) {
+        snprintf(err, err_len, "it changed since it was checked");    /* the blocks are the width checked */
+        gif_close(g);
+        return nullptr;
+    }
 
     /* Zeroed: the canvas starts black, which is what a GIF's first frame is drawn over here --
      * the same black transparency composites onto in a PNG. */
@@ -294,13 +312,8 @@ GifFile *gif_open(const char *path, char *err, size_t err_len)
     if (g->frame_buf == nullptr) {
         g->frame_buf = static_cast<uint8_t *>(heap_caps_calloc(1, frame_buf, MALLOC_CAP_8BIT));
     }
-    const size_t block_len = (size_t)g->w * BLOCK_LINES * 2;
-    for (auto &b : g->blocks) {
-        b = static_cast<uint8_t *>(
-            heap_caps_aligned_alloc(16, block_len, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
-    }
-    if (g->frame_buf == nullptr || g->blocks[0] == nullptr || g->blocks[1] == nullptr) {
-        snprintf(err, err_len, "out of memory for the decode buffers");
+    if (g->frame_buf == nullptr) {
+        snprintf(err, err_len, "out of memory for the canvas");
         gif_close(g);
         return nullptr;
     }

@@ -31,24 +31,31 @@ static bool only_keys(const cJSON *o, const char *const *keys, size_t n, const c
 
 /* ------------------------------------------------------------------ the screen */
 
+/* A colour's or the calibration pattern's show, as a scene's result: refused because what was playing did not stop
+ * in time (the video component's ESP_ERR_TIMEOUT, in its words for a file), or by the panel */
+static scene_err_t shown(esp_err_t err, char *why, size_t why_len)
+{
+    if (err == ESP_ERR_TIMEOUT) {
+        return BAD(SCENE_FAILED, "what was playing did not stop within 2 s; the screen is off, try again");
+    }
+    if (err != ESP_OK) {
+        return BAD(SCENE_FAILED, "the panel did not take it");
+    }
+    return SCENE_OK;
+}
+
 scene_err_t scene_screen_change(const scene_screen_t *s, bool dry, char *why, size_t why_len)
 {
     switch (s->show) {
     case SCENE_SCREEN_CALIBRATION:
-        if (!dry && screen_show_calibration() != ESP_OK) {
-            return BAD(SCENE_FAILED, "the panel did not take it");
-        }
-        return SCENE_OK;
+        return dry ? SCENE_OK : shown(screen_show_calibration(), why, why_len);
     case SCENE_SCREEN_CLEAR:
         if (!dry) {
             screen_clear();
         }
         return SCENE_OK;
     case SCENE_SCREEN_COLOUR:
-        if (!dry && screen_show_rgb(s->rgb) != ESP_OK) {
-            return BAD(SCENE_FAILED, "the panel did not take it");
-        }
-        return SCENE_OK;
+        return dry ? SCENE_OK : shown(screen_show_rgb(s->rgb), why, why_len);
     case SCENE_SCREEN_FILE:
         break;
     default:

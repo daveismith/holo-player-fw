@@ -7132,7 +7132,7 @@
               },
               "finished": {
                 "type": "boolean",
-                "description": "It played to its end; false when something replaced or stopped it"
+                "description": "It played to its end; false when something replaced or stopped it, or it failed after it was accepted (it could not be read, or there was no memory for it)"
               }
             }
           }
@@ -7174,7 +7174,7 @@
                   "end",
                   "replaced"
                 ],
-                "description": "`clip`: its clip played; `time`: its `duration_s` was up; `end`: `POST /scenes/end`; `replaced`: another scene or clip took over, and its `then` was not done"
+                "description": "`clip`: its clip played; `time`: its `duration_s` was up; `end`: `POST /scenes/end`; `replaced`: another scene or clip took over, or its clip failed after it was accepted, and its `then` was not done"
               },
               "slot": {
                 "type": "integer",

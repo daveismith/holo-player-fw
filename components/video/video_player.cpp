@@ -12,9 +12,16 @@
  *   whole frame -- decode the frame, then send it. Needed when a dimension is not a multiple of
  *     8 (block mode's requirement), and kept for comparison: `video play <file> frame`.
  *
- * The same task plays animated GIFs, which `image show` hands over already open (gif_image.cpp
- * decodes and paints them). What they share with a clip is everything around the decoder: the
+ * The same task plays animated GIFs, which `image show` hands over checked (gif_probe()) and this
+ * task opens once what played before has stopped (gif_image.cpp decodes and paints them). What they share with a clip is everything around the decoder: the
  * clock, stopping, being replaced without the panel blinking, and `video status`.
+ *
+ * The task is made once, at register_video_commands(), and waits for a request between plays: a
+ * task made for each play took its 8 KB stack from internal RAM at every clip start, GIF and
+ * scene restore, an allocation with no PSRAM to fall back on, and could be refused when a busy
+ * moment had left no block that size (holo board, 2026-11-21). Its stack is static, in internal
+ * RAM, because the task reads files: a flash read turns the cache off, and a stack in PSRAM would
+ * then be out of reach.
  */
 #include <errno.h>
 #include <inttypes.h>
@@ -45,7 +52,12 @@ using jpg::decode_frame;
 using jpg::now_us;
 
 constexpr size_t PATH_LEN = 160;
-constexpr uint32_t TASK_STACK = 8192;
+/* Bytes: the most it was seen to use (2026-11-21, `tasks`' high-water mark over clips streamed and
+ * whole-frame, GIFs up to full-frame noise, clips played out and stopped, the end hook's
+ * happening included) was 2,592 for ordinary clips and GIFs; rapid replacement of clips and
+ * stills reached 2,848 used (1,760 never used of 4,608). The mark covers every play since the
+ * start: `tasks` shows it. */
+constexpr uint32_t TASK_STACK = 4608;
 constexpr UBaseType_t TASK_PRIO = 5;
 /* Core 1: away from Wi-Fi and the console, which run on core 0. */
 constexpr BaseType_t TASK_CORE = 1;
@@ -56,8 +68,8 @@ struct Request {
     char path[PATH_LEN];
     int plays;               /* times through: 0 forever; -1 the default (a clip once, a GIF as it says) */
     bool whole_frame;
-    GifFile *gif;            /* an animated GIF, already open; null for a clip */
-    GifHeader gif_hdr;
+    bool gif;                /* an animated GIF, opened by the player (play_gif()); else a clip */
+    GifHeader gif_hdr;       /* the GIF's, from gif_probe() */
 };
 
 struct Stats {
@@ -82,7 +94,15 @@ struct Stats {
 };
 
 char s_base[64];
+/* The player, from register_video_commands() on: it waits on s_go for each request, s_req, which is
+ * written only while nothing plays (s_playing false) and with the screen's lock held. s_playing is
+ * true from a request's hand-over until its playback has ended and the end hook has been told */
 TaskHandle_t s_task;
+StaticTask_t s_task_tcb;
+alignas(16) StackType_t s_task_stack[TASK_STACK / sizeof(StackType_t)];
+SemaphoreHandle_t s_go;
+StaticSemaphore_t s_go_buf;
+volatile bool s_playing;
 volatile bool s_stop;
 /* The clip is being stopped for something else to be shown (another clip, a colour), so it
  * leaves the panel on rather than blinking it off and back on. */
@@ -124,7 +144,7 @@ void *s_end_ctx;
 screen_start_hook_t s_start_hook;
 void *s_start_ctx;
 
-/* The start hook, once a clip's task is running */
+/* The start hook, as a clip or animation is handed to the player (hand_over()) */
 void started(const char *path, int plays, uint32_t frames, double fps)
 {
     const screen_start_hook_t hook = s_start_hook;
@@ -154,15 +174,13 @@ struct Lock {
 
 void timer_cb(void *)
 {
-    TaskHandle_t task = s_task;
-    if (task != nullptr) {
-        xTaskNotifyGive(task);
-    }
+    xTaskNotifyGive(s_task);
 }
 
 /*
  * Sleep until esp_timer time `due` (us). A one-shot timer rather than vTaskDelay: with a
- * 10 ms tick, 30 fps frames would come out alternately 30 and 40 ms apart.
+ * 10 ms tick, 30 fps frames would come out alternately 30 and 40 ms apart. video_stop() cuts it
+ * short (a GIF's frame may be seconds long), leaving the timer to be stopped here.
  */
 void sleep_until(int64_t due)
 {
@@ -171,8 +189,12 @@ void sleep_until(int64_t due)
         return;
     }
     ulTaskNotifyTake(pdTRUE, 0);   /* nothing stale left over */
+    if (s_stop) {                  /* after that, so a stop's notification can't be the stale one */
+        return;
+    }
     esp_timer_start_once(s_timer, (uint64_t)wait);
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    esp_timer_stop(s_timer);       /* woken early: not to go off during the next wait */
 }
 
 bool is_jpeg(uint32_t codec)
@@ -253,12 +275,27 @@ void end_playback(bool hold)
     report();
 }
 
-void play_clip(const Request &req)
+/*
+ * A playback that failed before its first frame (the file, its buffers): whatever the panel was left showing by
+ * what it replaced is not what the screen's state says (nothing, once this playback has ended), so the panel
+ * sleeps -- unless something else is taking it right now. Printed by the caller, once.
+ */
+void fail_playback(void)
+{
+    if (!s_replacing) {
+        board_lcd_power_off();
+    }
+}
+
+/* True when the clip played to its end; false when it was stopped or failed (not opened, no memory for its
+ * buffers, a frame that could not be read) */
+bool play_clip(const Request &req)
 {
     FILE *f = fopen(req.path, "rb");
     if (f == nullptr) {
         printf("video: cannot open %s: %s\n", req.path, strerror(errno));
-        return;
+        fail_playback();
+        return false;
     }
     /* Frames are read whole, straight into the decoder's input: stdio's buffer would only
      * add a copy. */
@@ -306,7 +343,8 @@ void play_clip(const Request &req)
         heap_caps_free(blocks[0]);
         heap_caps_free(blocks[1]);
         fclose(f);
-        return;
+        fail_playback();
+        return false;
     }
 
     /* Built whole, then put in place at once: this task never takes the screen's lock, and a reader (GET /screen, the
@@ -345,7 +383,7 @@ void play_clip(const Request &req)
             const int64_t t1 = now_us();
             if (n <= 0) {
                 printf("video: cannot read frame %u of %s\n", (unsigned)i, req.path);
-                s_stop = true;
+                s_stop = true;      /* out of both loops, and not played out */
                 break;
             }
 
@@ -388,12 +426,15 @@ void play_clip(const Request &req)
         }
         s.loops++;
     } while (!s_stop && (s.plays == 0 || s.loops < s.plays));
+    /* Taken as the loop ends, not later: a stop that comes after this doesn't unmake a clip that played out */
+    const bool played_out = !s_stop;
     end_playback(false);
     heap_caps_free(jpg);
     heap_caps_free(fb);
     heap_caps_free(blocks[0]);
     heap_caps_free(blocks[1]);
     fclose(f);
+    return played_out;
 }
 
 /*
@@ -401,11 +442,11 @@ void play_clip(const Request &req)
  * It loops as the file asks: NETSCAPE's count is of repeats, so n plays it n + 1 times, 0 plays
  * it forever, and a file without the extension plays once. When the passes run out the last
  * frame stays up, as a still does -- a GIF is shown with `image show`, and an image stays.
- * A count from the API overrides the file's.
+ * A count from the API overrides the file's. True when it played its passes out; false when it was stopped
+ * or a frame was broken.
  */
-void play_gif(const Request &req)
+bool play_gif(const Request &req)
 {
-    GifFile *g = req.gif;
     const GifHeader &hdr = req.gif_hdr;
     /* Built whole, then put in place at once, as play_clip()'s: no reader catches it half-written. With the passes
      * (as many as asked, 0 forever; by default, as the file says) before the panel wakes (up to 120 ms), so that
@@ -424,13 +465,22 @@ void play_gif(const Request &req)
     stats_put(fresh);
     Stats &s = s_stats;
 
+    /* Opened here, now that whatever played before has stopped and given its memory back (gif_open()): the
+     * show was accepted already, so running out of memory ends the playback, not finished */
+    char err[64] = "";
+    GifFile *g = gif_open(req.path, hdr.width, err, sizeof(err));
+    if (g == nullptr) {
+        printf("image: %s: %s\n", req.path, err);
+        fail_playback();
+        return false;
+    }
+
     board_lcd_power_on(0x0000);
     const int x = (BOARD_LCD_H_RES - (int)hdr.width) / 2;
     const int y = (BOARD_LCD_V_RES - (int)hdr.height) / 2;
 
     stats_stamp(&Stats::started_us);
     bool held = false, broken = false;
-    char err[64] = "";
     while (!s_stop && !broken) {
         const int64_t pass_start = now_us();
         int64_t elapsed_ms = 0;
@@ -474,28 +524,41 @@ void play_gif(const Request &req)
         screen_set_image(req.path, hdr.width, hdr.height);
     }
     gif_close(g);
+    return held;        /* only the passes running out hold the last frame */
 }
 
-void player_task(void *arg)
+Request s_req;
+
+void player_task(void *)
 {
-    Request *req = static_cast<Request *>(arg);
-    if (req->gif != nullptr) {
-        play_gif(*req);
-    } else {
-        play_clip(*req);
+    for (;;) {
+        xSemaphoreTake(s_go, portMAX_DELAY);
+        const Request &req = s_req;
+        /* Played out, or not: stopped (something else took the screen) or failed on this task */
+        const bool finished = req.gif ? play_gif(req) : play_clip(req);
+        const screen_end_hook_t hook = s_end_hook;
+        /* Told before s_playing clears, so whoever stopped it (video_stop() waits for that) finds the
+         * news already delivered */
+        if (hook != nullptr) {
+            hook(req.path, finished, s_end_ctx);
+        }
+        s_playing = false;
+        events_changed("screen");
     }
-    /* Played out, or stopped (by something else taking the screen, or an error) */
-    const bool finished = !s_stop;
-    const screen_end_hook_t hook = s_end_hook;
-    /* Told before s_task clears, so whoever stopped it (video_stop() waits for that) finds the
-     * news already delivered */
-    if (hook != nullptr) {
-        hook(req->path, finished, s_end_ctx);
-    }
-    delete req;
-    s_task = nullptr;
-    events_changed("screen");
-    vTaskDelete(nullptr);
+}
+
+/*
+ * Hand s_req, filled, to the player. With the screen's lock held and nothing playing. The start hook is told
+ * once the play is committed (s_playing, so the screen's state already names it) and before the player has
+ * the request, so a playback's clip_started always comes before its clip_ended, however soon the player
+ * reaches its end (a file that fails at once, on the other core).
+ */
+void hand_over(int plays, uint32_t frames, double fps)
+{
+    s_stop = false;
+    s_playing = true;
+    started(s_req.path, plays, frames, fps);
+    xSemaphoreGive(s_go);
 }
 
 /*
@@ -858,7 +921,7 @@ extern "C" esp_err_t screen_probe_clip(const char *path, media_info_t *out)
     return ESP_OK;
 }
 
-extern "C" void screen_take_panel(void)
+extern "C" esp_err_t screen_take_panel(void)
 {
     /* Over a clip the panel stays on, so what replaces it appears in its place rather than
      * after a blink; from sleep the caller wakes the panel itself. */
@@ -866,6 +929,20 @@ extern "C" void screen_take_panel(void)
     video_stop();
     s_replacing = false;
     s_showing = Showing::Nothing;
+    /* Read after s_replacing clears: a playback that ended before that left the panel lit, and one that ends after
+     * it puts the panel to sleep, so either way it is out of the caller's way or will be */
+    if (!s_playing) {
+        return ESP_OK;
+    }
+    /* Not stopped within video_stop()'s 2 s. The stop can't be taken back (the player may already be on its way out
+     * because of it), so it stands, and the panel sleeps now rather than when the playback ends: nothing is left
+     * showing that the API wasn't told about. The playback, when it ends, finds it asleep and leaves it so; a frame
+     * it finishes meanwhile goes to a sleeping panel with its backlight off (the panel's own lock keeps the two
+     * apart) */
+    printf("screen: what was playing did not stop within 2 s; nothing shown, and the screen is off\n");
+    board_lcd_power_off();
+    events_changed("screen");
+    return ESP_ERR_TIMEOUT;
 }
 
 extern "C" void screen_set_image(const char *path, uint32_t w, uint32_t h)
@@ -886,7 +963,9 @@ extern "C" esp_err_t screen_show_colour(uint16_t rgb)
 {
     Lock lock;
     /* Over a clip, the panel stays on; from sleep, it wakes with the colour already in place. */
-    screen_take_panel();
+    if (screen_take_panel() != ESP_OK) {
+        return ESP_ERR_TIMEOUT;
+    }
     const esp_err_t err = board_lcd_power_on(rgb);
     s_showing = err == ESP_OK ? Showing::Colour : Showing::Nothing;
     if (s_showing == Showing::Colour) {
@@ -912,7 +991,9 @@ extern "C" esp_err_t screen_show_calibration(void)
 {
     Lock lock;
     /* As for a colour: over a clip the panel stays on, and from sleep it wakes already black. */
-    screen_take_panel();
+    if (screen_take_panel() != ESP_OK) {
+        return ESP_ERR_TIMEOUT;
+    }
     const esp_err_t err = draw_calibration();
     s_showing = err == ESP_OK ? Showing::Calibration : Showing::Nothing;
     events_changed("screen");
@@ -922,6 +1003,8 @@ extern "C" esp_err_t screen_show_calibration(void)
 extern "C" esp_err_t screen_clear(void)
 {
     Lock lock;
+    /* Never refused: a playback that hasn't stopped within video_stop()'s 2 s is left stopping, with the panel
+     * asleep, which is what a refused show leaves too, and what this asks for */
     video_stop();
     s_showing = Showing::Nothing;
     const esp_err_t err = board_lcd_power_off();
@@ -1021,14 +1104,20 @@ extern "C" esp_err_t screen_show_file(const char *path, int plays, bool whole_fr
         snprintf(why, why_len, "%s", info.why[0] ? info.why : "it cannot be shown");
         return ESP_ERR_INVALID_ARG;
     }
+    static const char NOT_STOPPED[] = "what was playing did not stop within 2 s; the screen is off, try again";
     if (info.kind == MEDIA_CLIP) {
         const esp_err_t played = video_play_n(path, plays, whole_frame);
         if (played != ESP_OK) {
-            snprintf(why, why_len, "%s", esp_err_to_name(played));
+            snprintf(why, why_len, "%s", played == ESP_ERR_TIMEOUT ? NOT_STOPPED : esp_err_to_name(played));
         }
         return played;
     }
-    if (image_show_file(path, plays) != 0) {
+    const int shown = image_show_file(path, plays);
+    if (shown == IMAGE_NOT_STOPPED) {
+        snprintf(why, why_len, "%s", NOT_STOPPED);
+        return ESP_ERR_TIMEOUT;
+    }
+    if (shown != 0) {
         snprintf(why, why_len, "it could not be drawn");
         return ESP_FAIL;
     }
@@ -1063,48 +1152,35 @@ extern "C" esp_err_t video_play_n(const char *path, int plays, bool whole_frame)
         printf("video: %s: %s\n", path, info.why);
         return probed == ESP_ERR_NOT_FOUND ? probed : ESP_ERR_INVALID_ARG;
     }
-    screen_take_panel();
-    Request *req = new Request{};
-    strlcpy(req->path, path, sizeof(req->path));
-    req->plays = plays;
-    req->whole_frame = whole_frame;
-    prime_stats(path, plays > 0 ? (uint32_t)plays : plays == 0 ? 0 : 1, info.width, info.height, info.frames, info.fps);
-    s_stop = false;
-    if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
-                                TASK_CORE) != pdPASS) {
-        delete req;
-        s_task = nullptr;
-        printf("video: cannot start the playback task\n");
-        return ESP_ERR_NO_MEM;
+    if (screen_take_panel() != ESP_OK) {
+        return ESP_ERR_TIMEOUT;
     }
-    started(path, plays < 0 ? 1 : plays, info.frames, info.fps);
+    s_req = Request{};
+    strlcpy(s_req.path, path, sizeof(s_req.path));
+    s_req.plays = plays;
+    s_req.whole_frame = whole_frame;
+    prime_stats(path, plays > 0 ? (uint32_t)plays : plays == 0 ? 0 : 1, info.width, info.height, info.frames, info.fps);
+    hand_over(plays < 0 ? 1 : plays, info.frames, info.fps);
     events_changed("screen");
     return ESP_OK;
 }
 
-esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int plays)
+esp_err_t video_play_gif(const GifHeader &hdr, const char *path, int plays)
 {
     Lock lock;
-    screen_take_panel();
-    Request *req = new Request{};
-    strlcpy(req->path, path, sizeof(req->path));
-    req->plays = plays;
+    if (screen_take_panel() != ESP_OK) {
+        return ESP_ERR_TIMEOUT;
+    }
+    s_req = Request{};
+    strlcpy(s_req.path, path, sizeof(s_req.path));
+    s_req.plays = plays;
     const int file_plays = hdr.loop_count < 0 ? 1 : hdr.loop_count == 0 ? 0 : hdr.loop_count + 1;
     prime_stats(path, (uint32_t)(plays >= 0 ? plays : file_plays), hdr.width, hdr.height, (uint32_t)hdr.frames,
                 hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
-    req->gif = g;
-    req->gif_hdr = hdr;
-    s_stop = false;
-    if (xTaskCreatePinnedToCore(player_task, "video", TASK_STACK, req, TASK_PRIO, &s_task,
-                                TASK_CORE) != pdPASS) {
-        delete req;
-        s_task = nullptr;
-        gif_close(g);
-        printf("image: cannot start the playback task\n");
-        return ESP_ERR_NO_MEM;
-    }
-    started(path, plays >= 0 ? plays : file_plays, (uint32_t)hdr.frames,
-            hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
+    s_req.gif = true;
+    s_req.gif_hdr = hdr;
+    hand_over(plays >= 0 ? plays : file_plays, (uint32_t)hdr.frames,
+              hdr.duration_ms > 0 ? hdr.frames * 1000.0 / hdr.duration_ms : 0);
     events_changed("screen");
     return ESP_OK;
 }
@@ -1112,18 +1188,19 @@ esp_err_t video_play_gif(GifFile *g, const GifHeader &hdr, const char *path, int
 extern "C" void video_stop(void)
 {
     Lock lock;
-    if (s_task == nullptr) {
+    if (!s_playing) {
         return;
     }
     s_stop = true;
-    for (int i = 0; i < 200 && s_task != nullptr; i++) {
+    xTaskNotifyGive(s_task);        /* out of a wait for the next frame */
+    for (int i = 0; i < 200 && s_playing; i++) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
 extern "C" bool video_playing(void)
 {
-    return s_task != nullptr;
+    return s_playing;
 }
 
 extern "C" void register_video_commands(const char *base_path)
@@ -1137,6 +1214,9 @@ extern "C" void register_video_commands(const char *base_path)
         .skip_unhandled_events = true,
     };
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &s_timer));
+    s_go = xSemaphoreCreateBinaryStatic(&s_go_buf);
+    s_task = xTaskCreateStaticPinnedToCore(player_task, "video", TASK_STACK, nullptr, TASK_PRIO, s_task_stack,
+                                           &s_task_tcb, TASK_CORE);
 
     esp_console_cmd_t cmd = {};
     cmd.command = "video";

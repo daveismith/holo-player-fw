@@ -99,6 +99,15 @@ It plays on the same task as clips, so everything that works on a clip works on 
 another image, clip or colour replaces it without the panel blinking. A one-frame GIF is a
 still like any other.
 
+!!! note "A GIF that runs out of memory after it was accepted"
+    A GIF takes its memory (its decoder and the buffers it paints from) only once what was playing
+    has stopped and given back its own, so a full-width GIF replaces a playing clip or GIF like
+    anything else. The other side of that: the file is checked before the show is accepted, but
+    its memory is taken after, so if the board is short of internal RAM at that moment the show is
+    still accepted (HTTP 200) and the animation ends at once. The console prints why once (`out of
+    memory for the decode buffers`, say), `clip_ended` comes with `finished: false`, and the
+    screen goes dark rather than keep what was there.
+
 ### Making one
 
 From a clip or any video, at 240 pixels across and a frame rate the panel can keep up with:

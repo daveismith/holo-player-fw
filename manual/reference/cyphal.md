@@ -233,9 +233,9 @@ the latest Event's, once it has gone into that queue.
 | `what` | Fields | The JSON event |
 |---|---|---|
 | `clip_started` | `plays` uint16 (times through in all, 1–1000; 0 forever), `frames` uint16 (in one pass), `fps` float16, `path` | `clip_started` |
-| `clip_ended` | `finished` bool (played to its end; false when something replaced or stopped it), `path` | `clip_ended` |
+| `clip_ended` | `finished` bool (played to its end; false when something replaced or stopped it, or it failed after it was accepted: it could not be read, or there was no memory for it), `path` | `clip_ended` |
 | `scene_started` | `then` uint8 (0 stay, 1 restore, 2 off), `until_clip_ends` bool, `duration_ms` uint32 (0 for none), `slot` uint8 (0 for none), `name` | `scene_started` |
-| `scene_ended` | `then` uint8, `by` uint8 (0 its clip played, 1 its time was up, 2 it was ended, 3 replaced), `slot` uint8, `name` | `scene_ended` |
+| `scene_ended` | `then` uint8, `by` uint8 (0 its clip played, 1 its time was up, 2 it was ended, 3 replaced: another scene or clip took over, or its clip failed after it was accepted, and its `then` wasn't done), `slot` uint8, `name` | `scene_ended` |
 | `screen_touch` | `action` uint8 (0 down, 1 up), `x`, `y` uint8 (0–239, from the top left). Only while touch reporting is on | `touch` |
 
 The paths and names are carried whole, as the JSON events carry them, so a receiver needn't ask
