@@ -82,10 +82,9 @@ committed there, then the pin is bumped here** (and in the other firmware). Neve
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
 `external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-21 the
-pin names `59f2670` on the kit's branch `events-reply-no-reparse`: kit main's `2311a74`, `b8d24e2` (the
-chunked `GET /events` reply) and `59f2670` (a happening counted and kept in one hold; a history reply never
-passes over one pushed out). The branch is pushed to the kit's origin; it is not on kit main, and merging it
-there is the user's decision.)
+pin is `59f2670`, the kit's main: its `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and
+`59f2670` (a happening counted and kept in one hold; a history reply never passes over one pushed out),
+merged from the branch `events-reply-no-reparse`.)
 
 A pin bump is not neutral: read the kit's log for the range first. The ones on 2026-10-22 moved
 the servo objects into PSRAM, added three console commands, a component and a change to Wi-Fi at
@@ -270,8 +269,9 @@ from the rapid-replacement runs and api-smoke before it). **The video player's t
 scene restore: an 8 KB stack and its TCB had been taken from internal RAM (no PSRAM fallback) at each start,
 and the old task's were given back only when the idle task got to them. Its stack is static and internal
 (the task reads files: a flash read turns the cache off, so a PSRAM stack would be out of reach) and sized
-from the measurement: 2,592-2,624 B the most used over clips streamed and whole-frame, every GIF to hand
-(full-frame noise included), played out and stopped, so 4,608 B (2 KB spare; `tasks` shows its mark over
+from the measurement: 2,592 B the most used by ordinary clips (streamed and whole-frame) and every GIF to hand
+(full-frame noise included), played out and stopped, and 2,848 B used (1,760 B never used) in rapid
+replacement of clips and stills, so 4,608 B (2 KB spare; `tasks` shows its mark over
 every play since the start). Idle free with the node on a fixed ID: 85.4 KB before, 80.1 KB after (the
 stack and TCB now held). Replacing what shows 8-9 times a second over HTTP (20 s each, a restart before
 each, `POST /screen/show`), lowest before and after: clip by clip 27.4 and 31.3 KB, clips and stills 25.6

@@ -187,8 +187,7 @@ so the release tag is the version baked into the image and reported by `version`
   where it took 16-18 KB with all 32 kept, which set the board's low-water mark while a clip played and
   the web app polled. The body is byte for byte the same; the reply has `Transfer-Encoding: chunked` in
   place of a `Content-Length`. (esp-console-kit `b8d24e2`.) A reader that stalls while happenings are made now has its
-  connection closed, never a reply with one missing (`59f2670`; on the kit's branch
-  `events-reply-no-reparse`, not on its main).
+  connection closed, never a reply with one missing (`59f2670`, on the kit's main).
 - **The video player's task is made once, at start**, and waits between plays, rather than being made
   for every clip, GIF and scene restore: its stack, now 4.5 KB (8 KB before; 1.8 KB is the least it was
   seen to leave free, in rapid replacement), is held for good, about 5 KB less internal RAM free at rest, and is no longer taken at
