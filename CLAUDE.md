@@ -82,9 +82,8 @@ committed there, then the pin is bumped here** (and in the other firmware). Neve
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
 `external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-22 the
-pin is `38dcbf9` (the plug-and-play allocator, off in this firmware): as of 2026-11-22 on the kit's branch
-`pnp-allocator` and on no remote; when the kit merges it, re-check this hash and the ones in `CHANGELOG.md`
-and "CAN and Cyphal". Its parent `42f480b` was the kit's main: `59f2670` plus the CAN and Cyphal move,
+pin is `38dcbf9`, the kit's main: the plug-and-play allocator (`06b41a0` and `38dcbf9`), off in this
+firmware, on top of `42f480b`. `42f480b` was `59f2670` plus the CAN and Cyphal move,
 which brought in `canbus`, `libcanard` and `cyphal` from here, with their host tests and `can_check.py`. `59f2670` was the
 kit's `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and `59f2670` (a happening counted
 and kept in one hold; a history reply never passes over one pushed out), merged from the branch
