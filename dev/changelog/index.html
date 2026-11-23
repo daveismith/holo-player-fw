@@ -1992,6 +1992,9 @@ so the release tag is the version baked into the image and reported by <code>ver
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>The kit pin is <code>38dcbf9</code></strong>: the kit's Cyphal node can now be built as a plug-and-play allocator
+  (<code>CONFIG_CYPHAL_PNP_ALLOCATOR</code>), off in this firmware, whose <code>cyphal</code> objects are identical to before
+  except one line-number constant.</li>
 <li><strong>The CAN controller wrapper, libcanard and the Cyphal node are the kit's</strong> (<code>canbus</code>, <code>libcanard</code>
   and <code>cyphal</code> in <code>external/esp-console-kit</code>, shared with the dome panel's firmware), and this
   repository's copies of them are gone, with the <code>external/libcanard</code> and
