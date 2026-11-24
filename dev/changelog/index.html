@@ -1364,6 +1364,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1397,7 +1408,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1447,7 +1458,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed_1" class="md-nav__link">
+  <a href="#fixed_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1699,6 +1710,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fixed
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1732,7 +1754,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1782,7 +1804,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed_1" class="md-nav__link">
+  <a href="#fixed_2" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Fixed
@@ -1990,11 +2012,26 @@
 so the release tag is the version baked into the image and reported by <code>version</code> and <code>ota</code>. See
 <a href="../RELEASING/">RELEASING.md</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/daveismith/holo-player-fw/compare/v1.1.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>A twitch or a scan with a time limit holds at that time</strong> (Motion's <code>time_limit_ms</code>, the HTTP API's
+  <code>time_s</code>, the console's <code>-t</code>): a timed scan never ended before, a fault in the kit's holo engine, which
+  looked at the time only between a motion's segments. A glance or a sweep in flight at the limit now
+  stops there. The kit pin is <code>c9cc126</code>, which also brings the kit's Cyphal client, off in this firmware
+  (its <code>cyphal</code>, <code>libcanard</code> and <code>canbus</code> objects are those of <code>38dcbf9</code> but for one line-number constant).</li>
+</ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>The kit pin is <code>38dcbf9</code></strong>: the kit's Cyphal node can now be built as a plug-and-play allocator
+<li>
+<p><strong>The DSDL generator moved to <code>r2_cyphal_dsdl</code></strong> (<code>external/r2_cyphal_dsdl/tools/gen_dsdl.py</code>), where
+  the dome panel's firmware runs it too, and <code>tools/gen_dsdl.py</code> is gone. The pin is <code>137f454</code>; the types
+  are unchanged, and the headers it generates here are byte for byte those committed before.</p>
+</li>
+<li>
+<p><strong>The kit pin is <code>38dcbf9</code></strong>: the kit's Cyphal node can now be built as a plug-and-play allocator
   (<code>CONFIG_CYPHAL_PNP_ALLOCATOR</code>), off in this firmware, whose <code>cyphal</code> objects are identical to before
-  except one line-number constant.</li>
+  except one line-number constant.</p>
+</li>
 <li><strong>The CAN controller wrapper, libcanard and the Cyphal node are the kit's</strong> (<code>canbus</code>, <code>libcanard</code>
   and <code>cyphal</code> in <code>external/esp-console-kit</code>, shared with the dome panel's firmware), and this
   repository's copies of them are gone, with the <code>external/libcanard</code> and
@@ -2200,7 +2237,7 @@ so the release tag is the version baked into the image and reported by <code>ver
 <li>esp-console-kit moved to its main (<code>2311a74</code>): radio and MAC handling for the dome panel's ESP32-P4,
   and <code>CMD_I2C_DEFAULT_PORT</code>; nothing changes on this board.</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A timed scene past its time, in the moment before it ends, read as one with no duration: <code>GET
   /scenes</code>'s <code>remaining_s</code> null, the host link's status block 0xFFFF, now 0.</li>
@@ -2253,7 +2290,7 @@ and an ESP-IDF 6.1 I2C driver bug that could corrupt memory after a timed-out re
   (&lt;axis&gt;)</code> -- where it said only <code>; stopped: &lt;reason&gt;</code>. The manual's holo page now has a sample status and what each
   line means.</li>
 </ul>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>An I2C read that timed out could make the next probe of the bus -- the IMU's at start,
   <code>i2cdetect</code>, a servo board's attach -- write a few bytes through a stale pointer in ESP-IDF

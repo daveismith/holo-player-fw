@@ -2451,7 +2451,7 @@ dome panel shows for a holo of its own.</p>
 <tr>
 <td><code>motion_remaining_ms</code></td>
 <td>uint32</td>
-<td>Until a timed twitch or scan ends; NEVER with no limit, or while holding. A timed scan doesn't end by its time limit today (<a href="#motion">Motion</a>'s <code>time_limit_ms</code>): this counts down to 0 and stays there while the scan goes on</td>
+<td>Until a timed twitch or scan ends; NEVER with no limit, or while holding</td>
 </tr>
 <tr>
 <td><code>stopped</code></td>
@@ -2844,7 +2844,7 @@ before it: a controller that needs them in order waits for each response.</p>
 <tr>
 <td><code>time_limit_ms</code></td>
 <td>uint22</td>
-<td>Twitch, scan: stop, and hold, after this long: 100–3600000. 0: no limit. A timed scan doesn't stop yet, over Cyphal, the console or the HTTP API alike: a fault in the shared holo engine, which looks at the time only between a motion's segments, and a scan has no gap between them</td>
+<td>Twitch, scan: stop, and hold where it is, after this long, in the middle of a glance or a sweep: 100–3600000. 0: no limit</td>
 </tr>
 <tr>
 <td><code>duration_ms</code></td>
