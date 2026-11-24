@@ -134,7 +134,7 @@ else, and the fix for a board in a state you would rather not keep.
     sources are another. The kit carries the Cyphal node's libcanard and Cyphal's public data types as
     submodules of its own (`git submodule update --init --recursive`); the data types aren't needed
     to build: only to regenerate the
-    holo's Cyphal C headers (`tools/gen_dsdl.py`) and to run its hardware tests
+    holo's Cyphal C headers (`external/r2_cyphal_dsdl/tools/gen_dsdl.py`) and to run its hardware tests
     (`tests/hardware/`).
 
     **2. Build.**

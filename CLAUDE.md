@@ -81,8 +81,10 @@ the dome panel firmware (`r2_domeplayer`). **A fix to any of it is made in the s
 committed there, then the pin is bumped here** (and in the other firmware). Never patch a kit file
 in place in this repo. Kit work for the dome is often done in r2_domeplayer's checkout of the
 kit; to bring an unpushed kit branch here, `git fetch <that checkout> <branch>` inside
-`external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-22 the
-pin is `38dcbf9`, the kit's main: the plug-and-play allocator (`06b41a0` and `38dcbf9`), off in this
+`external/esp-console-kit`, and push the kit before pushing a pin that names it. (As of 2026-11-23 the
+pin is `a95ebb0`, the kit's main (its `front-holo` work squashed; the tree of `c9cc126`): the timed scan's end in the `holo`
+engine, on top of the dome panel's Cyphal client (`CONFIG_CYPHAL_CLIENT`, off here, whose `cyphal`
+objects are those of `38dcbf9` but for one line-number constant in `cmd_cyphal.c`, 453 to 465). Before it, `38dcbf9`, the kit's main: the plug-and-play allocator (`06b41a0` and `38dcbf9`), off in this
 firmware, on top of `42f480b`. `42f480b` was `59f2670` plus the CAN and Cyphal move,
 which brought in `canbus`, `libcanard` and `cyphal` from here, with their host tests and `can_check.py`. `59f2670` was the
 kit's `2311a74` plus `b8d24e2` (the chunked `GET /events` reply) and `59f2670` (a happening counted
@@ -411,9 +413,12 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **The DSDL C headers are generated and committed.** The standard `uavcan` ones (and Nunavut's
   serialization header) are the kit's (`external/esp-console-kit/cyphal/dsdl/`, from its
   `third_party/public_regulated_data_types` at `a229bb7`, by the kit's `tools/gen_dsdl.py`); the
-  holo's own `r2` ones are `main/dsdl/` (from `external/r2_cyphal_dsdl` at `30acd0f`, by this
-  repository's `tools/gen_dsdl.py` with Nunavut, looking up the kit's `uavcan` root, and refusing a
-  `public_regulated_data_types` that is not at the revision the kit's headers came from; `main`'s
+  holo's own `r2` ones are `main/dsdl/` (the types of `external/r2_cyphal_dsdl` at `30acd0f`, by
+  `external/r2_cyphal_dsdl/tools/gen_dsdl.py` with Nunavut, looking up the kit's `uavcan` root, and
+  refusing a `public_regulated_data_types` that is not at the revision the kit's headers came from.
+  The generator has one home, r2_cyphal_dsdl, since 2026-11-22: the dome panel runs the same script
+  for its controller's view of the table, and this repository's own copy is gone. Run it with no
+  arguments here, with Nunavut 2.3.1 on the PATH (`.venv-can` has it); `main`'s
   `dsdl/` is on its include path and its `r2` headers include the kit's `uavcan` ones through the
   `cyphal` component main requires): the build and the release image need no Python. Don't edit them by hand. `r2/holo/ports.h` is the port
   table (`ports/holo.csv`) as an X-macro, which `main.c` turns into the node's port list, so the
@@ -422,11 +427,12 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
   `-Werror`; zero is the default. `r2_cyphal_dsdl` is changed in its own repository and the pin
   bumped here, as with the kit; a type that has shipped gets a new version, never an edit. **Push
   `r2_cyphal_dsdl` before pushing a pin that names an unpushed commit of it**: the release workflow
-  and every clone fetch the pin from GitHub. As of 2026-11-22 the pin is `30acd0f` (a comment in
-  `MotionSpec`), which is its `origin/main`.
-- **Submodules**: `external/r2_cyphal_dsdl` (`gen_dsdl.py` and the tests), and the kit's own
+  and every clone fetch the pin from GitHub. As of 2026-11-23 the pin is `a7cbbfb`, its
+  main (its `front-holo` work squashed, the tree of `13df7eb`: the generator moved there; the types
+  are still `30acd0f`'s).
+- **Submodules**: `external/r2_cyphal_dsdl` (its `tools/gen_dsdl.py` and the tests), and the kit's own
   `third_party/libcanard` (the build needs it) and `third_party/public_regulated_data_types`
-  (`gen_dsdl.py` and the tests). Clone `--recursive`.
+  (the generator and the tests). Clone `--recursive`.
 - **Only the node's task calls libcanard** (its heap has no lock). Anything that may wait (a
   register's NVS write, restart, factory reset, identify; later the holo's routes) goes to the
   worker through a job slot (`cyphal.c`'s header): a full pool answers busy at once, and the
@@ -589,10 +595,11 @@ same pins. Built 2026-11-20; the user's side is `manual/use/cyphal.md` and `manu
 - **The ring's pattern task is made once and kept** (`components/leds/leds.c`): it sleeps on its
   notification until a frame, a blink's edge or a timed setting's end, and a change or a brightness
   wakes it. Its 3 KB stack is internal RAM from the first animated or timed setting on.
-- **A timed scan never ends** (found 2026-11-20, a kit bug, not fixed here): the kit's `holo.c`
-  `tick_holo()` looks at `motion_until` only while no segment is in flight, and a scan starts its next
-  segment the moment one ends. Console, HTTP and Cyphal alike; `test_holo.py`'s timed-scan case is a
-  strict xfail, so it fails once the kit is fixed and the pin bumped. Fix it in the kit.
+- **A timed scan ends** since the kit's `c9cc126` (2026-11-23; found here 2026-11-20): the kit's `holo.c`
+  `tick_holo()` looked at `motion_until` only while no segment was in flight, and a scan starts its next
+  segment the moment one ends, so it never ended (console, HTTP and Cyphal alike). Now a twitch or a scan
+  holds where it is at its time limit, mid-glance or mid-sweep. The kit's `tests/host/test_holo.c` checks it
+  (and `make unit-test` runs it here); `test_holo.py`'s timed-scan case is a plain case again.
 - **NOT_READY can't happen on this bench**: `holo_servos.c` sets `allow_uncalibrated`, and both servos
   are MCPWM pins that always attach, so the holo is always ready and the heartbeat nominal. Status's
   `calibrated` is the servo's saved endpoints, not the engine's notion.
@@ -611,6 +618,12 @@ truncated clips).
 As of 2026-10-22: `import_note()`'s reminder (`main/main.c`) on a board with no saved network (it
 would mean erasing them); a real NVS wipe and restore; the guard clearing state here; the I2C
 host link (not built); an OTA from a release since the kit bump.
+
+A restart of this board can take the dome panel's CAN controller bus-off once in a while
+(r2_domeplayer's front-holo work, 2026-11-23): hundreds of bus errors on the panel at the restart,
+likelier while the panel publishes setpoints but seen with heartbeats only, none in ten idle restarts
+each way. The panel recovers by itself, with no lost link and no failed command. The cause is not
+scoped: most likely this board's TWAI pins through reset and boot; a scope on CANH/CANL would say.
 
 CAN, as of 2026-11-20: flooding and a bitrate mismatch never reach bus-off on the bench, but moving
 CAN RX (link pin B) to the unconnected GPIO15 does, hands-free: `link pins 21 15 -1` and a restart
@@ -634,8 +647,8 @@ The holo on Cyphal, as of 2026-11-21: Motion's and a leia's refusals for an unca
 unfitted axis, and Status and the heartbeat while the holo can't move (the bench's holo is always
 ready: see "NOT_READY can't happen on this bench" above); Motion `off` turning the ring off when
 the holo engine didn't start; a message dropped because the transmit queue was full (counted as
-dropped, not published): all by reading only. A timed scan's end can't be tested until the kit is
-fixed. Phase 5's, by reading only: a register write to an axis with no servo; a failed NVS save in
+dropped, not published): all by reading only. A timed scan's end is tested since the kit's fix
+(2026-11-23), by the kit's host test, and on this board by the dome panel's `front_holo_e2e.py` over Cyphal. Phase 5's, by reading only: a register write to an axis with no servo; a failed NVS save in
 a register write; the file services on a directory larger than the root here (44 entries: 43 files
 and `bench/`; the tree holds 45 clips and images, `GET /api/v1/media`'s count) and littlefs's order
 across a directory of several metadata blocks; MediaInfo on a 159-byte path; touch reporting set by

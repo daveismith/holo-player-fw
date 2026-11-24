@@ -143,7 +143,7 @@ dome panel shows for a holo of its own.
 | `why` | [Reason](#reason) | Why it can't, and the axis at fault. NONE when ready |
 | `motion` | uint8 | What runs now: 0 hold, 1 move (a center, move or nudge on its way), 2 twitch, 3 wag, 4 nod, 5 scan, 6 circle. The numbers of the host link's status block |
 | `motion_age_ms` | uint32 | Since the running motion began; NEVER while holding |
-| `motion_remaining_ms` | uint32 | Until a timed twitch or scan ends; NEVER with no limit, or while holding. A timed scan doesn't end by its time limit today ([Motion](#motion)'s `time_limit_ms`): this counts down to 0 and stays there while the scan goes on |
+| `motion_remaining_ms` | uint32 | Until a timed twitch or scan ends; NEVER with no limit, or while holding |
 | `stopped` | [Reason](#reason) | Why the last motion ended early: an axis refused it partway, with the axis. NONE when it ended by itself, by `stop`, or by another motion |
 | `stopped_motion` | uint8 | Which motion that was, numbered as `motion`; 0 when `stopped` is NONE |
 | `stopped_age_ms` | uint32 | How long ago it stopped; NEVER when `stopped` is NONE |
@@ -310,7 +310,7 @@ before it: a controller that needs them in order waits for each response.
 | `y` | int16 | As `x`; + is up |
 | `period_ms` | uint16 | A cycle of wag, nod, a turn of circle, a sweep of scan there and back: 200–60000. 0: wag 700, nod 800, circle 2400, scan 6000 |
 | `interval_min_ms`, `interval_max_ms` | uint20 | Twitch: the pause between glances, chosen between the two: each 100–600000, min no more than max. Both 0: 1000 to 5000. Both or neither |
-| `time_limit_ms` | uint22 | Twitch, scan: stop, and hold, after this long: 100–3600000. 0: no limit. A timed scan doesn't stop yet, over Cyphal, the console or the HTTP API alike: a fault in the shared holo engine, which looks at the time only between a motion's segments, and a scan has no gap between them |
+| `time_limit_ms` | uint22 | Twitch, scan: stop, and hold where it is, after this long, in the middle of a glance or a sweep: 100–3600000. 0: no limit |
 | `duration_ms` | uint16[<=1] | Center, move, nudge: how long to take, 0–10000; 0 is at once. Empty: by the distance, 250 ms and 500 ms more for each half of the travel |
 
 A field the motion doesn't use is ignored, whatever it holds. The odd widths are the ranges', to

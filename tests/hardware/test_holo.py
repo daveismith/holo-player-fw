@@ -94,9 +94,7 @@ MOTION_CASES = [
     ("nod", {}, "nod", "ends"),
     ("nod", {"range": 20, "count": 1, "period_ms": 500}, "nod", "ends"),
     ("scan", {}, "scan", None),
-    pytest.param("scan", {"range": 40, "period_ms": 2000, "time_limit_ms": 2500}, "scan", "ends", marks=pytest.mark.xfail(
-        strict=True, reason="the kit's holo engine never ends a timed scan (holo.c, tick_holo(): the time is looked at "
-                            "only between segments, and a scan has none); the console and the HTTP API alike")),
+    ("scan", {"range": 40, "period_ms": 2000, "time_limit_ms": 2500}, "scan", "ends"),
     ("circle", {}, "circle", "ends"),
     ("circle", {"range": 30, "count": 2, "period_ms": 1200}, "circle", "ends"),
     ("stop", {}, None, "here"),

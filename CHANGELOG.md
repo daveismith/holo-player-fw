@@ -10,7 +10,19 @@ so the release tag is the version baked into the image and reported by `version`
 
 ## [Unreleased]
 
+### Fixed
+
+- **A twitch or a scan with a time limit holds at that time** (Motion's `time_limit_ms`, the HTTP API's
+  `time_s`, the console's `-t`): a timed scan never ended before, a fault in the kit's holo engine, which
+  looked at the time only between a motion's segments. A glance or a sweep in flight at the limit now
+  stops there. The kit pin is `c9cc126`, which also brings the kit's Cyphal client, off in this firmware
+  (its `cyphal`, `libcanard` and `canbus` objects are those of `38dcbf9` but for one line-number constant).
+
 ### Changed
+
+- **The DSDL generator moved to `r2_cyphal_dsdl`** (`external/r2_cyphal_dsdl/tools/gen_dsdl.py`), where
+  the dome panel's firmware runs it too, and `tools/gen_dsdl.py` is gone. The pin is `137f454`; the types
+  are unchanged, and the headers it generates here are byte for byte those committed before.
 
 - **The kit pin is `38dcbf9`**: the kit's Cyphal node can now be built as a plug-and-play allocator
   (`CONFIG_CYPHAL_PNP_ALLOCATOR`), off in this firmware, whose `cyphal` objects are identical to before

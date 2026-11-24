@@ -35,7 +35,7 @@ adapter open. The harness then sends nothing until the board acknowledges again:
 pycyphal node's frames (its heartbeat, its port list) at the adapter while the board is down.
 
 The DSDL is two submodules, the revisions the firmware's C headers were generated from
-(tools/gen_dsdl.py): public_regulated_data_types (`uavcan`) and r2_cyphal_dsdl (`r2`); pycyphal's
+(external/r2_cyphal_dsdl/tools/gen_dsdl.py): public_regulated_data_types (`uavcan`) and r2_cyphal_dsdl (`r2`); pycyphal's
 Python for them is compiled once into build/pycyphal-dsdl/, and again when either moves.
 """
 from __future__ import annotations

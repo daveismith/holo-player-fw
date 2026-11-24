@@ -70,7 +70,7 @@ docs-serve:            ## serve the site locally with live reload
 docs-preview-versions: ## serve the local gh-pages branch with the version switcher (after mike deploy)
 	.venv/bin/mike serve
 
-unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, plug-and-play's request, reply, timing and in-use check, the bus-off back-off, and its register table; the holo's Cyphal requests as the engine's motion and the ring's change, Scene and Screen requests and their paths, the board's happenings as Event, Status's parts and sizes, its refusals (with the routes' codes), positions and rates, the file services' paths, errors and entries, MediaInfo's and ListScenes' responses, and the calibration registers' values (cc only, no ESP-IDF); the board's happenings read back from their JSON and as the host link's native records (with cJSON from managed_components: CJSON_DIR); and tools/yakut_can.py's refusals (python3, stdlib only)
+unit-test:             ## the host-built C tests (tests/host): the Cyphal node's unique ID, pseudo-ID, name rules, frame and version parsing, settings comparison, the end of its listen, plug-and-play's request, reply, timing and in-use check, the bus-off back-off, and its register table; the kit's holo engine's motion ends (a timed scan's among them); the holo's Cyphal requests as the engine's motion and the ring's change, Scene and Screen requests and their paths, the board's happenings as Event, Status's parts and sizes, its refusals (with the routes' codes), positions and rates, the file services' paths, errors and entries, MediaInfo's and ListScenes' responses, and the calibration registers' values (cc only, no ESP-IDF); the board's happenings read back from their JSON and as the host link's native records (with cJSON from managed_components: CJSON_DIR); and tools/yakut_can.py's refusals (python3, stdlib only)
 	@mkdir -p build/host-tests
 	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -I$(KIT)/cyphal/include -I$(KIT)/cyphal/dsdl -o build/host-tests/test_cyphal_util \
 	    $(KIT)/tests/host/test_cyphal_util.c $(KIT)/cyphal/cyphal_util.c
@@ -84,8 +84,11 @@ unit-test:             ## the host-built C tests (tests/host): the Cyphal node's
 	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -Icomponents/scenes/include -Icomponents/hostlink -I$(CJSON_DIR) \
 	    -o build/host-tests/test_happening tests/host/test_happening.c components/scenes/happening.c \
 	    components/hostlink/hl_record.c $(CJSON_DIR)/cJSON.c -lm
+	@$(CC) -std=c11 -Wall -Wextra -Werror -O1 -I$(KIT)/tests/host/stubs -I$(KIT)/holo/include -I$(KIT)/servo/include \
+	    -o build/host-tests/test_holo $(KIT)/tests/host/test_holo.c -lm
 	@build/host-tests/test_cyphal_util
 	@build/host-tests/test_cyphal_registers
+	@build/host-tests/test_holo
 	@build/host-tests/test_holo_cyphal_util
 	@build/host-tests/test_happening
 	@python3 tools/test_yakut_can.py
